@@ -3,7 +3,7 @@ import { POINTS, CLASSES, GIBS, MONGOLIA_BBOX } from "./config.js";
 import { T } from "./i18n.js";
 import { fetchAll, nowLocalString } from "./openmeteo.js";
 import { computePoint, classOf } from "./risk.js";
-import { resolveLayer, tileTemplate, maxNativeZoom, utcDate } from "./gibs.js";
+import { makeLayer, utcDate } from "./gibs.js";
 
 const $ = (id) => document.getElementById(id);
 const store = {
@@ -223,20 +223,19 @@ function renderAll() { renderStatic(); renderLabels(); renderTabs(); renderLegen
 
 /* ------------------------------------------------------------- satellite */
 function initSatState() {
-  for (const l of GIBS.layers) state.sat[l.key] = { on: l.key === "truecolor_terra" || l.key === "fire_viirs", status: "idle", res: null, layer: null };
+  for (const l of GIBS.layers) state.sat[l.key] = { on: l.key === "truecolor_terra" || l.key === "fire_viirs", layer: null, date: null };
 }
 
-async function applySat(key) {
+function applySat(key) {
   const def = GIBS.layers.find((l) => l.key === key), st = state.sat[key];
   if (!state.map) return;
-  if (!st.on) { if (st.layer) { st.layer.remove(); } renderSat(); return; }
-  st.status = "checking"; renderSat();
-  const res = await resolveLayer(def, state.satDate);
-  if (!res) { st.status = "unavailable"; st.on = false; if (st.layer) st.layer.remove(); renderSat(); return; }
-  st.status = "ok"; st.res = res;
-  const url = tileTemplate(def, res.tms, res.date);
-  if (st.layer) { st.layer.setUrl(url); if (!state.map.hasLayer(st.layer)) st.layer.addTo(state.map); }
-  else st.layer = L.tileLayer(url, { maxNativeZoom: maxNativeZoom(res.tms), maxZoom: 12, opacity: def.kind === "base" ? 1 : 0.8, zIndex: def.kind === "base" ? 1 : 5, attribution: "Imagery: NASA GIBS/ESDIS" }).addTo(state.map);
+  if (!st.on) { if (st.layer) st.layer.remove(); renderSat(); return; }
+  if (!st.layer || st.date !== state.satDate) {
+    if (st.layer) st.layer.remove();
+    st.layer = makeLayer(L, def, state.satDate);
+    st.date = state.satDate;
+  }
+  if (!state.map.hasLayer(st.layer)) st.layer.addTo(state.map);
   renderSat();
 }
 
@@ -253,11 +252,9 @@ function renderSat() {
   const mk = (l) => {
     const st = state.sat[l.key];
     const isBase = l.kind === "base";
-    const input = el("input", { type: isBase ? "radio" : "checkbox", name: isBase ? "base" : null, checked: st.on, disabled: st.status === "unavailable",
-      onchange: (e) => { if (isBase) setBase(l.key); else { st.on = e.target.checked; applySat(l.key); } } });
-    const info = st.status === "checking" ? t("sat_checking") : st.status === "unavailable" ? t("sat_unavailable")
-      : st.status === "ok" && st.res ? `${l.sensor} · ${l.res} · ${t("sat_used_date")} ${st.res.date}` : `${l.sensor} · ${l.res}`;
-    return el("label", { class: "check", "data-state": st.status === "unavailable" ? "off" : "on" }, input, el("span", {}, t("layer_" + l.key), el("small", { text: info })));
+    const input = el("input", { type: isBase ? "radio" : "checkbox", name: isBase ? "base" : null, checked: st.on,       onchange: (e) => { if (isBase) setBase(l.key); else { st.on = e.target.checked; applySat(l.key); } } });
+    const info = `${l.sensor} · ${l.res}`;
+    return el("label", { class: "check", "data-state": "on" }, input, el("span", {}, t("layer_" + l.key), el("small", { text: info })));
   };
   $("sat-base").replaceChildren(...GIBS.layers.filter((l) => l.kind === "base").map(mk));
   $("sat-overlay").replaceChildren(...GIBS.layers.filter((l) => l.kind === "overlay").map(mk));
@@ -268,7 +265,6 @@ function renderSat() {
 function setSatDate(d) {
   state.satDate = d;
   $("sat-date").value = d;
-  for (const l of GIBS.layers) if (state.sat[l.key].on || state.sat[l.key].status === "unavailable") { state.sat[l.key].status = "idle"; }
   for (const l of GIBS.layers) if (state.sat[l.key].on) applySat(l.key);
 }
 
@@ -344,3 +340,4 @@ async function boot() {
 }
 
 boot();
+try { sessionStorage.removeItem("hw.reloaded"); } catch { /* ignore */ }

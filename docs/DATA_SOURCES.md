@@ -1,12 +1,12 @@
 # Data sources, credit and verification status
 
-"Checked" means read in the issuer's or a documentation page during development. **Nothing here was tested against the live services**: the build environment could not reach them. See "Verify first".
+"Checked" means read in the issuer's or a documentation page during development. The Open-Meteo data build was run against the live service by the GitHub Actions workflow (22 of 22 points scored); the page and GIBS layers were checked in a real browser.
 
 | Source | Used for | Terms / credit | Status |
 |---|---|---|---|
-| Open-Meteo forecast API (`api.open-meteo.com/v1/forecast`) | hourly temperature, humidity, wind, precipitation, rain, snow depth; up to 92 past days | Open-Meteo.com, CC BY 4.0; free for non-commercial use with request limits (check open-meteo.com/en/pricing, not reachable here) | Endpoint and `past_days` limit from documentation snippets; response shape from knowledge, tested against mocks only |
-| Open-Meteo air quality API | `dust`, `pm10`, `aerosol_optical_depth` | Must credit CAMS and Open-Meteo. Global domain: CAMS global composition forecast, 0.4° (~45 km), 5-day forecast | Variables confirmed in documentation; mock-tested |
-| Open-Meteo flood API | `river_discharge`, GloFAS v4, 0.05°, "largest river in a 5 km area", `past_days` 0–92, `forecast_days` up to 210 | GloFAS / Copernicus Emergency Management Service; credit Open-Meteo | Confirmed in documentation; mock-tested |
+| Open-Meteo forecast API (`api.open-meteo.com/v1/forecast`) | hourly temperature, humidity, wind, precipitation, rain, snow depth; up to 92 past days | Open-Meteo.com, CC BY 4.0; free for non-commercial use with request limits (check open-meteo.com/en/pricing, not reachable here) | Live run succeeded (22/22 points) |
+| Open-Meteo air quality API | `dust`, `pm10`, `aerosol_optical_depth` | Must credit CAMS and Open-Meteo. Global domain: CAMS global composition forecast, 0.4° (~45 km), 5-day forecast | Live run succeeded |
+| Open-Meteo flood API | `river_discharge`, GloFAS v4, 0.05°, "largest river in a 5 km area", `past_days` 0–92, `forecast_days` up to 210 | GloFAS / Copernicus Emergency Management Service; credit Open-Meteo | Live run succeeded (some points may lack a river, see flags) |
 | NASA GIBS WMTS (EPSG:3857, "best") | satellite imagery and overlays | NASA ESDIS asks for acknowledgement: "We acknowledge the use of imagery provided by services from NASA's Global Imagery Browse Services (GIBS), part of NASA's Earth Science Data and Information System (ESDIS)." | See layer table |
 | NASA FIRMS area API | fire detections (optional, needs free MAP_KEY) | NASA open data; cite NASA FIRMS | URL pattern from documentation knowledge; parser unit-tested on sample CSV |
 | Natural Earth 1:50m via world-atlas 2.0.2 | Mongolia outline (`data/mongolia.geojson`) | Public domain data, ISC package licence | Copied from a verified file |
@@ -14,18 +14,23 @@
 
 ## GIBS layers
 
-| Key | Layer id | Status |
-|---|---|---|
-| truecolor_terra / aqua / viirs | `MODIS_Terra_CorrectedReflectance_TrueColor`, `MODIS_Aqua_…`, `VIIRS_SNPP_…` | Terra id confirmed in GIBS documentation; the other two follow the naming rule |
-| fire_viirs | `VIIRS_SNPP_Thermal_Anomalies_375m_All` | Confirmed in GIBS documentation |
-| fire_modis | `MODIS_Terra_Thermal_Anomalies_All` | Naming rule; **unconfirmed** |
-| aod_modis, aod_terra | `MODIS_Combined_Value_Added_AOD`, `MODIS_Terra_Aerosol` | **Unconfirmed**; GIBS documentation shows an aerosol optical depth layer family |
-| precip_imerg | `IMERG_Precipitation_Rate` | **Unconfirmed** |
-| flood_modis | `MODIS_Combined_Flood_2-Day_Composite` | The LANCE MODIS flood product (MCDWD) is in GIBS per NASA Earthdata; the exact layer id is **unconfirmed** |
-| snow_modis | `MODIS_Terra_NDSI_Snow_Cover` | Used by the reference Trend Detective project; exact id **unconfirmed** here |
-| hls_s30 / hls_l30 | `HLS_S30_Nadir_BAR_Daily`, `HLS_L30_Nadir_BAR_Daily` | HLS is in GIBS (used by the reference project); ids **unconfirmed** |
+Layer ids, tile matrix sets and formats below were **read from GIBS's own WMTS GetCapabilities** (EPSG:3857, "best") on 2026-11-03 and the live site was checked in a browser. An earlier version of this project used guessed ids; several were wrong (for example `MODIS_Terra_Thermal_Anomalies_All` is not a PNG layer, `HLS_*_Nadir_BAR_Daily` and `MODIS_Combined_Flood_2-Day_Composite` do not exist).
 
-Because of the unconfirmed ids, the app **probes** each layer when it is switched on (`js/gibs.js`): it requests one tile for the selected date and the two days before, trying each candidate tile matrix set. A layer that never answers is shown as "unavailable" instead of drawing a blank map. To fix an id, open https://worldview.earthdata.nasa.gov, find the layer, and copy its identifier into `js/config.js`.
+| Key | Layer id | Matrix set | Notes |
+|---|---|---|---|
+| truecolor_terra / aqua / viirs | `MODIS_Terra_…`, `MODIS_Aqua_…`, `VIIRS_SNPP_CorrectedReflectance_TrueColor` | Level9, JPEG | base images |
+| fire_viirs | `VIIRS_SNPP_Thermal_Anomalies_375m_All` | **vector tiles** | drawn through GIBS WMS (`wms.cgi`), which renders vector layers as images |
+| fire_modis | `MODIS_Combined_Thermal_Anomalies_All` | vector tiles | same, via WMS |
+| aod_deepblue | `MODIS_Terra_AOD_Deep_Blue_Combined` | Level6 | Deep Blue AOD works over bright arid land such as the Gobi |
+| aod_modis | `MODIS_Combined_Value_Added_AOD` | Level6 | MAIAC AOD |
+| dust_airs | `AIRS_L2_Dust_Score_Day` | Level6 | AIRS dust score |
+| precip_imerg | `IMERG_Precipitation_Rate` | Level6 | |
+| flood_modis / flood_viirs | `MODIS_Combined_Flood_2-Day`, `VIIRS_Combined_Flood_2-Day` | Level9 | NASA LANCE NRT flood products; layer is mostly opaque, shown at 55 % |
+| water_dswx | `OPERA_L3_Dynamic_Surface_Water_Extent-HLS` | Level12 | surface water from Harmonized Landsat Sentinel-2 |
+| snow_modis | `MODIS_Terra_NDSI_Snow_Cover` | Level8 | |
+| hls_s30 / hls_l30 | `HLS_S30_…`, `HLS_L30_Nadir_BRDF_Adjusted_Reflectance` | Level12 | 30 m Sentinel-2 / Landsat |
+
+Layers publish with different delays; the page uses the selected UTC date (default: yesterday). Sparse layers answer 404 for tiles without data, which shows as empty tiles, not an error.
 
 ## Conflicts between sources
 

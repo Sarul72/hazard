@@ -16,12 +16,11 @@ A web page showing flood, wildfire and dust-storm indices for 21 aimags and Ulaa
 4. (Заавал биш) **Actions → Flood return levels → Run workflow**: голын урсацын 2/5/20 жилийн буцалтын түвшнийг тооцно (нэг удаа, дараа нь жилд нэг).
 5. (Заавал биш) Үнэгүй NASA FIRMS түлхүүр аваад (`firms.modaps.eosdis.nasa.gov/api/map_key`) репо → Settings → Secrets and variables → Actions → `FIRMS_MAP_KEY` нэрээр хадгалбал газрын зураг дээр сүүлийн 3 хоногийн гал илрүүлэлт гарна.
 
-## Эхний удаа заавал шалгах зүйл / Verify first
+## Шалгасан байдал / Verification status
 
-Энэ хувилбарыг бодит үйлчилгээнүүдтэй (Open-Meteo, NASA GIBS) холбож туршиж чадаагүй, учир нь бүтээсэн орчин тэдгээр рүү хандаж чадаагүй. Туршилтууд хиймэл (mock) өгөгдлөөр хийгдсэн.
-
-1. **Өгөгдөл ирж байна уу:** сайт нээгдээд дээд талын цонхонд «Шинэчлэгдсэн: …» гарч, жагсаалтад оноо харагдах ёстой. «Өгөгдлийг татаж чадсангүй» гарвал Open-Meteo-ийн хариу миний хүлээсэн хэлбэрээс өөр байна. Зохиомол утга харуулахгүй.
-2. **Хиймэл дагуулын давхарга:** баруун самбарт давхарга бүрийг асаахад «боломжгүй» гарвал [Worldview](https://worldview.earthdata.nasa.gov)-ээс зөв нэрийг нь олж `js/config.js`-д засна ([DATA_SOURCES.md](docs/DATA_SOURCES.md)).
+* Open-Meteo өгөгдлийн татаж авалт GitHub Actions дээр бодитоор ажилласан (22/22 цэг).
+* NASA GIBS давхаргын нэр, тайлын төрлийг GIBS-ийн өөрийн GetCapabilities-аас уншиж баталгаажуулсан ([docs/DATA_SOURCES.md](docs/DATA_SOURCES.md)).
+* Эрсдэлийн онооны босго утгууд калибрлагдаагүй ([docs/LIMITATIONS.md](docs/LIMITATIONS.md)).
 
 ## Local run / development
 

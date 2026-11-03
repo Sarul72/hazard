@@ -104,24 +104,29 @@ export const API = {
 };
 
 /**
- * NASA GIBS imagery (EPSG:3857 "best"). `tms` is a list of candidate tile matrix sets tried in
- * order, because the right one differs by layer; the first that returns a tile is kept.
- * `kind`: "base" (one at a time) or "overlay". `sensor` is shown in the legend.
+ * NASA GIBS imagery, EPSG:3857 "best". Layer ids, tile matrix sets and formats were read from GIBS's own
+ * WMTS GetCapabilities on 2026-11-03. `type: "wms"` is used for the thermal-anomaly (fire) layers, which GIBS
+ * serves as vector tiles; its WMS endpoint renders them as images.
+ * `kind`: "base" (one at a time) or "overlay".
  */
 export const GIBS = {
   base: "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best",
+  wms: "https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi",
   layers: [
-    { key: "truecolor_terra", kind: "base", id: "MODIS_Terra_CorrectedReflectance_TrueColor", ext: "jpg", tms: ["GoogleMapsCompatible_Level9"], dated: true, sensor: "MODIS Terra", res: "250 m", cls: "optical" },
-    { key: "truecolor_aqua", kind: "base", id: "MODIS_Aqua_CorrectedReflectance_TrueColor", ext: "jpg", tms: ["GoogleMapsCompatible_Level9"], dated: true, sensor: "MODIS Aqua", res: "250 m", cls: "optical" },
-    { key: "truecolor_viirs", kind: "base", id: "VIIRS_SNPP_CorrectedReflectance_TrueColor", ext: "jpg", tms: ["GoogleMapsCompatible_Level9"], dated: true, sensor: "VIIRS Suomi NPP", res: "250 m", cls: "optical" },
-    { key: "fire_viirs", kind: "overlay", id: "VIIRS_SNPP_Thermal_Anomalies_375m_All", ext: "png", tms: ["GoogleMapsCompatible_Level8", "GoogleMapsCompatible_Level7"], dated: true, sensor: "VIIRS 375 m", res: "375 m", cls: "fire" },
-    { key: "fire_modis", kind: "overlay", id: "MODIS_Terra_Thermal_Anomalies_All", ext: "png", tms: ["GoogleMapsCompatible_Level7", "GoogleMapsCompatible_Level6"], dated: true, sensor: "MODIS Terra", res: "1 km", cls: "fire" },
-    { key: "aod_modis", kind: "overlay", id: "MODIS_Combined_Value_Added_AOD", ext: "png", tms: ["GoogleMapsCompatible_Level6", "GoogleMapsCompatible_Level7"], dated: true, sensor: "MODIS Terra+Aqua MAIAC AOD", res: "1 km", cls: "dust" },
-    { key: "aod_terra", kind: "overlay", id: "MODIS_Terra_Aerosol", ext: "png", tms: ["GoogleMapsCompatible_Level6", "GoogleMapsCompatible_Level7"], dated: true, sensor: "MODIS Terra aerosol optical depth", res: "10 km", cls: "dust" },
-    { key: "precip_imerg", kind: "overlay", id: "IMERG_Precipitation_Rate", ext: "png", tms: ["GoogleMapsCompatible_Level6", "GoogleMapsCompatible_Level7"], dated: true, sensor: "GPM IMERG", res: "10 km", cls: "flood" },
-    { key: "flood_modis", kind: "overlay", id: "MODIS_Combined_Flood_2-Day_Composite", ext: "png", tms: ["GoogleMapsCompatible_Level12", "GoogleMapsCompatible_Level9", "GoogleMapsCompatible_Level8"], dated: true, sensor: "MODIS Aqua+Terra LANCE flood product", res: "250 m", cls: "flood" },
-    { key: "snow_modis", kind: "overlay", id: "MODIS_Terra_NDSI_Snow_Cover", ext: "png", tms: ["GoogleMapsCompatible_Level8", "GoogleMapsCompatible_Level7"], dated: true, sensor: "MODIS Terra NDSI snow cover", res: "500 m", cls: "snow" },
-    { key: "hls_s30", kind: "overlay", id: "HLS_S30_Nadir_BAR_Daily", ext: "png", tms: ["GoogleMapsCompatible_Level12", "GoogleMapsCompatible_Level9"], dated: true, sensor: "HLS Sentinel-2 (Landsat-harmonised)", res: "30 m", cls: "optical" },
-    { key: "hls_l30", kind: "overlay", id: "HLS_L30_Nadir_BAR_Daily", ext: "png", tms: ["GoogleMapsCompatible_Level12", "GoogleMapsCompatible_Level9"], dated: true, sensor: "HLS Landsat 8/9", res: "30 m", cls: "optical" },
+    { key: "truecolor_terra", kind: "base", id: "MODIS_Terra_CorrectedReflectance_TrueColor", ext: "jpg", tms: "GoogleMapsCompatible_Level9", sensor: "MODIS Terra", res: "250 m" },
+    { key: "truecolor_aqua", kind: "base", id: "MODIS_Aqua_CorrectedReflectance_TrueColor", ext: "jpg", tms: "GoogleMapsCompatible_Level9", sensor: "MODIS Aqua", res: "250 m" },
+    { key: "truecolor_viirs", kind: "base", id: "VIIRS_SNPP_CorrectedReflectance_TrueColor", ext: "jpg", tms: "GoogleMapsCompatible_Level9", sensor: "VIIRS Suomi NPP", res: "250 m" },
+    { key: "fire_viirs", kind: "overlay", type: "wms", id: "VIIRS_SNPP_Thermal_Anomalies_375m_All", sensor: "VIIRS 375 m", res: "375 m" },
+    { key: "fire_modis", kind: "overlay", type: "wms", id: "MODIS_Combined_Thermal_Anomalies_All", sensor: "MODIS Terra+Aqua", res: "1 km" },
+    { key: "aod_deepblue", kind: "overlay", id: "MODIS_Terra_AOD_Deep_Blue_Combined", ext: "png", tms: "GoogleMapsCompatible_Level6", sensor: "MODIS Terra Deep Blue AOD", res: "10 km" },
+    { key: "aod_modis", kind: "overlay", id: "MODIS_Combined_Value_Added_AOD", ext: "png", tms: "GoogleMapsCompatible_Level6", sensor: "MODIS Terra+Aqua MAIAC AOD", res: "1 km" },
+    { key: "dust_airs", kind: "overlay", id: "AIRS_L2_Dust_Score_Day", ext: "png", tms: "GoogleMapsCompatible_Level6", sensor: "AIRS dust score (day)", res: "45 km" },
+    { key: "precip_imerg", kind: "overlay", id: "IMERG_Precipitation_Rate", ext: "png", tms: "GoogleMapsCompatible_Level6", sensor: "GPM IMERG", res: "10 km" },
+    { key: "flood_modis", kind: "overlay", id: "MODIS_Combined_Flood_2-Day", ext: "png", tms: "GoogleMapsCompatible_Level9", sensor: "MODIS Aqua+Terra LANCE flood, 2-day", res: "250 m", opacity: 0.55 },
+    { key: "flood_viirs", kind: "overlay", id: "VIIRS_Combined_Flood_2-Day", ext: "png", tms: "GoogleMapsCompatible_Level9", sensor: "VIIRS LANCE flood, 2-day", res: "375 m", opacity: 0.55 },
+    { key: "water_dswx", kind: "overlay", id: "OPERA_L3_Dynamic_Surface_Water_Extent-HLS", ext: "png", tms: "GoogleMapsCompatible_Level12", sensor: "OPERA DSWx from HLS (Landsat + Sentinel-2)", res: "30 m" },
+    { key: "snow_modis", kind: "overlay", id: "MODIS_Terra_NDSI_Snow_Cover", ext: "png", tms: "GoogleMapsCompatible_Level8", sensor: "MODIS Terra NDSI snow cover", res: "500 m", opacity: 0.7 },
+    { key: "hls_s30", kind: "overlay", id: "HLS_S30_Nadir_BRDF_Adjusted_Reflectance", ext: "png", tms: "GoogleMapsCompatible_Level12", sensor: "HLS Sentinel-2", res: "30 m", opacity: 1 },
+    { key: "hls_l30", kind: "overlay", id: "HLS_L30_Nadir_BRDF_Adjusted_Reflectance", ext: "png", tms: "GoogleMapsCompatible_Level12", sensor: "HLS Landsat 8/9", res: "30 m", opacity: 1 },
   ],
 };
