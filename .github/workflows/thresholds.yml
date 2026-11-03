@@ -1,0 +1,25 @@
+# Run by hand (Actions -> Flood return levels -> Run workflow), then about once a year.
+# Fits 2-, 5- and 20-year discharge return levels from the GloFAS reanalysis and commits data/flood_thresholds.json.
+name: Flood return levels
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  thresholds:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test
+      - run: node scripts/build-flood-thresholds.mjs
+      - name: Commit result
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/flood_thresholds.json
+          git diff --cached --quiet || git commit -m "Update flood return levels"
+          git push

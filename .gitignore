@@ -1,0 +1,4 @@
+node_modules/
+data/latest.json
+data/fires.json
+.DS_Store

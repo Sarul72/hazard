@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="mn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Монгол орны гамшгийн эрсдэлийн хяналт · Mongolia hazard watch</title>
+<meta name="description" content="Mongolia flood, wildfire and dust-storm hazard watch from open satellite and model data.">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <h1 id="t-title"></h1>
+    <p id="t-subtitle"></p>
+  </div>
+  <div class="top-right">
+    <span id="status" class="chip" role="status" aria-live="polite"></span>
+    <button id="btn-methods" class="btn"></button>
+    <button id="btn-lang" class="btn" aria-label="Language"></button>
+  </div>
+</header>
+
+<div id="banner" class="banner" hidden></div>
+
+<main class="layout">
+  <section class="map-wrap" aria-label="Map">
+    <div id="map"></div>
+    <div id="legend" class="legend"></div>
+  </section>
+
+  <aside class="panel">
+    <nav id="tabs" class="tabs" role="tablist"></nav>
+    <p id="note" class="note"></p>
+    <h2 id="t-ranking" class="h2"></h2>
+    <ol id="ranking" class="ranking"></ol>
+    <section id="detail" class="detail" hidden></section>
+
+    <details id="sat" class="sat" open>
+      <summary id="t-sat"></summary>
+      <div class="sat-row">
+        <label for="sat-date" id="t-sat-date"></label>
+        <input id="sat-date" type="date">
+        <button id="btn-yesterday" class="btn small"></button>
+        <button id="btn-today" class="btn small"></button>
+      </div>
+      <fieldset class="sat-group"><legend id="t-sat-base"></legend><div id="sat-base"></div></fieldset>
+      <fieldset class="sat-group"><legend id="t-sat-overlay"></legend><div id="sat-overlay"></div></fieldset>
+      <label class="check"><input id="chk-fires" type="checkbox" checked> <span id="t-fires"></span></label>
+      <p id="t-sat-note" class="note"></p>
+    </details>
+  </aside>
+</main>
+
+<footer id="footer" class="foot"></footer>
+
+<dialog id="dlg-methods"><div id="methods-body"></div><button id="btn-close" class="btn"></button></dialog>
+
+<script src="vendor/leaflet/leaflet.js"></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
