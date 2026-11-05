@@ -4,6 +4,7 @@ import { T } from "./i18n.js";
 import { fetchAll, nowLocalString } from "./openmeteo.js";
 import { computePoint, classOf } from "./risk.js";
 import { makeLayer, utcDate } from "./gibs.js";
+import { initTools } from "./tools.js";
 
 const $ = (id) => document.getElementById(id);
 const store = {
@@ -20,6 +21,8 @@ const state = {
   sat: {},               // key -> { on, status, res, layer }
   markers: new Map(),
   fires: null,
+  view: "aimag",
+  tools: null,
 };
 
 const t = (k) => (T[state.lang] && T[state.lang][k]) ?? T.mn[k] ?? k;
@@ -109,6 +112,18 @@ function renderStatic() {
   $("methods-body").innerHTML = t("methods_html"); // trusted static strings from i18n.js
 }
 
+function renderViews() {
+  $("views").replaceChildren(...["aimag", "poly", "mine"].map((v) =>
+    el("button", { class: "tab", role: "tab", "aria-selected": String(state.view === v), text: t("nav_" + v), onclick: () => setView(v) })));
+  for (const v of ["aimag", "poly", "mine"]) $("view-" + v).hidden = state.view !== v;
+}
+
+function setView(v) {
+  state.view = v;
+  renderViews(); renderMarkers();
+  if (state.tools) state.tools.setView(v);
+}
+
 function renderTabs() {
   const tabs = $("tabs");
   tabs.replaceChildren(...["all", "flood", "fire", "dust"].map((h) =>
@@ -147,7 +162,7 @@ function renderRanking() {
 function renderMarkers() {
   for (const m of state.markers.values()) m.remove();
   state.markers.clear();
-  if (!state.map) return;
+  if (!state.map || state.view !== "aimag") return;
   for (const p of POINTS) {
     const s = scoreOf(p.id, state.hazard);
     const m = L.circleMarker([p.lat, p.lon], { radius: p.id === state.selected ? 13 : 10, color: p.id === state.selected ? "#ffffff" : "#101820", weight: p.id === state.selected ? 3 : 1.5, fillColor: colorOf(s), fillOpacity: 0.92 })
@@ -219,7 +234,7 @@ function select(id) {
   renderRanking(); renderMarkers(); renderDetail();
 }
 
-function renderAll() { renderStatic(); renderLabels(); renderTabs(); renderLegend(); renderStatus(); renderRanking(); renderMarkers(); renderDetail(); renderSat(); }
+function renderAll() { renderStatic(); renderLabels(); renderViews(); renderTabs(); renderLegend(); renderStatus(); renderRanking(); renderMarkers(); renderDetail(); renderSat(); if (state.tools) state.tools.relabel(); }
 
 /* ------------------------------------------------------------- satellite */
 function initSatState() {
@@ -260,6 +275,12 @@ function renderSat() {
   $("sat-overlay").replaceChildren(...GIBS.layers.filter((l) => l.kind === "overlay").map(mk));
   $("sat-date").value = state.satDate;
   $("sat-date").max = utcDate(0);
+}
+
+/** Used by the tools panel: set the imagery date and/or switch one overlay. */
+function requestSat({ key, on, date }) {
+  if (date) { const d = date > utcDate(0) ? utcDate(0) : date; if (d !== state.satDate) setSatDate(d); }
+  if (key && state.sat[key] && typeof on === "boolean" && state.sat[key].on !== on) { state.sat[key].on = on; applySat(key); }
 }
 
 function setSatDate(d) {
@@ -319,6 +340,7 @@ async function boot() {
   initSatState();
   renderAll();
   initMap();
+  state.tools = initTools({ map: state.map, getLang: () => state.lang, requestSat, containers: { poly: $("view-poly"), mine: $("view-mine") } });
   wire();
   renderMarkers();
   renderLabels();

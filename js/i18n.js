@@ -2,6 +2,7 @@
 export const T = {
   mn: {
     title: "Монгол орны гамшгийн эрсдэлийн хяналт",
+    nav_aimag: "Аймгууд", nav_poly: "Polygon эрсдэл", nav_mine: "Уурхайн тоос",
     subtitle: "Үер · Түймэр · Шороон шуурга",
     hazard_all: "Нэгдсэн",
     hazard_flood: "Үер",
@@ -84,6 +85,7 @@ export const T = {
   },
   en: {
     title: "Mongolia hazard watch",
+    nav_aimag: "Provinces", nav_poly: "Polygon risk", nav_mine: "Mine dust",
     subtitle: "Flood · Wildfire · Dust storm",
     hazard_all: "Combined", hazard_flood: "Flood", hazard_fire: "Wildfire", hazard_dust: "Dust storm",
     class_very_low: "Very low", class_low: "Low", class_moderate: "Moderate", class_high: "High", class_very_high: "Very high",

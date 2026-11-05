@@ -72,3 +72,31 @@ dialog code { background: var(--panel2); padding: 1px 5px; border-radius: 4px; }
 }
 
 .lbl { color: #fff; font-size: 11px; font-weight: 600; text-shadow: 0 0 3px #000, 0 0 3px #000, 0 0 5px #000; white-space: nowrap; pointer-events: none; }
+
+.views { display: flex; gap: 6px; margin-bottom: 10px; }
+.views .tab { font-size: 13px; padding: 6px 6px; }
+.tool h3 { margin: 4px 0; font-size: 16px; }
+.tool .btnrow { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+.btn.primary { background: var(--accent); color: #04121c; border-color: var(--accent); font-weight: 600; }
+.btn:disabled { opacity: .5; cursor: default; }
+.tool label.inline { display: flex; gap: 6px; align-items: center; margin: 5px 0; font-size: 13px; flex-wrap: wrap; }
+.tool label.inline > span { min-width: 9.5em; color: var(--muted); }
+.tool select, .tool input[type="number"], .tool input[type="date"] { background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; font: inherit; max-width: 100%; }
+.tool input[type="number"] { width: 7.5em; }
+.tool .hover { min-height: 1.4em; margin: 6px 0; font-size: 13px; color: var(--warn); }
+table.kv { width: 100%; border-collapse: collapse; font-size: 13px; margin: 6px 0; }
+table.kv td { padding: 3px 0; border-bottom: 1px dashed var(--line); vertical-align: top; }
+table.kv td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+table.kv.small { font-size: 12px; }
+table.kv tr.clk { cursor: pointer; } table.kv tr.clk:hover { background: var(--panel2); }
+.share { display: grid; grid-template-columns: 14px 6.5em 1fr 3em; gap: 6px; align-items: center; font-size: 12px; margin: 2px 0; }
+.share i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.share b { height: 8px; border-radius: 4px; display: block; min-width: 1px; }
+.share em { font-style: normal; text-align: right; color: var(--muted); }
+.transport { display: flex; gap: 8px; align-items: center; margin: 8px 0; }
+.transport .slider { flex: 1; min-width: 0; }
+.chart { width: 100%; height: auto; background: #0b1118; border: 1px solid var(--line); border-radius: 6px; }
+.toggles { margin: 8px 0; }
+.pixel-overlay { image-rendering: pixelated; image-rendering: crisp-edges; }
+.windicon svg { display: block; transition: transform .25s linear; filter: drop-shadow(0 0 2px #000); }
+.windicon svg path { stroke: #101820; stroke-width: 1; }

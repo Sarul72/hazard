@@ -1,0 +1,34 @@
+# Builds data/settlements.json and data/water.json (households, winter/spring camps, water bodies near the mines)
+# from OpenStreetMap, commits them, then asks the site workflow to redeploy.
+# Run by hand once: Actions -> Settlements -> Run workflow. It also refreshes itself monthly.
+name: Settlements
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "41 3 5 * *"
+permissions:
+  contents: write
+  actions: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test
+      - run: node scripts/build-settlements.mjs
+      - name: Commit result
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/settlements.json data/water.json
+          git diff --cached --quiet || git commit -m "Update OpenStreetMap settlements and water"
+          git pull --rebase origin main
+          git push
+      - name: Redeploy site
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --ref main

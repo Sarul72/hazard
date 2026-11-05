@@ -73,3 +73,24 @@ Reading: class boundaries are fragile for fire and especially for the CAMS dust 
 | Duan et al. (2026), *Land Use Policy* 170, 108171 | ML forest-fire susceptibility mapping in Hazara Division, Khyber Pakhtunkhwa, Pakistan from remote-sensing predictors | Reviewed from the abstract only. Study area is mountain forest; transfer to Mongolian steppe is unproven |
 | Hosking (1990); GloFAS | L-moments; return-level alert thresholds | **Used** (flood return levels) |
 | WHO (2021) air quality guidelines; US EPA AP-42 13.2.2 | PM10 reference levels; dust wet-day rule | **Used** (dust) |
+
+## Polygon risk tool (added 2026-11)
+
+* The user draws a polygon. A regular lat/lon grid of at most 7 x 7 nodes covers its bounding box (spacing at least 0.1 degree, because the weather and CAMS models behind the scores are 0.1-0.4 degree).
+* Every node gets the same three scores as a province point (Fire Weather Index, dust, flood) from Open-Meteo. The flood score at a node uses rainfall plus the river-discharge rise factor; the fitted return levels exist only for the 22 province points.
+* Scores are interpolated bilinearly onto a pixel raster (up to 180 px on the long side) and coloured with the five hazard classes. **The pixel size is a display size, not a measurement size**: inside one model cell the colour changes only because of interpolation. For fine detail use the 30 m satellite layers.
+* Worst case checked: a polygon smaller than one model cell gets almost one colour (correct, not a bug); a polygon covering all of Mongolia is capped at 49 nodes, so pixels are about 150 km apart in the node sense.
+
+## Mine dust plume tool (added 2026-11)
+
+* Wind: Open-Meteo hourly 10 m wind on a 7 x 7 grid (0.6 degree north-south, 0.8 degree east-west) around the source. Dates older than 85 days use the ERA5 archive, newer dates the forecast API (which holds the last 92 days and 16 days ahead).
+* Transport: Lagrangian Gaussian puffs released every 3 minutes, moved by the interpolated wind.
+* Spread: Briggs (1973) open-country neutral-air curve, sigma_y = 0.11 x / sqrt(1 + 0.0001 x), plus a 150 m source size. **Source conflict:** one retrieved copy of the table lists class D open-country as 0.08 x and the more common listing (Briggs 1973 as reproduced in textbooks) gives 0.11 x for D and 0.16 x for C; the urban D value of 0.16 agrees in both. This tool uses 0.11. The choice changes plume width by up to about 30 % (0.08 to 0.16 spans a factor 2 in the extremes) but not the direction or timing. The check that settles it is the primary source: Briggs, G.A. (1973), ATDL Contribution File No. 79.
+* Settling: puff mass decays with a 6 h time constant (assumption for coarse dust; no measurement).
+* Emission: relative, 0.2 + (u/6)^3 capped at 20 times (assumption: dust lift rises steeply with wind). Snow cover and rain are not modelled at the mine.
+* Output scale: the index is a percentage of the strongest pixel more than 3 km from the source in the run. It is not a concentration. CAMS dust and PM10 at the source are shown beside it for context; CAMS is 0.4 degree, so it cannot resolve the mine.
+* Households: OpenStreetMap (ger, houses, huts, farmyards, places, and names containing "өвөлжө" or "хаваржаа"), extracted by GitHub Actions into data/settlements.json. Exposed = peak plume index of at least 2 in the run.
+* Water: NASA OPERA DSWx surface-water layer (Landsat + Sentinel-2) and OpenStreetMap water polygons.
+
+### Mine location conflict
+The coordinates in the user's own Earth Engine script (43.6668 N, 105.5181 E) are the **Ukhaa Khudag** mine in Tsogttsetsii soum, **Ömnögovi** province (Wikipedia gives 43.6754 N, 105.5211 E, about 0.9 km away). They are not in Dornogovi. Mines that are in Dornogovi (Bayanshand/Dovtsog Khudag, Mandakh; Eldev, Dalanjargalan) are also offered. Which Dornogovi mine is the largest was not established from the sources found; the Mineral Resources and Petroleum Authority of Mongolia is the body that holds production figures.

@@ -91,6 +91,7 @@ export const API = {
   forecast: "https://api.open-meteo.com/v1/forecast",
   flood: "https://flood-api.open-meteo.com/v1/flood",
   air: "https://air-quality-api.open-meteo.com/v1/air-quality",
+  archive: "https://archive-api.open-meteo.com/v1/archive",
   /** 92 is the maximum past_days; the Fire Weather Index needs a long spin-up. */
   pastDays: 92,
   forecastDays: 4,
@@ -130,3 +131,12 @@ export const GIBS = {
     { key: "hls_l30", kind: "overlay", id: "HLS_L30_Nadir_BRDF_Adjusted_Reflectance", ext: "png", tms: "GoogleMapsCompatible_Level12", sensor: "HLS Landsat 8/9", res: "30 m", opacity: 1 },
   ],
 };
+
+/** Mines offered in the dust-plume tool. Coordinates come from Global Energy Monitor / Wikipedia and are good to
+ * about 1 km; the first one is the point in the user's own Earth Engine script. "Any point" is set by a map click. */
+export const MINES = [
+  { id: "uhg", mn: "Ухаа Худаг (Цогтцэций сум, Өмнөговь)", en: "Ukhaa Khudag (Tsogttsetsii, Ömnögovi)", lat: 43.6678, lon: 105.5181, src: "user script; Wikipedia 43.6754 N 105.5211 E" },
+  { id: "tt_small", mn: "Жижиг Таван толгой (Цогтцэций, Өмнөговь)", en: "Small Tavan Tolgoi (Tsogttsetsii, Ömnögovi)", lat: 43.6517, lon: 105.4417, src: "Global Energy Monitor (approximate)" },
+  { id: "bayanshand", mn: "Баяншанд / Довцог Худаг (Мандах сум, Дорноговь)", en: "Bayanshand / Dovtsog Khudag (Mandakh, Dornogovi)", lat: 44.1797, lon: 108.3206, src: "Global Energy Monitor (exact)" },
+  { id: "eldev", mn: "Элдэв (Далан-Жаргалан сум, Дорноговь)", en: "Eldev (Dalanjargalan, Dornogovi)", lat: 46.1203, lon: 108.9915, src: "Global Energy Monitor (exact)" },
+];
