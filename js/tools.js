@@ -22,9 +22,9 @@ const TT = {
     mine_date: "Эхлэх огноо (УБ цаг)", mine_hour: "Эхлэх цаг", mine_dur: "Үргэлжлэх хугацаа", mine_hours: "цаг", mine_radius: "Харах радиус", mine_spread: "Салхины чиглэлийн тодорхойгүй байдал", mine_km: "км",
     mine_event: "2025-06-01 16:00 (таны script)", mine_run: "Тооцоолох", mine_busy: "Тооцоолж байна…",
     play: "▶ Тоглуулах", pause: "⏸ Зогсоох", speed: "Хурд", t_wind: "Салхи", t_gust: "Давыг", t_dir: "Чиглэл (хаанаас)", t_cams: "CAMS тоос", t_pm10: "CAMS PM10",
-    l_plume: "Тоосны тархалт", l_wind: "Салхины сум", l_homes: "Айл өрх, өвөлжөө, хаваржаа", l_water: "Гадаргын ус (Landsat/Sentinel-2)", l_truecolor: "MODIS жинхэнэ өнгө (тухайн өдөр)", l_hls: "Sentinel-2 / Landsat 30 м (тухайн өдөр)",
+    l_plume: "Тоосны тархалт", l_wind: "Салхины сум", l_homes: "Айл өрх, өвөлжөө, хаваржаа", l_water: "Гадаргын ус (Landsat/Sentinel-2)", l_aod: "MODIS Deep Blue тоосны аэрозол — бодит хиймэл дагуулын хэмжилт", l_hls: "Sentinel-2 / Landsat 30 м (тухайн өдөр)",
     homes_none: "Айл өрхийн өгөгдөл хараахан бэлэн биш (GitHub Actions «Settlements» ажилласны дараа гарна).", homes_title: "Тархацад өртөж буй айл өрх", homes_total: "Радиус доторх нийт", homes_exposed: "Өртөж буй (индекс ≥ 2)",
-    homes_note: "Өгөгдөл: OpenStreetMap. Алслагдсан говьд бүх гэр бүртгэгдээгүй байж болно, тиймээс энэ нь доод тооцоо.",
+    homes_note: "Өгөгдөл: OpenStreetMap, уурхайгаас ≈60 км радиус. Алслагдсан говьд бүх гэр бүртгэгдээгүй байж болно, тиймээс энэ нь доод тооцоо.",
     type_ger: "Гэр", type_house: "Байшин", type_hut: "Майхан/хашаа", type_farmyard: "Мал аж ахуйн талбай", type_place: "Суурин", type_winter: "Өвөлжөө", type_spring: "Хаваржаа",
     p_none: "Өртөөгүй", p_low: "Бага", p_moderate: "Дунд", p_high: "Өндөр", p_very_high: "Маш өндөр",
     plume_note: "Тоосны индекс нь харьцангуй (0–100): энэ хугацааны, уурхайгаас 3 км-ээс холхи хамгийн хүчтэй цэгтэй харьцуулсан. µг/м³ биш — уурхайн бодит ялгарал тодорхойгүй. Салхи: Open-Meteo (ERA5/прогноз, ≈25 км).",
@@ -43,9 +43,9 @@ const TT = {
     mine_date: "Start date (Ulaanbaatar time)", mine_hour: "Start hour", mine_dur: "Duration", mine_hours: "h", mine_radius: "View radius", mine_spread: "Wind-direction uncertainty", mine_km: "km",
     mine_event: "2025-06-01 16:00 (your script)", mine_run: "Compute", mine_busy: "Computing…",
     play: "▶ Play", pause: "⏸ Pause", speed: "Speed", t_wind: "Wind", t_gust: "Gust", t_dir: "Direction (from)", t_cams: "CAMS dust", t_pm10: "CAMS PM10",
-    l_plume: "Dust plume", l_wind: "Wind arrows", l_homes: "Households, winter and spring camps", l_water: "Surface water (Landsat/Sentinel-2)", l_truecolor: "MODIS true colour (that day)", l_hls: "Sentinel-2 / Landsat 30 m (that day)",
+    l_plume: "Dust plume", l_wind: "Wind arrows", l_homes: "Households, winter and spring camps", l_water: "Surface water (Landsat/Sentinel-2)", l_aod: "MODIS Deep Blue dust aerosol — real satellite measurement", l_hls: "Sentinel-2 / Landsat 30 m (that day)",
     homes_none: "Household data not built yet (appears after the GitHub Actions workflow “Settlements” has run).", homes_title: "Households in the plume", homes_total: "Total inside radius", homes_exposed: "Exposed (index ≥ 2)",
-    homes_note: "Data: OpenStreetMap. Remote Gobi may have unmapped gers, so this is a lower bound.",
+    homes_note: "Data: OpenStreetMap, about 60 km around the mine. Remote Gobi may have unmapped gers, so this is a lower bound.",
     type_ger: "Ger", type_house: "House", type_hut: "Hut/tent", type_farmyard: "Livestock yard", type_place: "Settlement", type_winter: "Winter camp", type_spring: "Spring camp",
     p_none: "Not exposed", p_low: "Low", p_moderate: "Moderate", p_high: "High", p_very_high: "Very high",
     plume_note: "The plume index is relative (0–100): compared with the strongest spot more than 3 km from the source in this run. It is not ug/m3 because the real emission of the mine is unknown. Wind: Open-Meteo (ERA5/forecast, ≈25 km).",
@@ -214,7 +214,7 @@ export function initTools({ map, getLang, requestSat, containers }) {
     }
     map.on("click", onClick); map.on("dblclick", onDbl); map.on("mousemove", onMove);
     build();
-    return { st, relabel, show(on) { if (on) st.layer.addTo(map); else { stopDraw(); st.layer.remove(); } } };
+    return { st, relabel, setHazard(h) { st.hazard = h; ui.haz.value = h; if (st.scores) render(); }, show(on) { if (on) st.layer.addTo(map); else { stopDraw(); st.layer.remove(); } } };
   }
   function row(a, b) { return el("tr", {}, el("td", { text: a }), el("td", { text: b })); }
 
@@ -226,7 +226,7 @@ export function initTools({ map, getLang, requestSat, containers }) {
       sim: null, frames: null, ref: 0, extent: null, W: 150, H: 150, h: 0, playing: false, timer: null, speed: 500,
       cams: null, homes: null, exposure: null, homesAll: undefined, busy: false, picking: false,
       layers: { plume: L.layerGroup(), wind: L.layerGroup(), homes: L.layerGroup(), water: L.layerGroup(), src: L.layerGroup() },
-      show: { plume: true, wind: true, homes: true, water: false, hls: false },
+      show: { plume: true, wind: true, homes: true, water: false, hls: false, aod: false },
       overlay: null, arrows: [], srcArrow: null, osmWater: undefined, error: null, active: false,
     };
     const root = containers.mine;
@@ -462,6 +462,7 @@ export function initTools({ map, getLang, requestSat, containers }) {
       requestSat({ date: d });
       requestSat({ key: "water_dswx", on: st.show.water });
       requestSat({ key: "hls_s30", on: st.show.hls });
+      requestSat({ key: "aod_deepblue", on: st.show.aod });
     }
 
     /* ---------- UI ---------- */
@@ -486,7 +487,7 @@ export function initTools({ map, getLang, requestSat, containers }) {
       ui.toggles = el("div", { class: "toggles" });
       ui.labels = {};
       const mkToggle = (key, onchange) => { const input = el("input", { type: "checkbox", checked: !!st.show[key], onchange: (e) => { st.show[key] = e.target.checked; onchange(); } }); const span = el("span"); ui.labels[key] = span; return el("label", { class: "check" }, input, span); };
-      ui.toggles.append(mkToggle("plume", syncLayerVisibility), mkToggle("wind", syncLayerVisibility), mkToggle("homes", syncLayerVisibility), mkToggle("water", () => { syncLayerVisibility(); applySatToggles(); }), mkToggle("hls", applySatToggles));
+      ui.toggles.append(mkToggle("plume", syncLayerVisibility), mkToggle("wind", syncLayerVisibility), mkToggle("homes", syncLayerVisibility), mkToggle("water", () => { syncLayerVisibility(); applySatToggles(); }), mkToggle("aod", applySatToggles), mkToggle("hls", applySatToggles));
       ui.fields = el("div", { class: "fields" });
       const field = (labelKey, ...ctrl) => { const lab = el("span"); lab.dataset.k = labelKey; return el("label", { class: "inline" }, lab, ...ctrl); };
       ui.fields.append(field("mine_src", ui.mine), field("mine_lat", ui.lat), field("mine_lon", ui.lon, ui.pick), field("mine_date", ui.date), field("mine_hour", ui.hour), field("mine_dur", ui.dur), field("mine_radius", ui.rad), field("mine_spread", ui.spread));
@@ -503,7 +504,7 @@ export function initTools({ map, getLang, requestSat, containers }) {
       ui.pick.textContent = st.picking ? t("mine_pick_on") : t("mine_pick");
       ui.run.textContent = t("mine_run"); ui.event.textContent = t("mine_event"); ui.play.textContent = st.playing ? t("pause") : t("play");
       ui.labels.plume.textContent = t("l_plume"); ui.labels.wind.textContent = t("l_wind"); ui.labels.homes.textContent = t("l_homes"); ui.labels.water.textContent = t("l_water");
-      ui.labels.hls.textContent = t("l_hls");
+      ui.labels.aod.textContent = t("l_aod"); ui.labels.hls.textContent = t("l_hls");
       if (st.sim) { renderReadout(); renderResults(); }
     }
     build();
@@ -514,5 +515,6 @@ export function initTools({ map, getLang, requestSat, containers }) {
   return {
     setView(v) { view = v; T.poly.show(v === "poly"); T.mine.show(v === "mine"); },
     relabel() { T.poly.relabel(); T.mine.relabel(); },
+    setHazard(h) { T.poly.setHazard(h); },
   };
 }

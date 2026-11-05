@@ -1,3 +1,14 @@
+# Mongolia hazard watch · Монгол орны гамшгийн эрсдэлийн хяналт
+
+**Open it online / Онлайнаар нээх: https://sigma0sanaa.github.io/hazard/**
+(any browser, phones included; send the link to anyone / утсан дээр ч нээгдэнэ, холбоосыг хэнд ч илгээж болно)
+
+Нэмэлт суулгац шаардлагагүй. Нүүр хуудас: дээд талд **Үер · Түймэр · Шороон шуурга**. «Шороон шуурга»-г сонгоход дотор нь **Аймгууд · Уурхайн тоос · Polygon эрсдэл** гарна. / No installation. Top tabs: Flood · Wildfire · Dust storm; under Dust storm: Provinces · Mine dust · Polygon risk.
+
+| What is real satellite data | What is a model |
+|---|---|
+| NASA GIBS imagery: VIIRS / MODIS true colour, MODIS Deep Blue dust aerosol, VIIRS/MODIS fire detections, flood extent, Landsat + Sentinel-2 surface water and HLS 30 m | Risk scores (Fire Weather Index, dust, flood) and the dust plume use weather and CAMS model data (Open-Meteo), not satellite pixels |
+
 # Монгол орны гамшгийн эрсдэлийн хяналт · Mongolia hazard watch
 
 Үер, түймэр, шороон шуурганы эрсдэлийг 21 аймаг + Улаанбаатарт нээлттэй өгөгдлөөр харуулдаг вэб. Газрын зураг дээр NASA-гийн хиймэл дагуулын (MODIS, VIIRS, Landsat/Sentinel-2 HLS, GPM IMERG) зураг, түүн дээр загварын прогнозод суурилсан **0–100 харьцангуй индекс** байна.

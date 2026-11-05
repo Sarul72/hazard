@@ -112,10 +112,21 @@ function renderStatic() {
   $("methods-body").innerHTML = t("methods_html"); // trusted static strings from i18n.js
 }
 
+/** Sub-sections: every hazard has the province ranking and the polygon tool; the mine plume belongs to dust storms. */
+const viewsFor = (hz) => (hz === "dust" ? ["aimag", "mine", "poly"] : ["aimag", "poly"]);
+
 function renderViews() {
-  $("views").replaceChildren(...["aimag", "poly", "mine"].map((v) =>
+  if (!viewsFor(state.hazard).includes(state.view)) state.view = "aimag";
+  $("views").replaceChildren(...viewsFor(state.hazard).map((v) =>
     el("button", { class: "tab", role: "tab", "aria-selected": String(state.view === v), text: t("nav_" + v), onclick: () => setView(v) })));
   for (const v of ["aimag", "poly", "mine"]) $("view-" + v).hidden = state.view !== v;
+}
+
+function setHazard(h) {
+  state.hazard = h;
+  if (!viewsFor(h).includes(state.view)) { state.view = "aimag"; if (state.tools) state.tools.setView("aimag"); }
+  if (state.tools) state.tools.setHazard(h);
+  renderAll();
 }
 
 function setView(v) {
@@ -127,7 +138,7 @@ function setView(v) {
 function renderTabs() {
   const tabs = $("tabs");
   tabs.replaceChildren(...["all", "flood", "fire", "dust"].map((h) =>
-    el("button", { class: "tab", role: "tab", "aria-selected": String(state.hazard === h), text: t("hazard_" + h), onclick: () => { state.hazard = h; renderAll(); } })));
+    el("button", { class: "tab", role: "tab", "aria-selected": String(state.hazard === h), text: t("hazard_" + h), onclick: () => setHazard(h) })));
 }
 
 function renderLegend() {
@@ -238,7 +249,7 @@ function renderAll() { renderStatic(); renderLabels(); renderViews(); renderTabs
 
 /* ------------------------------------------------------------- satellite */
 function initSatState() {
-  for (const l of GIBS.layers) state.sat[l.key] = { on: l.key === "truecolor_terra" || l.key === "fire_viirs", layer: null, date: null };
+  for (const l of GIBS.layers) state.sat[l.key] = { on: l.key === "truecolor_viirs" || l.key === "fire_viirs", layer: null, date: null };
 }
 
 function applySat(key) {

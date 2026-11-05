@@ -16,4 +16,5 @@ test("classify OSM tags", () => {
 test("homesQuery is a well-formed bbox query", () => {
   const q = homesQuery({ s: 1, w: 2, n: 3, e: 4 });
   assert.ok(q.includes("(1,2,3,4)") && q.startsWith("[out:json]"));
+  assert.ok(!q.includes("өвөлжө"), "no slow name-regex scan");
 });

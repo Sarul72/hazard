@@ -6,7 +6,7 @@ import { writeFile, mkdir } from "node:fs/promises";
 import { MINES } from "../js/config.js";
 
 const ENDPOINTS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter", "https://overpass.private.coffee/api/interpreter"];
-const HALF_LAT = 1.05, HALF_LON = 1.4; // a little more than the 100 km view radius; the 200 km option shows what is built
+const HALF_LAT = 0.55, HALF_LON = 0.75; // about 60 km: bigger boxes time out on the public Overpass servers
 
 const HOUSE = /^(house|residential|detached|semidetached_house|bungalow|apartments|dormitory|farm)$/;
 const HUT = /^(hut|cabin|tent|shed)$/;
@@ -27,28 +27,27 @@ export function classify(tags = {}) {
 
 export function homesQuery(b) {
   const bb = `(${b.s},${b.w},${b.n},${b.e})`;
-  return `[out:json][timeout:180];(
+  return `[out:json][timeout:90];(
     nwr["building"~"^(ger|yurt|house|residential|detached|semidetached_house|bungalow|apartments|dormitory|farm|hut|cabin|tent|shed)$"]${bb};
     nwr["landuse"="farmyard"]${bb};
     nwr["place"~"^(isolated_dwelling|hamlet|village|town|locality)$"]${bb};
-    nwr["name"~"өвөлжө|хаваржаа",i]${bb};
   );out center tags 20000;`;
 }
 export function waterQuery(b) {
-  return `[out:json][timeout:180];way["natural"="water"](${b.s},${b.w},${b.n},${b.e});out geom tags 1500;`;
+  return `[out:json][timeout:90];way["natural"="water"](${b.s},${b.w},${b.n},${b.e});out geom tags 1500;`;
 }
 
 async function overpass(query) {
   let last;
-  for (let round = 0; round < 4; round++) {
+  for (let round = 0; round < 3; round++) {
     for (const url of ENDPOINTS) {
       try {
-        const res = await fetch(url, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: "data=" + encodeURIComponent(query), signal: AbortSignal.timeout(200000) });
+        const res = await fetch(url, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: "data=" + encodeURIComponent(query), signal: AbortSignal.timeout(100000) });
         if (res.ok) return await res.json();
         last = new Error(`${url}: HTTP ${res.status}`);
       } catch (e) { last = new Error(`${url}: ${e.message}`); }
     }
-    await new Promise((r) => setTimeout(r, 15000 * (round + 1)));
+    await new Promise((r) => setTimeout(r, 20000 * (round + 1)));
   }
   throw last;
 }
