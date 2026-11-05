@@ -27,9 +27,11 @@ export function windVec(speed, dirFromDeg) {
 /** Direction the air moves TOWARD, in degrees clockwise from north. */
 export function toward(dirFromDeg) { return (dirFromDeg + 180) % 360; }
 
-export function sigmaY(xMeters) {
+/** Horizontal spread (m) after travelling xMeters. `spreadDeg` adds an angular wind-direction uncertainty
+ * (hourly model winds are typically 10-30 degrees off), added in quadrature so the mass stays conserved. */
+export function sigmaY(xMeters, spreadDeg = 0) {
   const x = Math.max(0, xMeters);
-  return Math.hypot(SIGMA0_M, (0.11 * x) / Math.sqrt(1 + 0.0001 * x));
+  return Math.hypot(SIGMA0_M, (0.11 * x) / Math.sqrt(1 + 0.0001 * x), x * Math.tan((spreadDeg * Math.PI) / 180));
 }
 
 /** Relative emission factor for wind speed u (m/s): dust lift grows steeply with wind speed (cube law above calm). */
@@ -84,13 +86,13 @@ export function windAt(field, tH, lat, lon) {
  * Run the puff model. Returns { snaps } where snaps[h] is the puff cloud at the start of hour h (h = 0..hours-1),
  * each snap = { n, lat, lon, q, x, sp } (typed arrays).
  */
-export function simulate({ source, field, dtMin = 3, tauH = 6, emission = emissionFactor }) {
+export function simulate({ source, field, dtMin = 3, tauH = 6, emission = emissionFactor, spreadDeg = 0 }) {
   const dt = dtMin * 60, steps = Math.round(3600 / dt);
   const tauS = tauH * 3600, maxAge = 5 * tauS;
   const snaps = [];
   let P = []; // {lat, lon, q, x, sp, age}
   for (let h = 0; h < field.hours; h++) {
-    snaps.push(snapshot(P));
+    snaps.push(snapshot(P, spreadDeg));
     for (let s = 0; s < steps; s++) {
       const tH = h + s / steps;
       const w0 = windAt(field, tH, source.lat, source.lon);
@@ -114,15 +116,15 @@ export function simulate({ source, field, dtMin = 3, tauH = 6, emission = emissi
   return { snaps, field };
 }
 
-function snapshot(P) {
+function snapshot(P, spreadDeg) {
   const n = P.length;
-  const out = { n, lat: new Float64Array(n), lon: new Float64Array(n), q: new Float64Array(n), x: new Float64Array(n), sp: new Float64Array(n) };
+  const out = { n, spreadDeg, lat: new Float64Array(n), lon: new Float64Array(n), q: new Float64Array(n), x: new Float64Array(n), sp: new Float64Array(n) };
   P.forEach((p, i) => { out.lat[i] = p.lat; out.lon[i] = p.lon; out.q[i] = p.q; out.x[i] = p.x; out.sp[i] = p.sp; });
   return out;
 }
 
 /** Puff widths: neutral-air spread, but never narrower than a third of the release spacing (avoids a beaded trail). */
-const sig = (snap, i) => Math.max(sigmaY(snap.x[i]), 0.35 * snap.sp[i]);
+const sig = (snap, i) => Math.max(sigmaY(snap.x[i], snap.spreadDeg || 0), 0.35 * snap.sp[i]);
 
 /** Index at one point. */
 export function concAt(snap, lat, lon) {

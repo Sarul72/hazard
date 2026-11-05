@@ -151,3 +151,14 @@ test("concGrid agrees with concAt at a raster pixel", () => {
   near(a, b, Math.max(1e-9, 1e-6 * Math.max(a, b)), "raster vs point");
   assert.ok(haversineKm(SRC.lat, SRC.lon, lat, lon) > 0);
 });
+
+test("wind-direction uncertainty widens the plume and keeps total mass", () => {
+  const field = constantField(SRC, 10, 270, 6);
+  const a = simulate({ source: SRC, field, spreadDeg: 0 }).snaps[5];
+  const b = simulate({ source: SRC, field, spreadDeg: 20 }).snaps[5];
+  const kx = kmPerDegLon(SRC.lat);
+  const sideLat = SRC.lat + 8 / 110.574, lon = SRC.lon + 40 / kx;
+  assert.ok(concAt(b, sideLat, lon) > 5 * concAt(a, sideLat, lon), "more mass 8 km off the axis");
+  assert.ok(concAt(b, SRC.lat, lon) < concAt(a, SRC.lat, lon), "less on the axis");
+  near(sigmaY(10000, 20), Math.hypot(sigmaY(10000), 10000 * Math.tan(20 * Math.PI / 180)), 1e-6, "quadrature");
+});

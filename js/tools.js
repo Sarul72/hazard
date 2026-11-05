@@ -19,7 +19,7 @@ const TT = {
     poly_hover: "Курсорын доорх оноо", poly_few: "Хамгийн багадаа 3 орой хэрэгтэй.", poly_failed: "Өгөгдөл татаж чадсангүй: ",
     mine_title: "Уул уурхайн шороон тоос", mine_help: "Уурхай, огноо, үргэлжлэх хугацаа сонгоод «Тооцоолох». Салхи, тоосны тархалт цагаар хөдөлнө.",
     mine_src: "Уурхай", mine_lat: "Өргөрөг", mine_lon: "Уртраг", mine_pick: "Газраас сонгох", mine_pick_on: "Газрын зураг дээр дарна уу…",
-    mine_date: "Эхлэх огноо (УБ цаг)", mine_hour: "Эхлэх цаг", mine_dur: "Үргэлжлэх хугацаа", mine_hours: "цаг", mine_radius: "Харах радиус", mine_km: "км",
+    mine_date: "Эхлэх огноо (УБ цаг)", mine_hour: "Эхлэх цаг", mine_dur: "Үргэлжлэх хугацаа", mine_hours: "цаг", mine_radius: "Харах радиус", mine_spread: "Салхины чиглэлийн тодорхойгүй байдал", mine_km: "км",
     mine_event: "2025-06-01 16:00 (таны script)", mine_run: "Тооцоолох", mine_busy: "Тооцоолж байна…",
     play: "▶ Тоглуулах", pause: "⏸ Зогсоох", speed: "Хурд", t_wind: "Салхи", t_gust: "Давыг", t_dir: "Чиглэл (хаанаас)", t_cams: "CAMS тоос", t_pm10: "CAMS PM10",
     l_plume: "Тоосны тархалт", l_wind: "Салхины сум", l_homes: "Айл өрх, өвөлжөө, хаваржаа", l_water: "Гадаргын ус (Landsat/Sentinel-2)", l_truecolor: "MODIS жинхэнэ өнгө (тухайн өдөр)", l_hls: "Sentinel-2 / Landsat 30 м (тухайн өдөр)",
@@ -40,7 +40,7 @@ const TT = {
     poly_hover: "Score under cursor", poly_few: "At least 3 vertices are needed.", poly_failed: "Could not load data: ",
     mine_title: "Mine dust plume", mine_help: "Pick a mine, a date and a duration, then Compute. Wind and dust spread animate hour by hour.",
     mine_src: "Mine", mine_lat: "Latitude", mine_lon: "Longitude", mine_pick: "Pick on map", mine_pick_on: "Click the map…",
-    mine_date: "Start date (Ulaanbaatar time)", mine_hour: "Start hour", mine_dur: "Duration", mine_hours: "h", mine_radius: "View radius", mine_km: "km",
+    mine_date: "Start date (Ulaanbaatar time)", mine_hour: "Start hour", mine_dur: "Duration", mine_hours: "h", mine_radius: "View radius", mine_spread: "Wind-direction uncertainty", mine_km: "km",
     mine_event: "2025-06-01 16:00 (your script)", mine_run: "Compute", mine_busy: "Computing…",
     play: "▶ Play", pause: "⏸ Pause", speed: "Speed", t_wind: "Wind", t_gust: "Gust", t_dir: "Direction (from)", t_cams: "CAMS dust", t_pm10: "CAMS PM10",
     l_plume: "Dust plume", l_wind: "Wind arrows", l_homes: "Households, winter and spring camps", l_water: "Surface water (Landsat/Sentinel-2)", l_truecolor: "MODIS true colour (that day)", l_hls: "Sentinel-2 / Landsat 30 m (that day)",
@@ -222,7 +222,7 @@ export function initTools({ map, getLang, requestSat, containers }) {
   function initMine() {
     const today = isoDate(new Date());
     const st = {
-      mineId: MINES[0].id, lat: MINES[0].lat, lon: MINES[0].lon, date: "2025-06-01", hour: 0, dur: 48, radius: 100,
+      mineId: MINES[0].id, lat: MINES[0].lat, lon: MINES[0].lon, date: "2025-06-01", hour: 0, dur: 48, radius: 100, spread: 10,
       sim: null, frames: null, ref: 0, extent: null, W: 150, H: 150, h: 0, playing: false, timer: null, speed: 500,
       cams: null, homes: null, exposure: null, homesAll: undefined, busy: false, picking: false,
       layers: { plume: L.layerGroup(), wind: L.layerGroup(), homes: L.layerGroup(), water: L.layerGroup(), src: L.layerGroup() },
@@ -290,7 +290,7 @@ export function initTools({ map, getLang, requestSat, containers }) {
         const valid = results.filter((r) => r.wind_speed_10m.some(fin)).length;
         if (!valid) throw new Error("wind data are empty for that date");
         const field = buildField(g, results);
-        st.sim = simulate({ source: { lat: st.lat, lon: st.lon }, field });
+        st.sim = simulate({ source: { lat: st.lat, lon: st.lon }, field, spreadDeg: st.spread });
         const R = st.radius, dLat = R / KM_PER_DEG_LAT, dLon = R / kmPerDegLon(st.lat);
         st.extent = { s: st.lat - dLat, n: st.lat + dLat, w: st.lon - dLon, e: st.lon + dLon };
         st.frames = st.sim.snaps.map((s) => concGrid(s, st.extent, st.W, st.H));
@@ -475,6 +475,7 @@ export function initTools({ map, getLang, requestSat, containers }) {
       ui.hour = el("select", { onchange: (e) => { st.hour = Number(e.target.value); } }, ...Array.from({ length: 24 }, (_, h) => el("option", { value: h, text: String(h).padStart(2, "0") + ":00" })));
       ui.dur = el("select", { onchange: (e) => { st.dur = Number(e.target.value); } }, ...[24, 48, 72].map((v) => el("option", { value: v, text: `${v}`, selected: v === st.dur })));
       ui.rad = el("select", { onchange: (e) => { st.radius = Number(e.target.value); drawSource(); } }, ...[50, 100, 200].map((v) => el("option", { value: v, text: `${v}`, selected: v === st.radius })));
+      ui.spread = el("select", { onchange: (e) => { st.spread = Number(e.target.value); } }, ...[0, 10, 20].map((v) => el("option", { value: v, text: `${v}°`, selected: v === st.spread })));
       ui.event = el("button", { class: "btn small", onclick: () => { st.date = "2025-06-01"; st.hour = 0; st.dur = 48; ui.date.value = st.date; ui.hour.value = "0"; ui.dur.value = "48"; setSource(MINES[0].lat, MINES[0].lon, MINES[0].id); ui.mine.value = MINES[0].id; run(); } });
       ui.run = el("button", { class: "btn primary", onclick: run });
       ui.status = el("p", { class: "note", role: "status" });
@@ -488,11 +489,11 @@ export function initTools({ map, getLang, requestSat, containers }) {
       ui.toggles.append(mkToggle("plume", syncLayerVisibility), mkToggle("wind", syncLayerVisibility), mkToggle("homes", syncLayerVisibility), mkToggle("water", () => { syncLayerVisibility(); applySatToggles(); }), mkToggle("hls", applySatToggles));
       ui.fields = el("div", { class: "fields" });
       const field = (labelKey, ...ctrl) => { const lab = el("span"); lab.dataset.k = labelKey; return el("label", { class: "inline" }, lab, ...ctrl); };
-      ui.fields.append(field("mine_src", ui.mine), field("mine_lat", ui.lat), field("mine_lon", ui.lon, ui.pick), field("mine_date", ui.date), field("mine_hour", ui.hour), field("mine_dur", ui.dur), field("mine_radius", ui.rad));
+      ui.fields.append(field("mine_src", ui.mine), field("mine_lat", ui.lat), field("mine_lon", ui.lon, ui.pick), field("mine_date", ui.date), field("mine_hour", ui.hour), field("mine_dur", ui.dur), field("mine_radius", ui.rad), field("mine_spread", ui.spread));
       ui.transport = el("div", { class: "transport" }, ui.play, ui.slider, ui.speed);
       root.replaceChildren(ui.title, ui.help, ui.fields, el("div", { class: "btnrow" }, ui.run, ui.event), ui.status, ui.transport, ui.readout, ui.toggles, ui.results);
       map.on("click", (e) => { if (st.picking && st.active) { st.picking = false; map.getContainer().style.cursor = ""; ui.pick.textContent = t("mine_pick"); ui.mine.value = ""; setSource(e.latlng.lat, e.latlng.lng, null); } });
-      ui.hour.value = String(st.hour);
+      ui.hour.value = String(st.hour); ui.lat.value = st.lat.toFixed(4); ui.lon.value = st.lon.toFixed(4);
       relabel(); drawSource();
     }
     function relabel() {
