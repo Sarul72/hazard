@@ -249,7 +249,7 @@ function renderAll() { renderStatic(); renderLabels(); renderViews(); renderTabs
 
 /* ------------------------------------------------------------- satellite */
 function initSatState() {
-  for (const l of GIBS.layers) state.sat[l.key] = { on: l.key === "truecolor_viirs" || l.key === "fire_viirs", layer: null, date: null };
+  for (const l of GIBS.layers) state.sat[l.key] = { on: l.key === "truecolor_terra" || l.key === "fire_viirs", layer: null, date: null };
 }
 
 function applySat(key) {

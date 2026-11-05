@@ -7,7 +7,7 @@
 
 | What is real satellite data | What is a model |
 |---|---|
-| NASA GIBS imagery: VIIRS / MODIS true colour, MODIS Deep Blue dust aerosol, VIIRS/MODIS fire detections, flood extent, Landsat + Sentinel-2 surface water and HLS 30 m | Risk scores (Fire Weather Index, dust, flood) and the dust plume use weather and CAMS model data (Open-Meteo), not satellite pixels |
+| NASA GIBS imagery: MODIS Terra / Aqua true colour, MODIS Deep Blue dust aerosol, VIIRS/MODIS fire detections, flood extent, Landsat + Sentinel-2 surface water and HLS 30 m | Risk scores (Fire Weather Index, dust, flood) and the dust plume use weather and CAMS model data (Open-Meteo), not satellite pixels |
 
 # Монгол орны гамшгийн эрсдэлийн хяналт · Mongolia hazard watch
 
