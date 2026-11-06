@@ -308,7 +308,7 @@ export function initTools({ map, getLang, requestSat, containers }) {
         st.h = evt >= 0 ? evt : 0;
         ui.slider.max = String(field.hours - 1); ui.slider.value = String(st.h);
         buildStaticLayers(); setFrame(st.h); renderResults();
-        map.fitBounds([[st.extent.s, st.extent.w], [st.extent.n, st.extent.e]], { padding: [10, 10] });
+        map.fitBounds([[st.extent.s, st.extent.w], [st.extent.n, st.extent.e]], st.fit ?? { padding: [10, 10] });
         applySatToggles();
         setStatus(`${t("frames_ready")}: ${field.hours} ${t("mine_hours")}. ${t("sat_date_note")}`);
       } catch (e) { st.error = String(e.message || e); setStatus(t("mine_err") + st.error); }
@@ -508,7 +508,18 @@ export function initTools({ map, getLang, requestSat, containers }) {
       if (st.sim) { renderReadout(); renderResults(); }
     }
     build();
-    return { st, relabel, show(on) { st.active = on; if (!on) stopPlay(); syncLayerVisibility(); if (on && !st.sim) { map.setView([st.lat, st.lon], 8); } } };
+    /** Same simulation with the source at any point, for the area selected on the map. */
+    async function runAt({ lat, lon, date, radius, fit }) {
+      st.date = date; ui.date.value = date;
+      st.hour = 0; ui.hour.value = "0";
+      st.radius = radius; ui.rad.value = String(radius);
+      st.fit = fit;
+      ui.mine.value = "";
+      setSource(lat, lon, null);
+      await run();
+      st.fit = null;
+    }
+    return { st, relabel, runAt, show(on, keepView) { st.active = on; if (!on) stopPlay(); syncLayerVisibility(); if (on && !st.sim && !keepView) { map.setView([st.lat, st.lon], 8); } } };
   }
 
   /* ============================================================ public API */
@@ -516,5 +527,6 @@ export function initTools({ map, getLang, requestSat, containers }) {
     setView(v) { view = v; T.poly.show(v === "poly"); T.mine.show(v === "mine"); },
     relabel() { T.poly.relabel(); T.mine.relabel(); },
     setHazard(h) { T.poly.setHazard(h); },
+    plumeAt(opts) { view = "mine"; T.poly.show(false); T.mine.show(true, true); return T.mine.runAt(opts); },
   };
 }

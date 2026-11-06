@@ -34,13 +34,15 @@ export const MONGOLIA_BBOX = [41.5, 87.5, 52.3, 120.0];
 export const TZ = "Asia/Ulaanbaatar";
 export const TZ_OFFSET_HOURS = 8;
 
-/** Five-class scale shared by all hazards. Score is 0..100. */
+/** Five-class scale shared by all hazards. Score is 0..100. One light-to-dark heat ramp, so the order survives
+ * colour-blind vision and grey printing, which a green-to-red scale does not. `alpha` is the map opacity: the lowest
+ * class stays faint so the satellite image shows through where little is happening. */
 export const CLASSES = [
-  { key: "very_low",  min: 0,  max: 20,  color: "#2e8b57" },
-  { key: "low",       min: 20, max: 40,  color: "#a5c93a" },
-  { key: "moderate",  min: 40, max: 60,  color: "#f2c230" },
-  { key: "high",      min: 60, max: 80,  color: "#ef7d22" },
-  { key: "very_high", min: 80, max: 100.0001, color: "#c62828" },
+  { key: "very_low",  min: 0,  max: 20,  color: "#ffe9a8", alpha: 0.22, ink: "#111" },
+  { key: "low",       min: 20, max: 40,  color: "#fdc04f", alpha: 0.55, ink: "#111" },
+  { key: "moderate",  min: 40, max: 60,  color: "#f6802b", alpha: 0.64, ink: "#111" },
+  { key: "high",      min: 60, max: 80,  color: "#d4231f", alpha: 0.72, ink: "#fff" },
+  { key: "very_high", min: 80, max: 100.0001, color: "#6d0a2c", alpha: 0.82, ink: "#fff" },
 ];
 
 export const THRESHOLDS = {

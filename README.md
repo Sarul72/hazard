@@ -1,9 +1,13 @@
 # Mongolia hazard watch · Монгол орны гамшгийн эрсдэлийн хяналт
 
 **Open it online / Онлайнаар нээх: https://sigma0sanaa.github.io/hazard/**
-(any browser, phones included; send the link to anyone / утсан дээр ч нээгдэнэ, холбоосыг хэнд ч илгээж болно)
 
-Нэмэлт суулгац шаардлагагүй. Нүүр хуудас: дээд талд **Үер · Түймэр · Шороон шуурга**. «Шороон шуурга»-г сонгоход дотор нь **Аймгууд · Уурхайн тоос · Polygon эрсдэл** гарна. / No installation. Top tabs: Flood · Wildfire · Dust storm; under Dust storm: Provinces · Mine dust · Polygon risk.
+Монгол улс даяар үер, түймэр, шороон шуурганы эрсдэлийг 2001 оноос өнөөг хүртэл өдөр бүрээр 0.1° торон дээр харуулна. Тооцоог Google Earth Engine-ийн олон хиймэл дагуулын өгөгдлөөр хийсэн. Зүүн товчоор чирж талбай сонгоход олон жилийн статистик, алдааны боломжит утга гарна. Эрсдэл бүрийн «i» товч арга зүй, материалыг нээнэ. / Daily flood, wildfire and dust risk zones for all of Mongolia since 2001 from Earth Engine. Drag with the left button for long-term statistics and possible error.
+
+* Өгөгдлийн хэлбэр, тооцооны алхам / Data format and pipeline: [docs/GEE_DATA_FORMAT.md](docs/GEE_DATA_FORMAT.md)
+* Автомат шинэчлэлт асаах / Turn on the daily update: [docs/GEE_SETUP.md](docs/GEE_SETUP.md)
+
+Доорх хэсэг өмнөх хувилбарын (22 аймгийн төв) тайлбар бөгөөд уурхайн тоосны хэрэгсэлд хамаарна. / The text below describes the earlier 22-centre version and still applies to the mine dust tool.
 
 | What is real satellite data | What is a model |
 |---|---|

@@ -14,6 +14,6 @@ This is a monitoring and education aid. **It is not an official warning system.*
 10. **Untested against live services.** See `DATA_SOURCES.md`.
 
 ## Added with the polygon and mine tools
-* No Google Earth Engine is used. A static website cannot hold an Earth Engine login safely, and every visitor would have to sign in with their own registered account. A server-side step (GitHub Actions with a service account) could add satellite-derived layers later; this needs a Google Cloud project and a key stored as a repository secret.
+* Update 2026-11: risk zones now come from Earth Engine, computed on a schedule into files (see `GEE_DATA_FORMAT.md`). Points 1–5 above described the earlier version with 22 aimag centres; current limits are in the methods window of each hazard on the page. The mine plume wind still comes from Open-Meteo.
 * Households come from OpenStreetMap only. They are a lower bound in the remote Gobi. Detecting gers and seasonal camps from Sentinel-2 or high-resolution imagery would need Earth Engine or a machine-learning building dataset and is not done.
 * The plume model is a screening tool: no terrain, no stability changes during the day, no dust emission model for the real pits and roads, no validation against measured PM10. Do not use it for legal or health decisions.

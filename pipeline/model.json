@@ -1,0 +1,275 @@
+{
+ "fire": {
+  "beta": [
+   -13.46445484756471,
+   -0.7921882208868687,
+   8.336223478546605,
+   -1.6081610422041555,
+   1.8311292235705643,
+   3.3648056417809364
+  ],
+  "base": 0.0001784106962395581,
+  "verification": {
+   "reference": "MODIS FIRMS",
+   "n": 3284,
+   "auc": 0.9,
+   "auc_ci": [
+    0.88,
+    0.911
+   ],
+   "pod": 0.629,
+   "far": 0.999,
+   "csi": 0.001,
+   "brier": 6e-05,
+   "share_flagged": 0.0552,
+   "period": "2018-2025",
+   "auc_fwi_only": 0.668,
+   "auc_mce_only": 0.883
+  },
+  "u_model": 15.794701095095345,
+  "beta_test_split": [
+   -13.431730339602277,
+   -0.6687502374376858,
+   8.63224427964986,
+   -1.3415489996951402,
+   1.656742280573421,
+   3.148802814845265
+  ]
+ },
+ "dust": {
+  "beta": [
+   -3.0174404650363855,
+   -1.330432368163464,
+   5.399853489422374,
+   0.19285446636610484,
+   0.24525075974063504,
+   -0.4835419597864787,
+   -0.33464273788153176,
+   -0.34469963822934385
+  ],
+  "base": 0.0223451805824529,
+  "verification": {
+   "reference": "Sentinel-5P TROPOMI AAI anomaly \u2265 1",
+   "n": 109219,
+   "auc": 0.687,
+   "auc_ci": [
+    0.623,
+    0.721
+   ],
+   "pod": 0.132,
+   "far": 0.898,
+   "csi": 0.061,
+   "brier": 0.02104,
+   "share_flagged": 0.0279,
+   "period": "2024-2026, 3-5 \u0441\u0430\u0440",
+   "auc_wind_only": 0.631
+  },
+  "u_model": 10.459889065917043,
+  "aai_event": 1.0
+ },
+ "flood": {
+  "verification": {
+   "reference": "Global Flood Database (MODIS)",
+   "period": "2001-2018",
+   "n": 12,
+   "auc": 0.685,
+   "events_hit": 5,
+   "events": [
+    {
+     "start": "2001-05-12",
+     "end": "2001-06-08",
+     "cause": "Snowmelt",
+     "flooded_cells": 375,
+     "peak_in_flood": 66.6,
+     "share_high": 0.005,
+     "share_high_elsewhere": 0.001
+    },
+    {
+     "start": "2003-04-23",
+     "end": "2003-05-13",
+     "cause": "Snowmelt",
+     "flooded_cells": 399,
+     "peak_in_flood": 43.4,
+     "share_high": 0.0,
+     "share_high_elsewhere": 0.022
+    },
+    {
+     "start": "2004-04-14",
+     "end": "2004-05-16",
+     "cause": "Rain and snowmelt",
+     "flooded_cells": 489,
+     "peak_in_flood": 27.8,
+     "share_high": 0.0,
+     "share_high_elsewhere": 0.0
+    },
+    {
+     "start": "2006-04-21",
+     "end": "2006-05-31",
+     "cause": "Snowmelt",
+     "flooded_cells": 1060,
+     "peak_in_flood": 58.8,
+     "share_high": 0.0,
+     "share_high_elsewhere": 0.0
+    },
+    {
+     "start": "2006-07-12",
+     "end": "2006-07-14",
+     "cause": "Heavy rain",
+     "flooded_cells": 201,
+     "peak_in_flood": 84.9,
+     "share_high": 0.1,
+     "share_high_elsewhere": 0.003
+    },
+    {
+     "start": "2007-05-11",
+     "end": "2007-06-13",
+     "cause": "Snowmelt",
+     "flooded_cells": 11,
+     "peak_in_flood": 2.6,
+     "share_high": 0.0,
+     "share_high_elsewhere": 0.0
+    },
+    {
+     "start": "2007-07-14",
+     "end": "2007-08-03",
+     "cause": "Heavy rain",
+     "flooded_cells": 61,
+     "peak_in_flood": 69.7,
+     "share_high": 0.066,
+     "share_high_elsewhere": 0.012
+    },
+    {
+     "start": "2010-07-06",
+     "end": "2010-07-13",
+     "cause": "Torrential Rain",
+     "flooded_cells": 109,
+     "peak_in_flood": 14.8,
+     "share_high": 0.0,
+     "share_high_elsewhere": 0.0
+    },
+    {
+     "start": "2013-08-07",
+     "end": "2013-10-14",
+     "cause": "Heavy Rain, began with #4079",
+     "flooded_cells": 1486,
+     "peak_in_flood": 97.0,
+     "share_high": 0.178,
+     "share_high_elsewhere": 0.017
+    },
+    {
+     "start": "2015-05-15",
+     "end": "2015-06-02",
+     "cause": "Heavy Rain",
+     "flooded_cells": 8,
+     "peak_in_flood": 19.7,
+     "share_high": 0.0,
+     "share_high_elsewhere": 0.0
+    },
+    {
+     "start": "2017-04-14",
+     "end": "2017-04-21",
+     "cause": "Snowmelt",
+     "flooded_cells": 3,
+     "peak_in_flood": 0.0,
+     "share_high": 0.0,
+     "share_high_elsewhere": 0.0
+    },
+    {
+     "start": "2018-07-11",
+     "end": "2018-07-19",
+     "cause": "Heavy Rain",
+     "flooded_cells": 1707,
+     "peak_in_flood": 99.4,
+     "share_high": 0.074,
+     "share_high_elsewhere": 0.038
+    }
+   ]
+  }
+ },
+ "u_input": {
+  "fire": [
+   0.19,
+   0.5,
+   1.96,
+   2.0,
+   1.88,
+   1.92,
+   2.32,
+   2.82,
+   3.1,
+   3.2,
+   3.25,
+   3.31,
+   3.43,
+   3.56,
+   3.64,
+   3.85,
+   4.14,
+   4.39,
+   4.59,
+   4.66,
+   4.63,
+   4.52,
+   4.3,
+   3.96,
+   3.17,
+   2.08
+  ],
+  "dust": [
+   0.0,
+   0.0,
+   0.51,
+   1.01,
+   1.52,
+   2.05,
+   2.21,
+   1.79,
+   2.5,
+   3.21,
+   4.07,
+   5.94,
+   9.13,
+   10.42,
+   10.76,
+   10.69,
+   10.32,
+   9.8,
+   8.98,
+   8.02,
+   6.69,
+   5.7,
+   4.79,
+   4.79,
+   4.79,
+   4.79
+  ],
+  "flood": [
+   0.35,
+   0.63,
+   8.76,
+   13.56,
+   17.88,
+   21.24,
+   23.57,
+   24.83,
+   23.97,
+   20.97,
+   17.9,
+   15.69,
+   14.77,
+   14.48,
+   14.17,
+   13.76,
+   13.76,
+   13.76,
+   13.76,
+   13.76,
+   13.76,
+   13.76,
+   13.76,
+   13.76,
+   13.76,
+   13.76
+  ]
+ }
+}

@@ -1,4 +1,6 @@
 node_modules/
+.claude/
+__pycache__/
 data/latest.json
 data/fires.json
 .DS_Store

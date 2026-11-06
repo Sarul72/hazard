@@ -1,10 +1,21 @@
-/* Mongolia hazard watch: map, ranking, detail panel, satellite layers. No framework, no build step. */
-import { POINTS, CLASSES, GIBS, MONGOLIA_BBOX } from "./config.js";
+/* Mongolia hazard watch: the map screen. No framework, no build step.
+ * Risk zones come from data/gee (written by the Earth Engine pipeline). When a date or the whole dataset is missing,
+ * the screen says so and shows no colour: this page never fills a gap with a made-up value. */
+import { CLASSES, GIBS, MONGOLIA_BBOX } from "./config.js";
 import { T } from "./i18n.js";
-import { fetchAll, nowLocalString } from "./openmeteo.js";
-import { computePoint, classOf } from "./risk.js";
+import { U } from "./ui_text.js";
 import { makeLayer, utcDate } from "./gibs.js";
 import { initTools } from "./tools.js";
+import { decode, loadCube, loadDaily, loadManifest } from "./dataset.js";
+import { createRiskLayer } from "./riskmap.js";
+import { initRectDraw } from "./rectdraw.js";
+import { initDateBar } from "./datebar.js";
+import { boxCells, cellsMean } from "./stats.js";
+import { dayReport, highDaySeries, longReport, monthSeries, toCsv } from "./area.js";
+import { createStatsPanel } from "./statspanel.js";
+import { openMethods } from "./methods.js";
+import { createSoumLayer, loadSoums } from "./soums.js";
+import { el } from "./dom.js";
 
 const $ = (id) => document.getElementById(id);
 const store = {
@@ -12,364 +23,360 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, v); } catch { /* private mode: ignore */ } },
 };
 
+const HAZARDS = ["all", "flood", "fire", "dust"];
+const FIRST_IMAGERY = "2000-02-24"; // first MODIS Terra day
+
 const state = {
-  lang: store.get("hw.lang") || "mn",
-  hazard: "all",
-  data: null,            // { points: {id: result}, generated_at, now_local, source, stale }
-  selected: null,
-  satDate: utcDate(-1),
-  sat: {},               // key -> { on, status, res, layer }
-  markers: new Map(),
-  fires: null,
-  view: "aimag",
-  tools: null,
+  lang: store.get("hw.lang") || "mn", hazard: "all", mode: "zones",
+  manifest: null, date: utcDate(-1), day: null, dayMissing: false,
+  sel: null, selToken: 0, dayToken: 0, soums: null, soumQuery: "", sat: {},
 };
 
-const t = (k) => (T[state.lang] && T[state.lang][k]) ?? T.mn[k] ?? k;
-const pName = (p) => (state.lang === "mn" ? p.mn : p.en);
-const fmt = (v, d = 1) => (typeof v === "number" && Number.isFinite(v) ? v.toFixed(d) : "—");
+const t = (k) => U[state.lang][k] ?? U.mn[k] ?? k;
+const layerName = (k) => (T[state.lang] && T[state.lang][k]) ?? T.mn[k] ?? k;
+const classOf = (v) => CLASSES.find((c) => v < c.max) ?? null;
+const classLabel = (key) => t("class_" + key);
+const dms = (v, pos, neg) => { const a = Math.abs(v), d = Math.floor(a), m = Math.floor((a - d) * 60); return `${d}° ${String(m).padStart(2, "0")}′ ${v >= 0 ? pos : neg}`; };
 
-function el(tag, attrs = {}, ...kids) {
-  const n = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs)) {
-    if (k === "class") n.className = v;
-    else if (k === "text") n.textContent = v;
-    else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
-    else if (v !== false && v != null) n.setAttribute(k, v === true ? "" : v);
-  }
-  for (const c of kids.flat()) if (c != null) n.append(c.nodeType ? c : document.createTextNode(String(c)));
-  return n;
-}
+function notice(text) { const n = $("notice"); n.hidden = !text; n.textContent = text ?? ""; }
 
-/* ------------------------------------------------------------------ data */
-async function getJson(url) {
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
-  return res.json();
-}
-
-async function liveCompute() {
-  const cached = store.get("hw.live.v1");
-  if (cached) {
-    try {
-      const c = JSON.parse(cached);
-      if ((Date.now() - Date.parse(c.generated_at)) / 60000 < 90) return { ...c, source: "cache" };
-    } catch { /* ignore corrupt cache */ }
-  }
-  let thresholds = {};
-  try { thresholds = (await getJson("data/flood_thresholds.json")).points || {}; } catch { /* optional */ }
-  const { raw, errors, fetched_at } = await fetchAll(POINTS);
-  const now_local = nowLocalString();
-  const points = {};
-  for (const r of raw) points[r.id] = computePoint({ ...r, thresholds: thresholds[r.id] || null }, now_local);
-  if (!Object.values(points).some((p) => p.overall)) throw new Error("no point produced a score: " + JSON.stringify(errors));
-  const out = { generated_at: fetched_at, now_local, points, errors };
-  store.set("hw.live.v1", JSON.stringify(out));
-  return { ...out, source: "live" };
-}
-
-async function loadData() {
-  let latest = null;
-  try { latest = await getJson("data/latest.json"); } catch { /* not built yet */ }
-  const ageH = latest ? (Date.now() - Date.parse(latest.generated_at)) / 3.6e6 : Infinity;
-  if (latest && ageH <= 6) return { ...latest, source: "prebuilt" };
-  try { return await liveCompute(); }
-  catch (e) {
-    if (latest) return { ...latest, source: "prebuilt", stale: true };
-    throw e;
-  }
-}
-
-/* --------------------------------------------------------------- scoring */
-const scoreOf = (id, hazard) => {
-  const r = state.data?.points?.[id];
-  if (!r) return null;
-  const s = hazard === "all" ? r.overall?.score : r[hazard]?.score;
-  return typeof s === "number" ? s : null;
-};
-const colorOf = (s) => classOf(s)?.color || "#6b7785";
-const classLabel = (s) => (classOf(s) ? t("class_" + classOf(s).key) : t("no_data"));
-
-/* ------------------------------------------------------------------- UI */
+/* ---------------------------------------------------------------- menus */
 function renderStatic() {
-  document.documentElement.lang = state.lang === "mn" ? "mn" : "en";
+  document.documentElement.lang = state.lang;
   $("t-title").textContent = t("title");
   $("t-subtitle").textContent = t("subtitle");
-  $("btn-lang").textContent = t("lang");
-  $("btn-methods").textContent = t("methods");
-  $("btn-close").textContent = t("close");
-  $("t-ranking").textContent = t("ranking");
-  $("note").textContent = t("live_note");
-  $("t-sat").textContent = t("sat_title");
-  $("t-sat-date").textContent = t("sat_date");
-  $("btn-yesterday").textContent = t("sat_yesterday");
-  $("btn-today").textContent = t("sat_today");
-  $("t-sat-base").textContent = t("sat_base");
-  $("t-sat-overlay").textContent = t("sat_overlay");
-  $("t-fires").textContent = t("fires_detected");
-  $("t-sat-note").textContent = t("sat_note");
-  $("footer").textContent = t("footer");
-  $("methods-body").innerHTML = t("methods_html"); // trusted static strings from i18n.js
+  $("t-hazards").textContent = t("hazards");
+  $("t-view").textContent = t("view");
+  $("t-sat").textContent = t("satellites");
+  $("t-sat-base").textContent = t("base");
+  $("t-sat-overlay").textContent = t("overlays");
+  $("t-mine").textContent = t("mine");
+  $("t-footer").textContent = t("footer");
+  $("soum-q").placeholder = t("soum_search");
+  $("hint").textContent = t("hint");
+  if (state.manifest?.synthetic) { $("test-flag").hidden = false; $("test-flag").textContent = t("synthetic"); }
 }
 
-/** Sub-sections: every hazard has the province ranking and the polygon tool; the mine plume belongs to dust storms. */
-const viewsFor = (hz) => (hz === "dust" ? ["aimag", "mine", "poly"] : ["aimag", "poly"]);
-
-function renderViews() {
-  if (!viewsFor(state.hazard).includes(state.view)) state.view = "aimag";
-  $("views").replaceChildren(...viewsFor(state.hazard).map((v) =>
-    el("button", { class: "tab", role: "tab", "aria-selected": String(state.view === v), text: t("nav_" + v), onclick: () => setView(v) })));
-  for (const v of ["aimag", "poly", "mine"]) $("view-" + v).hidden = state.view !== v;
-}
-
-function setHazard(h) {
-  state.hazard = h;
-  if (!viewsFor(h).includes(state.view)) { state.view = "aimag"; if (state.tools) state.tools.setView("aimag"); }
-  if (state.tools) state.tools.setHazard(h);
-  renderAll();
-}
-
-function setView(v) {
-  state.view = v;
-  renderViews(); renderMarkers();
-  if (state.tools) state.tools.setView(v);
-}
-
-function renderTabs() {
-  const tabs = $("tabs");
-  tabs.replaceChildren(...["all", "flood", "fire", "dust"].map((h) =>
-    el("button", { class: "tab", role: "tab", "aria-selected": String(state.hazard === h), text: t("hazard_" + h), onclick: () => setHazard(h) })));
+function renderMenus() {
+  $("hazards").replaceChildren(...HAZARDS.map((h) => el("div", { class: "item" + (state.hazard === h ? " on" : "") },
+    el("button", { class: "pick", type: "button", "aria-pressed": String(state.hazard === h), text: t(h), onclick: () => setHazard(h) }),
+    el("button", { class: "info", type: "button", title: `${t(h)}: ${t("method_of")}`, "aria-label": `${t(h)}: ${t("method_of")}`, text: "i", onclick: () => showMethods(h) }))));
+  $("modes").replaceChildren(...["zones", "soums"].map((m) => el("div", { class: "item" + (state.mode === m ? " on" : "") },
+    el("button", { class: "pick", type: "button", "aria-pressed": String(state.mode === m), text: t("mode_" + m), onclick: () => setMode(m) }))));
 }
 
 function renderLegend() {
-  $("legend").replaceChildren(
-    ...CLASSES.map((c) => el("span", {}, el("i", { style: `background:${c.color}` }), t("class_" + c.key))),
-    el("span", {}, el("i", { style: "background:#6b7785" }), t("no_data")));
+  $("legend").replaceChildren(...CLASSES.map((c) => el("span", { style: `background:${c.color};color:${c.ink}`, text: classLabel(c.key) })));
 }
 
-function renderStatus() {
-  const d = state.data;
-  const chip = $("status");
-  if (!d) { chip.textContent = t("loading"); chip.className = "chip"; return; }
-  chip.textContent = `${t("updated")}: ${d.now_local.replace("T", " ")} ${t("local_time")}`;
-  chip.className = "chip " + (d.stale ? "warn" : "ok");
-  const b = $("banner");
-  if (d.stale) { b.hidden = false; b.className = "banner"; b.textContent = t("stale"); } else b.hidden = true;
+const ICON = {
+  draw: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="6.5" width="15" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2.4"/></svg>',
+  move: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  home: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+  menu: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+};
+
+function renderRail() {
+  const button = (html, label, on, extra = "") => {
+    const b = el("button", { class: "rbtn " + extra, type: "button", title: label, "aria-label": label, onclick: on });
+    b.innerHTML = html;
+    return b;
+  };
+  const draw = state.rect.mode === "draw";
+  $("rail").replaceChildren(
+    button(ICON.menu, t("rail_menu"), () => $("side").classList.toggle("open"), "side-toggle"),
+    button(draw ? ICON.draw : ICON.move, t(draw ? "rail_draw" : "rail_move"), () => { state.rect.toggle(); renderRail(); }, draw ? "on" : ""),
+    button("i", t("rail_method"), () => showMethods(state.hazard)),
+    button(ICON.home, t("rail_home"), fitMongolia),
+    button(t("lang"), t("lang"), () => { state.lang = state.lang === "mn" ? "en" : "mn"; store.set("hw.lang", state.lang); renderAllText(); }));
 }
 
-function renderRanking() {
-  const rows = POINTS.map((p) => ({ p, s: scoreOf(p.id, state.hazard) }))
-    .sort((a, b) => (b.s ?? -1) - (a.s ?? -1));
-  $("ranking").replaceChildren(...rows.map(({ p, s }, i) => {
-    const li = el("li", { tabindex: "0", "aria-current": String(state.selected === p.id), onclick: () => select(p.id), onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(p.id); } } },
-      el("span", { class: "rank", text: String(i + 1) }),
-      el("span", { class: "name" }, pName(p), el("small", { text: `${classLabel(s)} · ${p.centre_mn}` }),
-        el("span", { class: "bar" }, el("b", { style: `width:${s ?? 0}%;background:${colorOf(s)}` }))),
-      el("span", { class: "val", text: s === null ? "—" : String(Math.round(s)) }));
-    return li;
-  }));
+function renderAllText() {
+  renderStatic(); renderMenus(); renderLegend(); renderRail(); renderSat(); renderSoumList();
+  state.dateBar?.relabel();
+  state.tools?.relabel();
+  renderSelection();
+  updateNotice();
 }
 
-function renderMarkers() {
-  for (const m of state.markers.values()) m.remove();
-  state.markers.clear();
-  if (!state.map || state.view !== "aimag") return;
-  for (const p of POINTS) {
-    const s = scoreOf(p.id, state.hazard);
-    const m = L.circleMarker([p.lat, p.lon], { radius: p.id === state.selected ? 13 : 10, color: p.id === state.selected ? "#ffffff" : "#101820", weight: p.id === state.selected ? 3 : 1.5, fillColor: colorOf(s), fillOpacity: 0.92 })
-      .bindTooltip(`${pName(p)}: ${s === null ? t("no_data") : Math.round(s) + " · " + classLabel(s)}`)
-      .on("click", () => select(p.id))
-      .addTo(state.map);
-    state.markers.set(p.id, m);
-  }
-}
+const showMethods = (h) => openMethods($("dlg"), h, { lang: state.lang, t, manifest: state.manifest });
 
-function sparkline(series) {
-  const bars = series.map((d) => {
-    const h = d.fwi === null || d.fwi === undefined ? 2 : Math.max(2, Math.min(d.fwi, 50) / 50 * 44);
-    const col = d.fwi === null || d.fwi === undefined ? "#6b7785" : colorOf(d.snowCovered ? 0 : d.score);
-    return el("b", { style: `height:${h}px;background:${col}`, title: `${d.date}: FWI ${fmt(d.fwi)}${d.snowCovered ? " ❄" : ""}` });
-  });
-  return el("div", {}, el("div", { class: "spark" }, bars), el("div", { class: "spark-axis" }, el("span", { text: series[0]?.date.slice(5) ?? "" }), el("span", { text: series[series.length - 1]?.date.slice(5) ?? "" })));
-}
-
-function row(label, value) { return el("tr", {}, el("td", { text: label }), el("td", { text: value })); }
-
-function detailBlocks(r, hazard) {
-  const rows = [];
-  if (hazard === "fire" && r.fire) {
-    const f = r.fire;
-    rows.push(row(t("d_fwi_today"), fmt(f.fwiToday)), row(t("d_fwi_max"), fmt(f.fwiMax)));
-    if (f.today) rows.push(row(t("d_codes"), `${fmt(f.today.ffmc)} / ${fmt(f.today.dmc)} / ${fmt(f.today.dc, 0)}`), row(t("d_isi_bui"), `${fmt(f.today.isi)} / ${fmt(f.today.bui)}`));
-  } else if (hazard === "dust" && r.dust) {
-    const d = r.dust;
-    rows.push(row(t("d_wind_max"), d.windMax == null ? "—" : `${fmt(d.windMax)} m/s`), row(t("d_potential"), d.potential == null ? "—" : fmt(d.potential, 0)),
-      row(t("d_cams"), d.dustMax == null ? "—" : `${fmt(d.dustMax, 0)} µg/m³`), row(t("d_cams_now"), d.dustNow == null ? "—" : `${fmt(d.dustNow, 0)} µg/m³`),
-      row(t("d_cams_score"), d.camsScore == null ? "—" : fmt(d.camsScore, 0)), row(t("d_pm10"), d.pm10Max == null ? "—" : `${fmt(d.pm10Max, 0)} µg/m³`), row(t("d_aod"), fmt(d.aodMax, 2)));
-    if (d.gated?.hours) rows.push(row(t("d_gate"), `${d.gated.snow + d.gated.wet} / ${d.gated.hours}`));
-  } else if (hazard === "flood" && r.flood) {
-    const f = r.flood;
-    rows.push(row(t("d_r1"), f.R1 == null ? "—" : `${fmt(f.R1)} mm/h`), row(t("d_r24"), f.R24 == null ? "—" : `${fmt(f.R24, 0)} mm`), row(t("d_rain_score"), f.rainScore == null ? "—" : fmt(f.rainScore, 0)),
-      row(t("d_q_now"), f.Qnow == null ? "—" : `${fmt(f.Qnow)} m³/s`), row(t("d_q_max"), f.Qmax == null ? "—" : `${fmt(f.Qmax)} m³/s`), row(t("d_q_med"), f.Qmedian == null ? "—" : `${fmt(f.Qmedian)} m³/s`));
-    if (f.rise != null) rows.push(row(t("d_rise"), `×${fmt(f.rise, 1)}`));
-    rows.push(row(t("d_q_score"), f.dischargeScore == null ? "—" : fmt(f.dischargeScore, 0)));
-    if (f.method) rows.push(row(t("d_method"), t("m_" + f.method)));
-  }
-  return rows;
-}
-
-function renderDetail() {
-  const box = $("detail");
-  const p = POINTS.find((x) => x.id === state.selected);
-  const r = p && state.data?.points?.[p.id];
-  if (!p || !r) { box.hidden = true; return; }
-  box.hidden = false;
-  const hz = state.hazard === "all" ? (r.overall?.hazard ?? "fire") : state.hazard;
-  const s = scoreOf(p.id, state.hazard);
-  const flags = (r[hz]?.flags || []).map((f) => el("li", { text: t("f_" + f) }));
-  const hzInfo = r[hz];
-  box.replaceChildren(...[
-    el("h3", { text: `${pName(p)} · ${t("hazard_" + hz)}` }),
-    el("span", { class: "cls", style: `background:${colorOf(hzInfo?.score ?? null)}`, text: `${hzInfo?.score == null ? t("no_data") : Math.round(hzInfo.score) + " · " + classLabel(hzInfo.score)}` }),
-    state.hazard === "all" && r.overall ? el("p", { class: "note", text: `${t("score")}: ${Math.round(s)} (${t("hazard_" + r.overall.hazard)})` }) : null,
-    el("h4", { text: t("why") }),
-    el("table", {}, ...detailBlocks(r, hz)),
-    hz === "fire" && r.fire?.series?.length ? sparkline(r.fire.series) : null,
-    flags.length ? el("ul", { class: "flags" }, ...flags) : null].filter(Boolean));
-}
-
-function select(id) {
-  state.selected = id;
-  const p = POINTS.find((x) => x.id === id);
-  if (p && state.map) state.map.panTo([p.lat, p.lon], { animate: true });
-  renderRanking(); renderMarkers(); renderDetail();
-}
-
-function renderAll() { renderStatic(); renderLabels(); renderViews(); renderTabs(); renderLegend(); renderStatus(); renderRanking(); renderMarkers(); renderDetail(); renderSat(); if (state.tools) state.tools.relabel(); }
-
-/* ------------------------------------------------------------- satellite */
+/* ------------------------------------------------------------ satellite */
 function initSatState() {
-  for (const l of GIBS.layers) state.sat[l.key] = { on: l.key === "truecolor_terra" || l.key === "fire_viirs", layer: null, date: null };
+  for (const l of GIBS.layers) state.sat[l.key] = { on: l.key === "truecolor_terra", layer: null, date: null };
 }
 
 function applySat(key) {
   const def = GIBS.layers.find((l) => l.key === key), st = state.sat[key];
-  if (!state.map) return;
-  if (!st.on) { if (st.layer) st.layer.remove(); renderSat(); return; }
-  if (!st.layer || st.date !== state.satDate) {
-    if (st.layer) st.layer.remove();
-    st.layer = makeLayer(L, def, state.satDate);
-    st.date = state.satDate;
+  if (!st.on) { st.layer?.remove(); return; }
+  if (!st.layer || st.date !== state.date) {
+    st.layer?.remove();
+    st.layer = makeLayer(window.L, def, state.date);
+    st.date = state.date;
   }
   if (!state.map.hasLayer(st.layer)) st.layer.addTo(state.map);
-  renderSat();
 }
 
 function setBase(key) {
   for (const l of GIBS.layers.filter((x) => x.kind === "base")) {
-    const st = state.sat[l.key];
-    const want = l.key === key;
-    if (want !== st.on) { st.on = want; if (!want && st.layer) st.layer.remove(); }
+    const st = state.sat[l.key], want = l.key === key;
+    if (want !== st.on) { st.on = want; if (!want) st.layer?.remove(); }
   }
   applySat(key);
 }
 
 function renderSat() {
   const mk = (l) => {
-    const st = state.sat[l.key];
-    const isBase = l.kind === "base";
-    const input = el("input", { type: isBase ? "radio" : "checkbox", name: isBase ? "base" : null, checked: st.on,       onchange: (e) => { if (isBase) setBase(l.key); else { st.on = e.target.checked; applySat(l.key); } } });
-    const info = `${l.sensor} · ${l.res}`;
-    return el("label", { class: "check", "data-state": "on" }, input, el("span", {}, t("layer_" + l.key), el("small", { text: info })));
+    const st = state.sat[l.key], base = l.kind === "base";
+    const input = el("input", { type: base ? "radio" : "checkbox", name: base ? "base" : null, checked: st.on, onchange: (e) => { if (base) setBase(l.key); else { st.on = e.target.checked; applySat(l.key); } } });
+    return el("label", { class: "check" }, input, el("span", {}, layerName("layer_" + l.key), el("small", { text: `${l.sensor} · ${l.res}` })));
   };
   $("sat-base").replaceChildren(...GIBS.layers.filter((l) => l.kind === "base").map(mk));
   $("sat-overlay").replaceChildren(...GIBS.layers.filter((l) => l.kind === "overlay").map(mk));
-  $("sat-date").value = state.satDate;
-  $("sat-date").max = utcDate(0);
 }
 
-/** Used by the tools panel: set the imagery date and/or switch one overlay. */
+/** Used by the mine tool: set the imagery date and/or switch one overlay. */
 function requestSat({ key, on, date }) {
-  if (date) { const d = date > utcDate(0) ? utcDate(0) : date; if (d !== state.satDate) setSatDate(d); }
-  if (key && state.sat[key] && typeof on === "boolean" && state.sat[key].on !== on) { state.sat[key].on = on; applySat(key); }
+  // One date for the whole screen: the picker, the zones and the imagery must never show different days.
+  if (date && date !== state.date) { state.dateBar.setValue(date); setDate(state.dateBar.value); }
+  if (key && state.sat[key] && typeof on === "boolean" && state.sat[key].on !== on) { state.sat[key].on = on; applySat(key); renderSat(); }
+}
+const syncSat = () => { for (const l of GIBS.layers) if (state.sat[l.key].on) applySat(l.key); };
+
+/* ------------------------------------------------------------ risk layer */
+const frameNow = () => state.day?.[state.hazard] ?? null;
+const uFrameNow = () => state.day?.["u_" + state.hazard] ?? null;
+
+function paint() {
+  if (state.risk) {
+    state.risk.setFrame(state.mode === "zones" ? frameNow() : null, uFrameNow());
+  }
+  paintSoums();
 }
 
-function setSatDate(d) {
-  state.satDate = d;
-  $("sat-date").value = d;
-  for (const l of GIBS.layers) if (state.sat[l.key].on) applySat(l.key);
+function updateNotice() {
+  if (!state.manifest) return notice(t("no_manifest"));
+  if (state.dayMissing) return notice(t("no_day").replace("{d}", state.date));
+  if (state.loadError) return notice(t("load_error") + state.loadError);
+  notice(null);
 }
 
-/* ----------------------------------------------------------------- fires */
-async function loadFires() {
+async function setDate(d) {
+  state.date = d;
+  syncSat();
+  if (!state.manifest) return;
+  const my = ++state.dayToken;
+  let day = null;
+  state.loadError = null;
+  try { day = await loadDaily(state.manifest, d); }
+  catch (e) { console.error(e); state.loadError = e.message; }
+  if (my !== state.dayToken) return;
+  state.day = day;
+  state.dayMissing = !day && !state.loadError;
+  updateNotice();
+  paint();
+  renderSelection();
+}
+
+function setHazard(h) {
+  state.hazard = h;
+  renderMenus();
+  paint();
+  if (state.sel) loadSelection();
+  state.tools?.setHazard(h === "all" ? "all" : h);
+}
+
+function setMode(m) {
+  state.mode = m;
+  $("soum-box").hidden = m !== "soums";
+  renderMenus();
+  state.soumLayer?.show(m === "soums");
+  paint();
+  renderSoumList();
+}
+
+/* ----------------------------------------------------------------- soums */
+/** Soum with its aimag: 44 soum names occur in more than one aimag. */
+function soumLabel(f) {
+  const n = f.names[state.lang], a = f.aimags[state.lang];
+  return a ? `${n} (${a})` : n;
+}
+
+function soumScore(f) {
+  const fr = frameNow();
+  return fr ? cellsMean(fr, f.cells, decode)?.mean ?? null : null;
+}
+
+function paintSoums() {
+  if (state.mode === "soums") state.soumLayer?.setScores(soumScore);
+  renderSoumList();
+}
+
+function renderSoumList() {
+  const box = $("soum-list");
+  if (state.mode !== "soums") return;
+  if (!state.soums) { box.replaceChildren(el("li", { class: "empty", text: t("soum_none") })); return; }
+  const q = state.soumQuery.trim().toLowerCase();
+  const rows = state.soums.features.filter((f) => !q || `${f.names.mn} ${f.aimags.mn} ${f.names.en} ${f.aimags.en}`.toLowerCase().includes(q))
+    .map((f) => ({ f, s: state.soumLayer.score(f) ?? null })).sort((a, b) => (b.s ?? -1) - (a.s ?? -1)).slice(0, 120);
+  if (!rows.length) { box.replaceChildren(el("li", { class: "empty", text: t("no_match") })); return; }
+  box.replaceChildren(...rows.map(({ f, s }) => el("li", {},
+    el("button", { type: "button", class: state.sel?.soum === f.id ? "on" : "", onclick: () => pickSoum(f, true) },
+      el("i", { style: `background:${s === null ? "#555" : classOf(s).color}` }), el("span", { text: soumLabel(f) }), el("b", { text: s === null ? "—" : String(Math.round(s)) })))));
+}
+
+function pickSoum(f, fly) {
+  state.rect.clear();
+  state.sel = { kind: t("mode_soums"), label: soumLabel(f), cells: f.cells, soum: f.id };
+  state.soumLayer.pick(f.id);
+  if (fly) state.map.fitBounds(state.soumLayer.bounds(f), { maxZoom: 9, paddingBottomRight: [420, 100] });
+  renderSoumList();
+  loadSelection();
+}
+
+/* ------------------------------------------------------------- selection */
+async function loadSelection() {
+  const my = ++state.selToken, s = state.sel, m = state.manifest;
+  s.long = null; s.months = null; s.high = null; s.longError = false;
+  renderSelection();
+  if (!m || !s.cells.length) return;
   try {
-    const f = await getJson("data/fires.json");
-    state.fires = L.layerGroup();
-    for (const d of f.detections) {
-      L.circleMarker([d.lat, d.lon], { radius: 3.5, color: "#fff4", weight: 0.5, fillColor: "#ff5a1f", fillOpacity: 0.9 })
-        .bindTooltip(`${d.date} ${d.time ?? ""} · ${d.src} · FRP ${d.frp ?? "—"} MW · ${d.conf ?? ""}`).addTo(state.fires);
-    }
-    if ($("chk-fires").checked) state.fires.addTo(state.map);
-    $("chk-fires").parentElement.hidden = false;
-  } catch { $("chk-fires").parentElement.hidden = true; }
+    const name = state.hazard;
+    const [mc, hc] = await Promise.all([loadCube(m, "monthly_" + name), loadCube(m, "highdays_" + name)]);
+    if (my !== state.selToken) return;
+    s.months = monthSeries(mc, m.first_month, s.cells);
+    s.high = highDaySeries(hc, m.first_month, s.cells);
+    s.long = longReport({ months: s.months, high: s.high });
+  } catch (e) {
+    console.error(e);
+    if (my !== state.selToken) return;
+    s.longError = true;
+  }
+  renderSelection();
+}
+
+function renderSelection() {
+  const s = state.sel;
+  if (!s) return;
+  const m = state.manifest, fr = frameNow();
+  const day = fr ? dayReport({ frame: fr, uframe: uFrameNow(), cells: s.cells, grid: m.grid, classes: CLASSES, uModel: m.uncertainty?.[state.hazard]?.u_model }) : null;
+  state.panel.render({
+    kind: s.kind, label: s.label, hazard: state.hazard, hazardLabel: t(state.hazard), date: state.date,
+    day, dayMissing: !fr, long: s.long, months: s.months, longError: s.longError || !m, verification: m?.verification?.[state.hazard],
+  });
+}
+
+function onBox(box) {
+  state.soumLayer?.pick(null);
+  if (!state.manifest) return;
+  state.sel = { kind: t("box_label"), label: `${box.s.toFixed(2)}–${box.n.toFixed(2)}°N · ${box.w.toFixed(2)}–${box.e.toFixed(2)}°E`, cells: boxCells(state.manifest.grid, box) };
+  loadSelection();
+}
+
+function closeSelection() {
+  state.sel = null;
+  state.selToken++;
+  state.rect.clear();
+  state.soumLayer?.pick(null);
+  state.panel.close();
+  renderSoumList();
+}
+
+/** Wind arrows and the dust plume for the selected area, released from its centre on the selected day. */
+function showPlume() {
+  const s = state.sel, g = state.manifest?.grid;
+  if (!s?.cells.length) return;
+  const rows = s.cells.map((c) => c.r), cols = s.cells.map((c) => c.c);
+  const r0 = Math.min(...rows), r1 = Math.max(...rows), c0 = Math.min(...cols), c1 = Math.max(...cols);
+  const lat = g.north - ((r0 + r1 + 1) / 2) * g.dy, lon = g.west + ((c0 + c1 + 1) / 2) * g.dx;
+  const halfKm = Math.max((r1 - r0 + 1) * g.dy * 111.32, (c1 - c0 + 1) * g.dx * 111.32 * Math.cos(lat * Math.PI / 180)) / 2;
+  $("side").classList.add("open");
+  $("mine-box").open = true;
+  return state.tools.plumeAt({
+    lat, lon, date: state.date, radius: [50, 100, 200].find((r) => r >= halfKm) ?? 200,
+    fit: { paddingTopLeft: [window.innerWidth > 1000 ? 360 : 10, 10], paddingBottomRight: [window.innerWidth > 720 ? 420 : 10, 110] },
+  });
+}
+
+function downloadCsv() {
+  const s = state.sel;
+  if (!s?.long) return;
+  const blob = new Blob(["﻿" + toCsv({ label: s.label, hazard: state.hazard, months: s.months, years: s.long.years, high: s.long.high })], { type: "text/csv;charset=utf-8" });
+  const a = el("a", { href: URL.createObjectURL(blob), download: `risk_${state.hazard}.csv` });
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 /* ------------------------------------------------------------------ boot */
-function initMap() {
+function fitMongolia() {
   const [s, w, n, e] = MONGOLIA_BBOX;
-  state.map = L.map("map", { minZoom: 4, maxBounds: [[35, 75], [58, 135]], zoomSnap: 0.25 });
-  state.map.fitBounds([[s, w], [n, e]]);
+  // Keep the country clear of the menu on the left and the day picker below.
+  const wide = window.innerWidth > 1000;
+  state.map.fitBounds([[s, w], [n, e]], { paddingTopLeft: [wide ? 270 : 10, 20], paddingBottomRight: [wide ? 70 : 10, 110] });
+}
+
+function initMap() {
+  state.map = window.L.map("map", { minZoom: 4, maxBounds: [[30, 65], [62, 145]], zoomSnap: 0.25, zoomControl: false });
+  fitMongolia();
   state.map.attributionControl.setPrefix(false);
-  state.map.on("zoomend", () => { if (!state.labels) return; if (state.map.getZoom() >= 6) state.labels.addTo(state.map); else state.labels.remove(); });
+  state.map.on("mousemove", (e) => {
+    const p = state.risk?.sample(e.latlng.lat, e.latlng.lng);
+    const pos = `${dms(e.latlng.lat, "N", "S")}  ${dms(e.latlng.lng, "E", "W")}`;
+    $("coords").textContent = p ? `${pos} · ${t("score_at")} ${Math.round(p.score)}${p.u === null ? "" : ` ±${Math.round(2 * p.u)}`}` : pos;
+  });
+  let hintDone = false;
+  state.map.on("mousedown zoomstart", () => { if (!hintDone) { hintDone = true; $("hint").classList.add("gone"); } });
 }
 
 async function loadOutline() {
   try {
-    const gj = await getJson("data/mongolia.geojson");
-    L.geoJSON(gj, { style: { color: "#ffffff", weight: 1.6, opacity: 0.85, fill: false, dashArray: "5 4" }, interactive: false }).addTo(state.map);
-  } catch { /* outline is cosmetic */ }
-}
-
-function renderLabels() {
-  if (!state.map) return;
-  if (state.labels) state.labels.remove();
-  state.labels = L.layerGroup(POINTS.map((p) => L.marker([p.lat, p.lon], { interactive: false, icon: L.divIcon({ className: "lbl", html: pName(p), iconSize: [0, 0], iconAnchor: [-12, 6] }) })));
-  if (state.map.getZoom() >= 6) state.labels.addTo(state.map);
+    const res = await fetch("data/mongolia.geojson");
+    if (!res.ok) return null;
+    const gj = await res.json();
+    window.L.geoJSON(gj, { style: { color: "#ffffff", weight: 1.4, opacity: 0.8, fill: false }, interactive: false }).addTo(state.map);
+    return gj;
+  } catch { return null; }
 }
 
 function wire() {
-  $("btn-lang").onclick = () => { state.lang = state.lang === "mn" ? "en" : "mn"; store.set("hw.lang", state.lang); renderAll(); };
-  $("btn-methods").onclick = () => $("dlg-methods").showModal();
-  $("btn-close").onclick = () => $("dlg-methods").close();
-  $("sat-date").onchange = (e) => { if (e.target.value) setSatDate(e.target.value); };
-  $("btn-yesterday").onclick = () => setSatDate(utcDate(-1));
-  $("btn-today").onclick = () => setSatDate(utcDate(0));
-  $("chk-fires").onchange = (e) => { if (!state.fires) return; e.target.checked ? state.fires.addTo(state.map) : state.fires.remove(); };
+  $("soum-q").addEventListener("input", (e) => { state.soumQuery = e.target.value; renderSoumList(); });
+  $("mine-box").addEventListener("toggle", (e) => state.tools?.setView(e.target.open ? "mine" : "aimag"));
 }
 
 async function boot() {
   initSatState();
-  renderAll();
+  renderStatic();
   initMap();
-  state.tools = initTools({ map: state.map, getLang: () => state.lang, requestSat, containers: { poly: $("view-poly"), mine: $("view-mine") } });
+  state.rect = initRectDraw(state.map, { onDone: onBox, isBlocked: () => $("dlg").open });
+  state.panel = createStatsPanel($("stats"), { t, classes: CLASSES, classLabel, onClose: closeSelection, onMethods: showMethods, onCsv: downloadCsv, onPlume: showPlume });
+  state.tools = initTools({ map: state.map, getLang: () => state.lang, requestSat, containers: { poly: el("div"), mine: $("view-mine") } });
+  state.dateBar = initDateBar($("datebar"), { onChange: setDate, text: t, monthName: (m) => t("months")[m - 1] });
+  renderMenus(); renderLegend(); renderRail(); renderSat();
   wire();
-  renderMarkers();
-  renderLabels();
-  loadOutline();
-  for (const l of GIBS.layers) if (state.sat[l.key].on) applySat(l.key);
-  loadFires();
-  try {
-    state.data = await loadData();
-  } catch (e) {
-    console.error(e);
-    const b = $("banner");
-    b.hidden = false; b.className = "banner error"; b.textContent = t("load_failed");
-    $("status").textContent = t("no_data");
-    return;
+  syncSat();
+  const outline = await loadOutline();
+
+  try { state.manifest = await loadManifest(); }
+  catch (e) { console.error(e); state.loadError = e.message; }
+  renderStatic();
+
+  const m = state.manifest;
+  state.dateBar.setRange(m ? m.first_date : FIRST_IMAGERY, m ? m.last_date : utcDate(0));
+  state.dateBar.setValue(m ? m.last_date : state.date);
+  state.date = state.dateBar.value;
+  if (m) {
+    state.risk = createRiskLayer(state.map, m.grid, CLASSES, outline);
+    try {
+      state.soums = await loadSoums(m.grid);
+      if (state.soums) state.soumLayer = createSoumLayer(state.map, state.soums, {
+        color: (s) => (s === null || s === undefined ? "#555" : classOf(s).color),
+        tip: (f, s) => `${soumLabel(f)}: ${s === null || s === undefined ? t("no_data") : `${Math.round(s)} · ${classLabel(classOf(s).key)}`}`,
+        onPick: (f) => pickSoum(f, false),
+      });
+    } catch (e) { console.error(e); }
   }
-  const first = [...POINTS].sort((a, b) => (scoreOf(b.id, "all") ?? -1) - (scoreOf(a.id, "all") ?? -1))[0];
-  state.selected = first ? first.id : null;
-  renderAll();
+  updateNotice();
+  await setDate(state.date);
 }
 
 boot();

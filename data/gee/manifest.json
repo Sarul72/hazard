@@ -1,0 +1,240 @@
+{
+ "version": 2,
+ "generated_at": "2026-11-05T17:19:07Z",
+ "grid": {
+  "west": 87.45,
+  "north": 52.35,
+  "dx": 0.1,
+  "dy": 0.1,
+  "nx": 326,
+  "ny": 109
+ },
+ "daily_bands": [
+  "fire",
+  "dust",
+  "flood"
+ ],
+ "first_date": "2001-01-01",
+ "last_date": "2026-11-04",
+ "bridge_from": "2026-10-30",
+ "first_month": "2001-01",
+ "uncertainty": {
+  "fire": {
+   "u_input": [
+    0.19,
+    0.5,
+    1.96,
+    2.0,
+    1.88,
+    1.92,
+    2.32,
+    2.82,
+    3.1,
+    3.2,
+    3.25,
+    3.31,
+    3.43,
+    3.56,
+    3.64,
+    3.85,
+    4.14,
+    4.39,
+    4.59,
+    4.66,
+    4.63,
+    4.52,
+    4.3,
+    3.96,
+    3.17,
+    2.08
+   ],
+   "u_model": 15.79
+  },
+  "dust": {
+   "u_input": [
+    0.0,
+    0.0,
+    0.51,
+    1.01,
+    1.52,
+    2.05,
+    2.21,
+    1.79,
+    2.5,
+    3.21,
+    4.07,
+    5.94,
+    9.13,
+    10.42,
+    10.76,
+    10.69,
+    10.32,
+    9.8,
+    8.98,
+    8.02,
+    6.69,
+    5.7,
+    4.79,
+    4.79,
+    4.79,
+    4.79
+   ],
+   "u_model": 10.46
+  },
+  "flood": {
+   "u_input": [
+    0.35,
+    0.63,
+    8.76,
+    13.56,
+    17.88,
+    21.24,
+    23.57,
+    24.83,
+    23.97,
+    20.97,
+    17.9,
+    15.69,
+    14.77,
+    14.48,
+    14.17,
+    13.76,
+    13.76,
+    13.76,
+    13.76,
+    13.76,
+    13.76,
+    13.76,
+    13.76,
+    13.76,
+    13.76,
+    13.76
+   ]
+  }
+ },
+ "verification": {
+  "fire": {
+   "reference": "MODIS FIRMS",
+   "n": 3284,
+   "auc": 0.9,
+   "auc_ci": [
+    0.88,
+    0.911
+   ],
+   "pod": 0.629,
+   "far": 0.999,
+   "csi": 0.001,
+   "brier": 6e-05,
+   "share_flagged": 0.0552,
+   "period": "2018-2025",
+   "auc_fwi_only": 0.668,
+   "auc_mce_only": 0.883
+  },
+  "dust": {
+   "reference": "Sentinel-5P TROPOMI AAI anomaly ≥ 1",
+   "n": 109219,
+   "auc": 0.687,
+   "auc_ci": [
+    0.623,
+    0.721
+   ],
+   "pod": 0.132,
+   "far": 0.898,
+   "csi": 0.061,
+   "brier": 0.02104,
+   "share_flagged": 0.0279,
+   "period": "2024-2026, 3-5 сар",
+   "auc_wind_only": 0.631
+  },
+  "flood": {
+   "reference": "Global Flood Database (MODIS)",
+   "period": "2001-2018",
+   "n": 12,
+   "auc": 0.685,
+   "events_hit": 5
+  }
+ },
+ "sources": {
+  "fire": [
+   {
+    "name": "ERA5-Land (ECMWF)",
+    "resolution": "0.1°",
+    "role": "FWI weather, snow"
+   },
+   {
+    "name": "MODIS FIRMS (Terra, Aqua)",
+    "resolution": "1 km",
+    "role": "Active fire"
+   },
+   {
+    "name": "MODIS MCD64A1",
+    "resolution": "500 m",
+    "role": "Burnt-area frequency"
+   },
+   {
+    "name": "MODIS MCD12Q1",
+    "resolution": "500 m",
+    "role": "Land cover"
+   },
+   {
+    "name": "MODIS MCD43A4",
+    "resolution": "500 m",
+    "role": "NDVI"
+   },
+   {
+    "name": "NOAA GFS",
+    "resolution": "0.25°",
+    "role": "Weather of the last days"
+   }
+  ],
+  "dust": [
+   {
+    "name": "ERA5-Land (ECMWF)",
+    "resolution": "0.1°",
+    "role": "Wind every 3 hours, soil water, snow"
+   },
+   {
+    "name": "Sentinel-5P TROPOMI",
+    "resolution": "≈5 km",
+    "role": "Absorbing aerosol index"
+   },
+   {
+    "name": "MODIS MCD43A4",
+    "resolution": "500 m",
+    "role": "Dry vegetation (STI), NDVI"
+   },
+   {
+    "name": "MODIS MCD12Q1",
+    "resolution": "500 m",
+    "role": "Bare ground"
+   },
+   {
+    "name": "NOAA GFS",
+    "resolution": "0.25°",
+    "role": "Wind of the last days"
+   }
+  ],
+  "flood": [
+   {
+    "name": "GPM IMERG V07",
+    "resolution": "0.1°",
+    "role": "Rain"
+   },
+   {
+    "name": "ERA5-Land (ECMWF)",
+    "resolution": "0.1°",
+    "role": "Snowmelt"
+   },
+   {
+    "name": "MERIT Hydro",
+    "resolution": "90 m",
+    "role": "Share of the cell near drainage"
+   },
+   {
+    "name": "Global Flood Database",
+    "resolution": "250 m",
+    "role": "Verification"
+   }
+  ]
+ }
+}

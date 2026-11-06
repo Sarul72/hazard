@@ -3,73 +3,54 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#0f1720">
+<meta name="theme-color" content="#0b0f13">
 <title>Монгол орны гамшгийн эрсдэлийн хяналт · Mongolia hazard watch</title>
-<meta name="description" content="Mongolia flood, wildfire and dust-storm hazard watch from open satellite and model data.">
+<meta name="description" content="Mongolia flood, wildfire and dust-storm risk zones from satellite data on Google Earth Engine.">
 <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
 <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
-<header class="top">
-  <div class="brand">
-    <h1 id="t-title">Монгол орны гамшгийн эрсдэлийн хяналт</h1>
-    <p id="t-subtitle">Үер · Түймэр · Шороон шуурга</p>
-  </div>
-  <div class="top-right">
-    <span id="status" class="chip" role="status" aria-live="polite"></span>
-    <button id="btn-methods" class="btn"></button>
-    <button id="btn-lang" class="btn" aria-label="Language"></button>
-  </div>
-</header>
+<div id="map" role="application" aria-label="Газрын зураг"></div>
 
-<div id="banner" class="banner" hidden></div>
-
-<main class="layout">
-  <section class="map-wrap" aria-label="Map">
-    <div id="map"></div>
-    <div id="legend" class="legend"></div>
+<aside id="side" class="side glass">
+  <header class="brand"><h1 id="t-title"></h1><p id="t-subtitle"></p></header>
+  <h2 id="t-hazards" class="cap"></h2>
+  <div id="hazards" class="menu"></div>
+  <h2 id="t-view" class="cap"></h2>
+  <div id="modes" class="menu"></div>
+  <section id="soum-box" class="soum-box" hidden>
+    <input id="soum-q" class="field" type="search" autocomplete="off">
+    <ol id="soum-list" class="soum-list"></ol>
   </section>
+  <details id="sat" class="fold"><summary id="t-sat"></summary>
+    <p id="t-sat-base" class="cap sub"></p><div id="sat-base"></div>
+    <p id="t-sat-overlay" class="cap sub"></p><div id="sat-overlay"></div>
+  </details>
+  <details id="mine-box" class="fold"><summary id="t-mine"></summary><div id="view-mine" class="tool"></div></details>
+  <p id="t-footer" class="foot"></p>
+</aside>
 
-  <aside class="panel">
-    <nav id="tabs" class="tabs" role="tablist"></nav>
-    <nav id="views" class="views" role="tablist"></nav>
-    <div id="view-aimag">
-      <p id="note" class="note"></p>
-      <h2 id="t-ranking" class="h2"></h2>
-      <ol id="ranking" class="ranking"></ol>
-      <section id="detail" class="detail" hidden></section>
-    </div>
-    <div id="view-poly" class="tool" hidden></div>
-    <div id="view-mine" class="tool" hidden></div>
+<nav id="rail" class="rail" aria-label="Хэрэгсэл"></nav>
+<section id="stats" class="stats" hidden></section>
 
-    <details id="sat" class="sat" open>
-      <summary id="t-sat"></summary>
-      <div class="sat-row">
-        <label for="sat-date" id="t-sat-date"></label>
-        <input id="sat-date" type="date">
-        <button id="btn-yesterday" class="btn small"></button>
-        <button id="btn-today" class="btn small"></button>
-      </div>
-      <fieldset class="sat-group"><legend id="t-sat-base"></legend><div id="sat-base"></div></fieldset>
-      <fieldset class="sat-group"><legend id="t-sat-overlay"></legend><div id="sat-overlay"></div></fieldset>
-      <label class="check"><input id="chk-fires" type="checkbox" checked> <span id="t-fires"></span></label>
-      <p id="t-sat-note" class="note"></p>
-    </details>
-  </aside>
-</main>
-
-<footer id="footer" class="foot"></footer>
-
-<dialog id="dlg-methods"><div id="methods-body"></div><button id="btn-close" class="btn"></button></dialog>
+<div class="bottom">
+  <div id="notice" class="notice" role="status" hidden></div>
+  <div id="datebar" class="datebar glass" role="group"></div>
+  <div id="legend" class="legendbar"></div>
+</div>
+<div id="coords" class="coords"></div>
+<div id="hint" class="hint"></div>
+<div id="test-flag" class="test-flag" hidden></div>
+<dialog id="dlg" class="dlg"></dialog>
 
 <script src="vendor/leaflet/leaflet.js"></script>
-<noscript><p class="banner error">JavaScript шаардлагатай. / JavaScript is required.</p></noscript>
+<noscript><p class="notice">JavaScript шаардлагатай. / JavaScript is required.</p></noscript>
 <script>
   // If the module graph fails to load (for example a temporary 503 from the host), reload once, then show a message.
   function bootFailed() {
     try { if (!sessionStorage.getItem("hw.reloaded")) { sessionStorage.setItem("hw.reloaded", "1"); location.reload(); return; } } catch (e) {}
-    var b = document.getElementById("banner");
-    b.hidden = false; b.className = "banner error";
+    var b = document.getElementById("notice");
+    b.hidden = false;
     b.textContent = "Хуудсыг ачаалж чадсангүй. Дахин оролдох: Ctrl+F5. / Could not load the page. Try Ctrl+F5.";
   }
 </script>
