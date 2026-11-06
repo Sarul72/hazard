@@ -1,6 +1,6 @@
 {
  "version": 2,
- "generated_at": "2026-11-05T17:19:07Z",
+ "generated_at": "2026-11-06T02:55:12Z",
  "grid": {
   "west": 87.45,
   "north": 52.35,
@@ -15,8 +15,8 @@
   "flood"
  ],
  "first_date": "2001-01-01",
- "last_date": "2026-11-04",
- "bridge_from": "2026-10-30",
+ "last_date": "2026-11-05",
+ "bridge_from": "2026-10-31",
  "first_month": "2001-01",
  "uncertainty": {
   "fire": {
