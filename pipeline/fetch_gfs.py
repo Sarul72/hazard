@@ -48,9 +48,11 @@ def fetch(job):
             break
         except ee.EEException as e:
             # The newest analyses arrive a few hours late: keep the days that exist instead of losing the whole chunk.
-            if "not found" not in str(e) or len(days) == 1:
+            if "not found" not in str(e):
                 raise
             days = days[:-1]
+            if not days:
+                return tag, 0.0
     arr = np.stack([np.stack([a[f"d{d:%Y%m%d}_{b}"] for b in BANDS]) for d in days], axis=1).astype(np.float16)
     np.save(path + ".tmp.npy", arr)
     os.replace(path + ".tmp.npy", path)
@@ -61,10 +63,13 @@ if __name__ == "__main__":
     C.init()
     os.makedirs(OUT, exist_ok=True)
     start, end = dt.date.fromisoformat(sys.argv[1]), dt.date.fromisoformat(sys.argv[2])
+    failed = 0
     with cf.ThreadPoolExecutor(2) as ex:
         for f in cf.as_completed([ex.submit(fetch, j) for j in chunks(start, end)]):
             try:
                 tag, sec = f.result()
                 print(tag, f"{sec:.0f}s", flush=True)
             except Exception as e:
+                failed += 1
                 print("FAILED", str(e)[:200], flush=True)
+    sys.exit(1 if failed else 0)

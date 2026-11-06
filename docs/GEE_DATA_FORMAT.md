@@ -17,6 +17,8 @@ keeps the cost independent of the number of visitors.
 Full rebuild: fetch everything, then `calibrate.py prep`, `fire`, `dust`, `flood`, `uinput`, then `build.py`.
 `tests/test_fwi_np.py` holds the FWI to the cffdrs reference values.
 
+The daily job writes to the branch `gee-data`, which holds one commit and is replaced on each run, so the repository does not grow. `pages.yml` publishes `data/gee` from that branch; the copy on `main` is only the starting point. A failed download, or data older than 3 days, fails the job, so GitHub reports it and the last good data stay online.
+
 ## Files in `data/gee/`
 
 | File | Content |

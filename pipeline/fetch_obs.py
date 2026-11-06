@@ -69,7 +69,12 @@ def veg_month(y, m):
     b = lambda i, n: i.select(f"Nadir_Reflectance_Band{n}").toFloat()
     ndvi = c.map(lambda i: b(i, 2).subtract(b(i, 1)).divide(b(i, 2).add(b(i, 1))).rename("ndvi")).median()
     sti = c.map(lambda i: b(i, 6).divide(b(i, 7)).rename("sti")).max()
-    a = C.pixels(ee.Image.cat(ndvi, sti).toFloat())
+    try:
+        a = C.pixels(ee.Image.cat(ndvi, sti).toFloat())
+    except ee.EEException as e:
+        if "no bands" in str(e):  # a month with no MCD43A4 yet is expected, not an error
+            return f"{y}{m:02d}", 0.0
+        raise
     arr = np.stack([a["ndvi"], a["sti"]]).astype(np.float16)
     np.save(path + ".tmp.npy", arr)
     os.replace(path + ".tmp.npy", path)
@@ -99,3 +104,4 @@ if __name__ == "__main__":
                 failed += 1
                 print("FAILED", str(e)[:200], flush=True)
     print(kind, "done, failed", failed, flush=True)
+    sys.exit(1 if failed else 0)

@@ -73,9 +73,11 @@ def fetch(job):
             break
         except ee.EEException as e:
             # The newest days are published hour by hour: keep the days that are complete, not nothing.
-            if "not found" not in str(e) or len(days) == 1:
+            if "not found" not in str(e):
                 raise
             days = days[:-1]
+            if not days:
+                return tag, 0.0
     arr = np.stack([units(a, d.strftime("%Y%m%d")) for d in days], axis=1).astype(np.float16)
     np.save(path + ".tmp.npy", arr)
     os.replace(path + ".tmp.npy", path)
@@ -87,7 +89,7 @@ if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     start, end = dt.date.fromisoformat(sys.argv[1]), dt.date.fromisoformat(sys.argv[2])
     jobs = sorted(chunks(start, end), key=lambda j: j[0], reverse=True)  # newest first: the site can start from them
-    t0, done = time.time(), 0
+    t0, done, failed = time.time(), 0, 0
     with cf.ThreadPoolExecutor(int(os.environ.get("THREADS", 6))) as ex:
         for f in cf.as_completed([ex.submit(fetch, j) for j in jobs]):
             try:
@@ -96,5 +98,7 @@ if __name__ == "__main__":
                 if done % 10 == 0 or done == len(jobs):
                     print(f"{done}/{len(jobs)} chunks, last {tag} {sec:.0f}s, {(time.time() - t0) / 60:.1f} min", flush=True)
             except Exception as e:
+                failed += 1
                 print("FAILED", str(e)[:200], flush=True)
-    print("done", flush=True)
+    print("done, failed", failed, flush=True)
+    sys.exit(1 if failed else 0)

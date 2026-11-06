@@ -9,6 +9,7 @@ On GitHub Actions the login comes from the secret EE_SERVICE_ACCOUNT_JSON.
     python update.py
 """
 import datetime as dt
+import json
 import os
 import subprocess
 import sys
@@ -20,6 +21,7 @@ import common as C
 from fetch_era5 import CACHE, H
 
 PY = sys.executable
+MAX_AGE_DAYS = 3
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -55,6 +57,9 @@ def main():
     run("fetch_obs.py", "veg", str(fetch_from.replace(day=1)), str(end))
     run("fetch_gfs.py", str(era_end.replace(day=1 if era_end.day < 17 else 17)), str(end))
     run("build.py", f"{first:%Y-%m}")
+    last = dt.date.fromisoformat(json.load(open(os.path.join(HERE, "..", "data", "gee", "manifest.json"), encoding="utf-8"))["last_date"])
+    if (today - last).days > MAX_AGE_DAYS:
+        raise SystemExit(f"data end on {last}, more than {MAX_AGE_DAYS} days ago: the job fails so that GitHub reports it")
 
 
 if __name__ == "__main__":

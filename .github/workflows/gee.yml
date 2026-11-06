@@ -1,15 +1,22 @@
 # Daily risk update from Google Earth Engine.
-# One-time setup: repository Settings -> Secrets and variables -> Actions -> New repository secret,
-# name EE_SERVICE_ACCOUNT_JSON, value = the JSON key of a service account registered for Earth Engine.
-# See docs/GEE_SETUP.md. Without the secret this job stops at the first step and the site keeps its last data.
+# One-time setup: repository secret EE_SERVICE_ACCOUNT_JSON, see docs/GEE_SETUP.md.
+#
+# The results do not go to main: about 10 MB of files change every day and would pile up in the history for ever.
+# They go to the branch gee-data, which always holds one single commit and is replaced on each run.
+# pages.yml reads the site data from that branch. data/gee on main is only the starting copy.
+#
+# A failed download or data older than 3 days fails this job, so GitHub reports it and the last good data stay online.
 name: Update risk from Earth Engine
 on:
   schedule:
     - cron: "40 22 * * *" # 06:40 Ulaanbaatar time
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/gee.yml", "pipeline/**"]
 permissions:
   contents: write
-  actions: write # a commit by this job does not trigger pages.yml, so the job starts it itself
+  actions: write # a push by this job does not trigger pages.yml, so the job starts it itself
 concurrency:
   group: gee
   cancel-in-progress: false
@@ -24,6 +31,13 @@ jobs:
         run: |
           if [ -z "$KEY" ]; then echo "::error::Secret EE_SERVICE_ACCOUNT_JSON is not set. See docs/GEE_SETUP.md"; exit 1; fi
       - uses: actions/checkout@v4
+      - name: Take the latest data
+        run: |
+          if git ls-remote --exit-code --heads origin gee-data; then
+            git fetch --depth 1 origin gee-data
+            rm -rf data/gee pipeline/state
+            git checkout FETCH_HEAD -- data/gee pipeline/state
+          fi
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -33,14 +47,16 @@ jobs:
           EE_SERVICE_ACCOUNT_JSON: ${{ secrets.EE_SERVICE_ACCOUNT_JSON }}
           HAZARD_CACHE: ${{ runner.temp }}/gee_cache
         run: python pipeline/update.py
-      - name: Commit the new data
+      - name: Replace the data branch
         run: |
           git config user.name "hazard-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add data/gee pipeline/state
-          git diff --cached --quiet || git commit -m "Earth Engine update $(date -u +%F)"
-          git push
+          git checkout --orphan gee-data-new
+          git rm -r -q --cached .
+          git add -f data/gee pipeline/state
+          git commit -q -m "Earth Engine data $(date -u +%F)"
+          git push --force origin HEAD:gee-data
       - name: Publish the site
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run pages.yml --ref main
+        run: gh workflow run pages.yml --ref main --repo "$GITHUB_REPOSITORY"
