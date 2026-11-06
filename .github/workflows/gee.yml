@@ -51,11 +51,12 @@ jobs:
         run: |
           git config user.name "hazard-bot"
           git config user.email "actions@users.noreply.github.com"
-          git checkout --orphan gee-data-new
-          git rm -r -q --cached .
-          git add -f data/gee pipeline/state
-          git commit -q -m "Earth Engine data $(date -u +%F)"
-          git push --force origin HEAD:gee-data
+          say() { echo "::error::$1: $(tail -c 500 git.log | tr '\n' ' ')"; exit 1; }
+          git checkout --orphan gee-data-new > git.log 2>&1 || say checkout
+          git rm -r -q --cached . > git.log 2>&1 || say rm
+          git add -f data/gee pipeline/state > git.log 2>&1 || say add
+          git commit -q -m "Earth Engine data $(date -u +%F)" > git.log 2>&1 || say commit
+          git push --force origin HEAD:refs/heads/gee-data > git.log 2>&1 || say push
       - name: Publish the site
         env:
           GH_TOKEN: ${{ github.token }}
