@@ -310,6 +310,9 @@ function downloadCsv() {
 /* ------------------------------------------------------------------ boot */
 function fitMongolia() {
   const [s, w, n, e] = MONGOLIA_BBOX;
+  // A page loading in a hidden tab has a map of size zero, where fitBounds fails and would stop the whole start-up.
+  const size = state.map.getSize();
+  if (size.x < 160 || size.y < 200) { state.map.setView([(s + n) / 2, (w + e) / 2], 5); return; }
   // Keep the country clear of the menu on the left and the day picker below.
   const wide = window.innerWidth > 1000;
   state.map.fitBounds([[s, w], [n, e]], { paddingTopLeft: [wide ? 270 : 10, 20], paddingBottomRight: [wide ? 70 : 10, 110] });
