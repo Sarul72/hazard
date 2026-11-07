@@ -9,7 +9,31 @@ import { NODATA, SCALE } from "./dataset.js";
 const merc = (lat) => Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360));
 const unmerc = (m) => (2 * Math.atan(Math.exp(m)) - Math.PI / 2) * 180 / Math.PI;
 
-export function createRiskLayer(map, grid, classes, outline) {
+const CENTRES = [10, 30, 50, 70, 90]; // where each class colour sits on the 0-100 score
+const FADE = [[0, 0.1], [20, 0.3], [40, 0.55], [60, 0.72], [80, 0.82], [100, 0.88]]; // score, opacity
+
+function between(points, x) {
+  if (x <= points[0][0]) return points[0][1];
+  for (let i = 1; i < points.length; i++) {
+    if (x <= points[i][0]) { const [a, va] = points[i - 1], [b, vb] = points[i]; return va + (vb - va) * (x - a) / (b - a); }
+  }
+  return points[points.length - 1][1];
+}
+
+/** RGBA of every stored value. The colours flow into each other, and low scores melt into the image below,
+ * which draws the same numbers as before without hard edges at the class limits. */
+export function rampLut(colors) {
+  const rgb = colors.map((h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)));
+  const lut = new Uint8ClampedArray(251 * 4);
+  for (let v = 0; v <= 250; v++) {
+    const s = v * SCALE;
+    for (let c = 0; c < 3; c++) lut[v * 4 + c] = between(CENTRES.map((x, i) => [x, rgb[i][c]]), s);
+    lut[v * 4 + 3] = between(FADE, s) * 255;
+  }
+  return lut;
+}
+
+export function createRiskLayer(map, grid, outline) {
   const L = window.L;
   const { west, north, dx, dy, nx, ny } = grid;
   const south = north - ny * dy, east = west + nx * dx;
@@ -21,8 +45,7 @@ export function createRiskLayer(map, grid, classes, outline) {
   const cv = document.createElement("canvas");
   cv.width = W; cv.height = H;
   const ctx = cv.getContext("2d");
-  const lut = classes.map((c) => { const h = c.color; return [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)).concat(Math.round((c.alpha ?? 0.7) * 255)); });
-  const edges = classes.slice(0, -1).map((c) => c.max / SCALE);
+  let lut = null;
 
   map.createPane("riskPane").style.zIndex = 350;
   const overlay = L.imageOverlay("data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==", [[south, west], [north, east]], { pane: "riskPane", interactive: false, opacity: 1 });
@@ -69,11 +92,8 @@ export function createRiskLayer(map, grid, classes, outline) {
             }
           }
           if (wsum < 0.5) continue;
-          const v = sum / wsum;
-          let k = 0;
-          while (k < edges.length && v >= edges[k]) k++;
-          const o = (j * W + i) * 4, col = lut[k];
-          px[o] = col[0]; px[o + 1] = col[1]; px[o + 2] = col[2]; px[o + 3] = col[3];
+          const k = Math.round(sum / wsum) * 4, o = (j * W + i) * 4;
+          px[o] = lut[k]; px[o + 1] = lut[k + 1]; px[o + 2] = lut[k + 2]; px[o + 3] = lut[k + 3];
         }
       }
     }
@@ -92,7 +112,7 @@ export function createRiskLayer(map, grid, classes, outline) {
     canvas: cv,
     box: { n: north, s: south, w: west, e: east },
     /** A null frame clears the map: a day with no data must not keep showing another day's zones. */
-    setFrame(values, uncertainty) { frame = values; uframe = uncertainty ?? null; draw(); },
+    setFrame(values, uncertainty, colors) { frame = values; uframe = uncertainty ?? null; if (colors) lut = rampLut(colors); draw(); },
     setOpacity(o) { overlay.setOpacity(o); },
     /** Score and standard uncertainty of the cell under a point, or null. */
     sample(lat, lon) {

@@ -34,9 +34,8 @@ export const MONGOLIA_BBOX = [41.5, 87.5, 52.3, 120.0];
 export const TZ = "Asia/Ulaanbaatar";
 export const TZ_OFFSET_HOURS = 8;
 
-/** Five-class scale shared by all hazards. Score is 0..100. One light-to-dark heat ramp, so the order survives
- * colour-blind vision and grey printing, which a green-to-red scale does not. `alpha` is the map opacity: the lowest
- * class stays faint so the satellite image shows through where little is happening. */
+/** Five-class scale shared by all hazards. Score is 0..100. The colours here serve the older tools; the map and the area window
+ * use PALETTES below, one family per hazard. */
 export const CLASSES = [
   { key: "very_low",  min: 0,  max: 20,  color: "#ffe9a8", alpha: 0.22, ink: "#111" },
   { key: "low",       min: 20, max: 40,  color: "#fdc04f", alpha: 0.55, ink: "#111" },
@@ -44,6 +43,23 @@ export const CLASSES = [
   { key: "high",      min: 60, max: 80,  color: "#d4231f", alpha: 0.72, ink: "#fff" },
   { key: "very_high", min: 80, max: 100.0001, color: "#6d0a2c", alpha: 0.82, ink: "#fff" },
 ];
+
+/** One colour family per hazard, each step lighter to darker in the order of CLASSES, so that maps of different hazards cannot be
+ * mistaken for each other and each still reads in grey. Only the colour changes: the classes and their limits stay the same. */
+export const PALETTES = {
+  all: ["#eee4f7", "#cfb0e6", "#a873cf", "#7436a8", "#431270"],
+  fire: ["#fde3d6", "#f9b295", "#ef6f4f", "#c9211e", "#7c0a12"],
+  flood: ["#deeefa", "#a6d0ef", "#5aa3dd", "#1c6cb5", "#0b3a78"],
+  dust: ["#e4f3dd", "#a6d89a", "#63b562", "#25854a", "#0b572c"],
+};
+
+const channel = (hex, i) => { const v = parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16) / 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+/** Relative luminance, as WCAG defines it. */
+export const luminance = (hex) => 0.2126 * channel(hex, 0) + 0.7152 * channel(hex, 1) + 0.0722 * channel(hex, 2);
+const inkOn = (hex) => { const l = luminance(hex); return (l + 0.05) / 0.0565 >= 1.05 / (l + 0.05) ? "#111111" : "#ffffff"; };
+
+/** The classes in the colours of a hazard. */
+export const classesFor = (hazard) => { const p = PALETTES[hazard] ?? PALETTES.all; return CLASSES.map((c, i) => ({ ...c, color: p[i], ink: inkOn(p[i]) })); };
 
 export const THRESHOLDS = {
   fire: {

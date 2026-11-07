@@ -32,6 +32,8 @@ The daily job writes to the branch `gee-data`, which holds one commit and is rep
 `data/soums.geojson`: 339 soums from geoBoundaries (NSO Mongolia, OCHA ROAP, CC BY 3.0 IGO), simplified; `name`, `aimag` are the
 source romanisation, `name_mn`, `aimag_mn` our conversion to Cyrillic.
 
+`data/aimags.geojson`: 22 aimags and the capital, merged from `data/soums.geojson` by `scripts/build_aimags.py`, so that both border layers fit each other. It is run by hand.
+
 `data/camps.bin.gz`: uint16 little-endian records `[x, y, herder_points, cadastre_camps]`, with `x = (lon − 87)·100`, `y = (lat − 41)·100`;
 counts in `data/camps_meta.json`. Written once by `pipeline/build_camps.py`, not by the daily job. It holds counts at rounded positions only, and the
 source shapefiles must stay out of the repository (see `LIMITATIONS.md`).

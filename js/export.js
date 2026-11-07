@@ -71,10 +71,10 @@ export async function drawMap(o) {
       ctx.stroke();
     }
   }
-  if (o.outline) {
-    ctx.strokeStyle = "rgba(255,255,255,.85)";
-    ctx.lineWidth = 1.4 * S;
-    for (const f of o.outline.features ?? [o.outline]) { trace(f.geometry ?? f); ctx.stroke(); }
+  for (const line of o.borders ?? []) {
+    ctx.strokeStyle = `rgba(255,255,255,${line.opacity})`;
+    ctx.lineWidth = line.weight * S;
+    for (const f of line.data.features ?? [line.data]) { trace(f.geometry ?? f); ctx.stroke(); }
   }
   if (o.plume?.image) image(o.plume.image, o.plume.box);
   for (const a of o.plume?.arrows ?? []) {
@@ -125,10 +125,15 @@ export async function drawMap(o) {
   const lw = o.legend.length * 66 * S;
   if (lw) panel(ctx, m, H - m - 42 * S, lw + 16 * S, 42 * S, S);
   ctx.font = sans(10.5, 600);
+  if (lw) {
+    const ramp = ctx.createLinearGradient(m + 8 * S, 0, m + 8 * S + lw, 0);
+    o.legend.forEach((c, i) => ramp.addColorStop((i + 0.5) / o.legend.length, c.color));
+    ctx.fillStyle = ramp;
+    ctx.fillRect(m + 8 * S, H - m - 35 * S, lw, 11 * S);
+  }
   o.legend.forEach((c, i) => {
-    const x = m + 8 * S + i * 66 * S;
-    ctx.fillStyle = c.color; ctx.fillRect(x, H - m - 35 * S, 64 * S, 11 * S);
-    ctx.fillStyle = "#e8e6df"; ctx.fillText(c.label, x, H - m - 21 * S);
+    ctx.fillStyle = "#e8e6df";
+    ctx.fillText(c.label, m + 8 * S + i * 66 * S, H - m - 21 * S);
   });
 
   // scale bar, true at the centre of the view

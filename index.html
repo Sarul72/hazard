@@ -13,6 +13,7 @@
 <div id="map" role="application" aria-label="Газрын зураг"></div>
 
 <aside id="side" class="side glass">
+  <button id="back" class="back" type="button" hidden></button>
   <header class="brand"><h1 id="t-title"></h1><p id="t-subtitle"></p></header>
   <h2 id="t-hazards" class="cap"></h2>
   <div id="hazards" class="menu"></div>
@@ -22,6 +23,7 @@
     <input id="soum-q" class="field" type="search" autocomplete="off">
     <ol id="soum-list" class="soum-list"></ol>
   </section>
+  <details id="border-box" class="fold"><summary id="t-borders"></summary><div id="borders"></div></details>
   <details id="sat" class="fold"><summary id="t-sat"></summary>
     <p id="t-sat-base" class="cap sub"></p><div id="sat-base"></div>
     <p id="t-sat-overlay" class="cap sub"></p><div id="sat-overlay"></div>
@@ -34,8 +36,9 @@
 <section id="stats" class="stats" hidden></section>
 <div id="dl-menu" class="dl-menu glass" hidden></div>
 
-<div class="bottom">
+<div id="bottom" class="bottom">
   <div id="notice" class="notice" role="status" hidden></div>
+  <button id="date-fold" class="date-fold" type="button"><span></span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 5.5 8 10.5 13 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
   <div id="datebar" class="datebar glass" role="group"></div>
   <div id="legend" class="legendbar"></div>
 </div>

@@ -1,7 +1,7 @@
 /* Mongolia hazard watch: the map screen. No framework, no build step.
  * Risk zones come from data/gee (written by the Earth Engine pipeline). When a date or the whole dataset is missing,
  * the screen says so and shows no colour: this page never fills a gap with a made-up value. */
-import { CLASSES, GIBS, MONGOLIA_BBOX } from "./config.js";
+import { CLASSES, GIBS, MONGOLIA_BBOX, classesFor } from "./config.js";
 import { T } from "./i18n.js";
 import { U } from "./ui_text.js";
 import { firstDate, makeLayer, newestImageDate, utcDate, versionAt } from "./gibs.js";
@@ -33,11 +33,14 @@ const state = {
   lang: store.get("hw.lang") || "mn", hazard: null, mode: "zones",
   manifest: null, date: utcDate(-1), day: null, dayMissing: false,
   sel: null, selToken: 0, dayToken: 0, soums: null, soumQuery: "", sat: {},
+  borders: { country: false, aimag: false, soum: false }, bordersTouched: false, borderLayers: {}, borderData: {},
+  dateFolded: store.get("hw.datefold") === "1",
 };
 
 const t = (k) => U[state.lang][k] ?? U.mn[k] ?? k;
 const layerName = (k) => (T[state.lang] && T[state.lang][k]) ?? T.mn[k] ?? k;
-const classOf = (v) => CLASSES.find((c) => v < c.max) ?? null;
+const classesNow = () => classesFor(state.hazard);
+const classOf = (v) => classesNow().find((c) => v < c.max) ?? null;
 const classLabel = (key) => t("class_" + key);
 const dms = (v, pos, neg) => { const a = Math.abs(v), d = Math.floor(a), m = Math.floor((a - d) * 60); return `${d}° ${String(m).padStart(2, "0")}′ ${v >= 0 ? pos : neg}`; };
 
@@ -50,6 +53,9 @@ function renderStatic() {
   $("t-subtitle").textContent = t("subtitle");
   $("t-hazards").textContent = t(state.hazard ? "hazards" : "pick_hazard");
   $("t-view").textContent = t("view");
+  $("t-borders").textContent = t("borders");
+  $("back").innerHTML = ICON.back;
+  $("back").append(t("back"));
   $("t-sat").textContent = t("satellites");
   $("t-sat-base").textContent = t("base");
   $("t-sat-overlay").textContent = t("overlays");
@@ -61,17 +67,58 @@ function renderStatic() {
 }
 
 function renderMenus() {
-  const image = el("div", { class: "item" + (state.hazard ? "" : " on") },
-    el("button", { class: "pick", type: "button", "aria-pressed": String(!state.hazard), text: t("imagery_only"), onclick: () => setHazard(null) }));
-  $("hazards").replaceChildren(image, ...HAZARDS.map((h) => el("div", { class: "item" + (state.hazard === h ? " on" : "") },
-    el("button", { class: "pick", type: "button", "aria-pressed": String(state.hazard === h), text: t(h), onclick: () => setHazard(h) }),
-    el("button", { class: "info", type: "button", title: `${t(h)}: ${t("method_of")}`, "aria-label": `${t(h)}: ${t("method_of")}`, text: "i", onclick: () => showMethods(h) }))));
+  $("hazards").replaceChildren(...HAZARDS.map((h) => {
+    const mark = el("span", { class: "ico", "aria-hidden": "true" });
+    mark.innerHTML = HAZARD_ICON[h];
+    return el("div", { class: "item hz" + (state.hazard === h ? " on" : "") }, mark,
+      el("button", { class: "pick", type: "button", "aria-pressed": String(state.hazard === h), text: t(h), onclick: () => setHazard(h) }),
+      el("button", { class: "info", type: "button", title: `${t(h)}: ${t("method_of")}`, "aria-label": `${t(h)}: ${t("method_of")}`, text: "i", onclick: () => showMethods(h) }));
+  }));
   $("modes").replaceChildren(...["zones", "soums"].map((m) => el("div", { class: "item" + (state.mode === m ? " on" : "") },
     el("button", { class: "pick", type: "button", "aria-pressed": String(state.mode === m), text: t("mode_" + m), onclick: () => setMode(m) }))));
 }
 
 function renderLegend() {
-  $("legend").replaceChildren(...CLASSES.map((c) => el("span", { style: `background:${c.color};color:${c.ink}`, text: classLabel(c.key) })));
+  const k = classesNow();
+  $("legend").style.background = `linear-gradient(90deg, ${k.map((c) => c.color).join(", ")})`;
+  $("legend").replaceChildren(...k.map((c) => el("span", { style: `color:${c.ink}`, text: classLabel(c.key) })));
+}
+
+/* ---------------------------------------------------------------- borders */
+const BORDERS = {
+  soum: { file: "data/soums.geojson", weight: 0.6, opacity: 0.55 },
+  aimag: { file: "data/aimags.geojson", weight: 1.1, opacity: 0.8 },
+  country: { file: "data/mongolia.geojson", weight: 1.8, opacity: 0.95 },
+};
+
+async function applyBorders() {
+  for (const [key, def] of Object.entries(BORDERS)) {
+    if (!state.borders[key]) { state.borderLayers[key]?.remove(); continue; }
+    if (!state.borderLayers[key]) {
+      state.borderData[key] ??= await fetch(def.file).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      if (!state.borderData[key]) continue;
+      state.borderLayers[key] ??= window.L.geoJSON(state.borderData[key], { pane: "borderPane", interactive: false, style: { color: "#fff", weight: def.weight, opacity: def.opacity, fill: false } });
+    }
+    if (state.borders[key]) state.borderLayers[key].addTo(state.map);
+  }
+}
+
+function renderBorders() {
+  $("borders").replaceChildren(...["country", "aimag", "soum"].map((k) => el("label", { class: "check" },
+    el("input", { type: "checkbox", checked: state.borders[k], onchange: (e) => { state.borders[k] = e.target.checked; state.bordersTouched = true; applyBorders(); } }), el("span", { text: t("b_" + k) }))));
+}
+
+/** What the image needs to draw the same lines as the screen, thinnest first. */
+const activeBorders = () => Object.entries(BORDERS).filter(([k]) => state.borders[k] && state.borderData[k]).map(([k, d]) => ({ data: state.borderData[k], weight: d.weight, opacity: d.opacity }));
+
+/* --------------------------------------------------------------- day picker */
+function renderDateFold() {
+  const folded = state.dateFolded, label = t(folded ? "date_open" : "date_close"), b = $("date-fold");
+  $("bottom").classList.toggle("folded", folded);
+  b.setAttribute("aria-expanded", String(!folded));
+  b.setAttribute("aria-label", label);
+  b.title = label;
+  b.firstElementChild.textContent = folded ? state.date : "";
 }
 
 const ICON = {
@@ -80,6 +127,15 @@ const ICON = {
   download: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   home: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
   menu: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+  back: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5m0 0 6-6m-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+};
+
+const outline = (paths) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+const HAZARD_ICON = {
+  all: outline('<circle cx="12" cy="9" r="5"/><circle cx="8.6" cy="15" r="5"/><circle cx="15.4" cy="15" r="5"/>'),
+  flood: outline('<path d="M12 3.2s6.4 6.6 6.4 11.2a6.4 6.4 0 0 1-12.8 0C5.6 9.8 12 3.2 12 3.2z"/><path d="M8.9 15a3.2 3.2 0 0 0 2.7 2.9"/>'),
+  fire: outline('<path d="M12.4 2.8c.5 3.4 5.4 6 5.4 11.4a5.8 5.8 0 0 1-11.6 0c0-2.3 1-3.9 2.3-5.1.1 1.6.8 2.7 1.9 3 .1-3.5.5-6.5 2-9.3z"/><path d="M12 20c-1.6 0-2.8-1.2-2.8-2.8 0-1.5 1.5-2.4 2.5-3.9.9 1.5 3.1 2.4 3.1 3.9 0 1.6-1.2 2.8-2.8 2.8z"/>'),
+  dust: outline('<path d="M12.3 12.2c-.9-.9.5-2.1 1.8-1.4 1.8 1 1.4 3.6-.5 4.2-2.7.9-5-1.7-4.2-4.3 1-3.1 5-4 7.6-2.2 3.3 2.3 3 7.4-.3 9.5-3.9 2.4-9.3.7-11-3.4"/><path d="M3.2 8.6c.8-1.7 2-3 3.6-3.9"/>'),
 };
 
 function renderRail() {
@@ -89,6 +145,7 @@ function renderRail() {
     return b;
   };
   const draw = state.rect.mode === "draw", results = Boolean(state.hazard);
+  $("back").hidden = !results;
   $("rail").replaceChildren(...[
     button(ICON.menu, t("rail_menu"), () => $("side").classList.toggle("open"), "side-toggle"),
     results && button(draw ? ICON.draw : ICON.move, t(draw ? "rail_draw" : "rail_move"), () => { state.rect.toggle(); renderRail(); }, draw ? "on" : ""),
@@ -104,14 +161,17 @@ function renderScreen() {
   const results = Boolean(state.hazard);
   document.body.classList.toggle("bare", !results);
   state.rect.setActive(results);
-  if (state.outlineLayer) { if (results) state.outlineLayer.addTo(state.map); else state.outlineLayer.remove(); }
+  if (!state.bordersTouched) state.borders.country = results; // the opening image has no lines until somebody asks for them
+  applyBorders();
+  renderBorders();
   $("t-hazards").textContent = t(results ? "hazards" : "pick_hazard");
   renderMenus();
+  renderLegend();
   renderRail();
 }
 
 function renderAllText() {
-  renderStatic(); renderMenus(); renderLegend(); renderRail(); renderSat(); renderSoumList();
+  renderStatic(); renderMenus(); renderLegend(); renderRail(); renderSat(); renderSoumList(); renderBorders(); renderDateFold();
   state.dateBar?.relabel();
   state.tools?.relabel();
   renderSelection();
@@ -182,7 +242,7 @@ const uFrameNow = () => state.day?.["u_" + state.hazard] ?? null;
 
 function paint() {
   if (state.risk) {
-    state.risk.setFrame(state.mode === "zones" ? frameNow() : null, uFrameNow());
+    state.risk.setFrame(state.mode === "zones" ? frameNow() : null, uFrameNow(), classesNow().map((c) => c.color));
   }
   paintSoums();
 }
@@ -199,6 +259,7 @@ async function setDate(d) {
   state.date = d;
   state.movedDay = false;
   syncSat();
+  renderDateFold();
   state.downloads?.refresh();
   if (!state.manifest || !state.hazard) return;
   const my = ++state.dayToken;
@@ -219,7 +280,7 @@ async function setDate(d) {
 async function enterResults() {
   const m = state.manifest;
   if (!m) return;
-  state.risk ??= createRiskLayer(state.map, m.grid, CLASSES, state.outline);
+  state.risk ??= createRiskLayer(state.map, m.grid, state.outline);
   state.dateBar.setRange(m.first_date, m.last_date);
   const moved = state.dateBar.value !== state.date;
   await setDate(state.dateBar.value);
@@ -374,7 +435,10 @@ function drawCamps(s) {
   state.campsLayer = null;
   state.campsImage = null;
   if (!s?.campPoints?.length || !s.campsOn) return;
-  const cv = campsCanvas(s.campPoints, s.box, CLASSES);
+  // Drawn for the zoom of the moment, so that a dot keeps its small size instead of growing with the map.
+  const left = state.map.latLngToContainerPoint([s.box.n, s.box.w]).x, right = state.map.latLngToContainerPoint([s.box.n, s.box.e]).x;
+  const onScreen = Math.max(right - left, 1), width = Math.max(200, Math.min(4096, Math.round(onScreen * 3)));
+  const cv = campsCanvas(s.campPoints, s.box, width, width / onScreen);
   state.campsImage = { canvas: cv, box: s.box };
   state.campsLayer = window.L.imageOverlay(cv.toDataURL(), [[s.box.s, s.box.w], [s.box.n, s.box.e]], { interactive: false }).addTo(state.map);
 }
@@ -433,6 +497,9 @@ function initMap() {
     const pos = `${dms(e.latlng.lat, "N", "S")}  ${dms(e.latlng.lng, "E", "W")}`;
     $("coords").textContent = p ? `${pos} · ${t("score_at")} ${Math.round(p.score)}${p.u === null ? "" : ` ±${Math.round(2 * p.u)}`}` : pos;
   });
+  state.map.createPane("borderPane").style.zIndex = 420;
+  state.map.getPane("borderPane").style.pointerEvents = "none";
+  state.map.on("zoomend", () => { if (state.sel) drawCamps(state.sel); });
   let hintDone = false;
   state.map.on("mousedown zoomstart", () => { if (!hintDone && state.hazard) { hintDone = true; $("hint").classList.add("gone"); } });
 }
@@ -442,13 +509,15 @@ async function loadOutline() {
     const res = await fetch("data/mongolia.geojson");
     if (!res.ok) return null;
     const gj = await res.json();
-    state.outlineLayer = window.L.geoJSON(gj, { style: { color: "#ffffff", weight: 1.4, opacity: 0.8, fill: false }, interactive: false });
+    state.borderData.country = gj;
     return gj;
   } catch { return null; }
 }
 
 function wire() {
   $("soum-q").addEventListener("input", (e) => { state.soumQuery = e.target.value; renderSoumList(); });
+  $("back").addEventListener("click", () => setHazard(null));
+  $("date-fold").addEventListener("click", () => { state.dateFolded = !state.dateFolded; store.set("hw.datefold", state.dateFolded ? "1" : "0"); renderDateFold(); });
   $("mine-box").addEventListener("toggle", (e) => state.tools?.setView(e.target.open ? "mine" : "aimag"));
 }
 
@@ -466,13 +535,14 @@ async function boot() {
   renderStatic();
   initMap();
   state.rect = initRectDraw(state.map, { onDone: onBox, isBlocked: () => $("dlg").open });
-  state.panel = createStatsPanel($("stats"), { t, classes: CLASSES, classLabel, onClose: closeSelection, onMethods: showMethods, onCsv: () => state.downloads.seriesCsv(), onPlume: showPlume, onCamps: (on) => { if (state.sel) { state.sel.campsOn = on; renderSelection(); } } });
+  state.panel = createStatsPanel($("stats"), { t, classes: classesNow, classLabel, onClose: closeSelection, onMethods: showMethods, onCsv: () => state.downloads.seriesCsv(), onPlume: showPlume, onCamps: (on) => { if (state.sel) { state.sel.campsOn = on; renderSelection(); } } });
   state.tools = initTools({ map: state.map, getLang: () => state.lang, requestSat, containers: { poly: el("div"), mine: $("view-mine") }, onMethods: showMethods,
     campsFor: async (box) => { const a = await loadCamps(); return a ? campsInside(a, box) : null; } });
   state.dateBar = initDateBar($("datebar"), { onChange: setDate, text: t, monthName: (m) => t("months")[m - 1] });
-  state.downloads = initDownloads({ box: $("dl-menu"), state, t, frameNow, uFrameNow, classOf, classLabel, soumsReady });
-  renderLegend(); renderSat();
+  state.downloads = initDownloads({ box: $("dl-menu"), state, t, frameNow, uFrameNow, classOf, classLabel, classes: classesNow, soumsReady, borders: activeBorders });
+  renderSat();
   renderScreen();
+  renderDateFold();
   wire();
   state.ready = loadBasics();
   state.dateBar.setRange(FIRST_IMAGERY, utcDate(0));

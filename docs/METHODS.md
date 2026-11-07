@@ -101,7 +101,9 @@ An element does not move dust by itself. The tool follows AERMOD deposition Meth
 ### Opening screen and downloads (added 2026-11)
 The page opens on the newest true-colour image and nothing else: no risk data is read until a hazard is chosen. `newestImageDate` in `js/gibs.js` takes today if the image already covers Mongolia, otherwise yesterday, because the tile service answers with black until the satellite has passed. Results end on the last computed day, so choosing a hazard moves the picker to that day and says so.
 
-`js/downloads.js` offers each kind of data in the formats that suit it, and lists only what exists at that moment:
+Each hazard has its own colour family (`PALETTES` in `js/config.js`): fire red, flood blue, dust green, combined violet. Every family runs light to dark, checked by `tests/palette.test.mjs`. The map blends between the class colours and fades low scores into the image; the classes and their limits are unchanged, so the same numbers are drawn and only the look differs.
+
+`js/downloads.js` offers each kind of data in the formats that suit it, and lists only what exists at that moment. Without a selection there is the map image and one ZIP for the area on screen; a selection adds its data one by one, and the soum files then hold only the soums touched by the selection. Every download is one ZIP that also holds `<name>_tailbar.txt`: the result, the possible error in points and as a percentage, the model check, how to read it, and the files. One ZIP is used because a browser may stop a second automatic download, and the text must not get lost.
 
 | Data | Formats | For |
 |---|---|---|
@@ -113,7 +115,7 @@ The page opens on the newest true-colour image and nothing else: no risk data is
 | Dust plume | GeoTIFF of the index, CSV of the wind | GIS, tables |
 | Report | JSON | method, error, sources |
 
-`js/formats.js` writes these by hand, as the site has no libraries. `tests/formats.test.mjs` checks them, and the real downloads were read with GDAL/OGR, pyshp and pypdf: 448 sampled raster cells equal the CSV, and all 339 soums agree between Shapefile and GeoJSON. U95 in cell and soum files is a lower bound where a part of the error is not estimated, and the files say so.
+`js/formats.js` writes these by hand, as the site has no libraries. `tests/formats.test.mjs` checks them, and the real downloads were read with GDAL/OGR, pyshp and pypdf and opened in ArcGIS 3.4: 448 sampled raster cells equal the CSV, and all 339 soums agree between Shapefile and GeoJSON. ArcGIS reads the projection of the image from its `.jpg.aux.xml`, other programs from the `.prj`. U95 in cell and soum files is a lower bound where a part of the error is not estimated, and the files say so.
 
 ### Mine location conflict
 The coordinates in the user's own Earth Engine script (43.6668 N, 105.5181 E) are the **Ukhaa Khudag** mine in Tsogttsetsii soum, **Ömnögovi** province (Wikipedia gives 43.6754 N, 105.5211 E, about 0.9 km away). They are not in Dornogovi. Mines that are in Dornogovi (Bayanshand/Dovtsog Khudag, Mandakh; Eldev, Dalanjargalan) are also offered. Which Dornogovi mine is the largest was not established from the sources found; the Mineral Resources and Petroleum Authority of Mongolia is the body that holds production figures.

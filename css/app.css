@@ -31,6 +31,17 @@ button { cursor: pointer; }
 .menu { display: flex; flex-direction: column; gap: 2px; }
 .item { display: flex; align-items: center; gap: 4px; border-radius: 10px; }
 .item > .pick { flex: 1; min-width: 0; text-align: left; background: none; border: 0; border-radius: 10px; padding: 7px 10px; }
+.item.hz { position: relative; overflow: hidden; }
+.item.hz > .pick { position: relative; z-index: 1; padding: 11px 10px; }
+.item.hz > .info { position: relative; z-index: 1; }
+.ico { position: absolute; right: 30px; top: 50%; width: 50px; height: 50px; transform: translateY(-50%); color: rgba(255, 255, 255, .24); pointer-events: none; transition: color .2s; }
+.ico svg { display: block; width: 100%; height: 100%; }
+.item.hz:hover .ico { color: rgba(255, 255, 255, .36); }
+.item.hz.on .ico { color: rgba(255, 255, 255, .5); }
+.back { display: flex; align-items: center; gap: 6px; width: 100%; margin-bottom: 10px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255, 255, 255, .08); font-weight: 600; font-size: 13px; }
+.back:hover { background: rgba(255, 255, 255, .18); }
+.back svg { width: 16px; height: 16px; }
+.back[hidden] { display: none; }
 .item:hover { background: rgba(255, 255, 255, .07); }
 .item.on { background: rgba(255, 255, 255, .15); }
 .item.on > .pick { font-weight: 600; }
@@ -63,7 +74,15 @@ button { cursor: pointer; }
 .bottom { position: fixed; z-index: 900; left: 0; right: 0; bottom: 12px; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
 .bottom > * { pointer-events: auto; }
 .stats-open .bottom { left: 258px; right: calc(var(--panel-w) + 14px); }
-.datebar { display: flex; align-items: center; gap: 4px; padding: 6px 10px; border-radius: 22px; background: rgba(20, 24, 28, .38); position: relative; }
+.datebar { display: flex; align-items: center; gap: 4px; padding: 6px 10px; border-radius: 22px; background: rgba(20, 24, 28, .38); position: relative; overflow: hidden; max-height: 110px; transition: max-height .38s cubic-bezier(.22, .8, .3, 1), padding .38s cubic-bezier(.22, .8, .3, 1), margin .38s cubic-bezier(.22, .8, .3, 1), opacity .24s ease, transform .38s cubic-bezier(.22, .8, .3, 1), visibility 0s; }
+.folded .datebar { max-height: 0; padding-top: 0; padding-bottom: 0; margin-top: -8px; opacity: 0; transform: translateY(18px); border-color: transparent; box-shadow: none; pointer-events: none; visibility: hidden; transition-delay: 0s, 0s, 0s, 0s, 0s, .38s; }
+.date-fold { display: flex; align-items: center; gap: 6px; height: 20px; margin-bottom: -4px; padding: 0 16px; border: 1px solid var(--line); border-radius: 11px; background: rgba(20, 24, 28, .5); color: var(--ink2); font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.date-fold:hover { background: rgba(60, 66, 72, .85); color: #fff; }
+.date-fold span:empty { display: none; }
+.date-fold svg { width: 13px; height: 13px; transition: transform .38s cubic-bezier(.22, .8, .3, 1); }
+.folded .date-fold { margin-bottom: 0; }
+.folded .date-fold svg { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { .datebar, .date-fold svg { transition: none; } }
 .round { width: 44px; height: 44px; display: grid; place-items: center; background: none; border: 0; border-radius: 50%; }
 .round:hover:not(:disabled) { background: rgba(255, 255, 255, .14); }
 .round:disabled { opacity: .35; cursor: default; }
@@ -158,7 +177,8 @@ button { cursor: pointer; }
 .st-check { display: flex; gap: 6px; align-items: center; margin-top: 6px; font-size: 12px; }
 .dl-menu { position: fixed; z-index: 1100; right: 66px; top: 14px; width: 318px; max-height: calc(100vh - 28px); overflow: auto; border-radius: 12px; padding: 8px 10px; background: var(--glass-strong); scrollbar-width: thin; }
 .stats-open .dl-menu { right: calc(var(--panel-w) + 78px); }
-.dl-scope { margin: 2px 0 6px; font-size: 11.5px; color: var(--ink2); }
+.dl-scope { margin: 2px 0 2px; font-size: 11.5px; font-weight: 600; color: var(--ink); }
+.dl-note { margin: 0 0 7px; font-size: 11px; color: var(--ink2); }
 .dl-row { display: grid; gap: 5px; padding: 7px 0; border-top: 1px solid var(--line); }
 .dl-row b { display: block; font-size: 12.5px; font-weight: 600; }
 .dl-row small { display: block; color: var(--muted); font-size: 11px; }

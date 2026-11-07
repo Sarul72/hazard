@@ -88,11 +88,11 @@ const key = (cls, label) => el("span", { class: "key" }, el("i", { class: cls })
 /** A budget with a part not estimated is a lower bound on the error, and has to read as one. */
 const atLeast = (b) => (b.missing.length ? "≥" : "");
 
-export function createStatsPanel(root, { t, classes, classLabel, onClose, onMethods, onCsv, onPlume, onCamps }) {
+export function createStatsPanel(root, { t, classes: classesNow, classLabel, onClose, onMethods, onCsv, onPlume, onCamps }) {
   const row = (label, value, cls) => el("div", { class: "st-row" + (cls ? " " + cls : "") }, el("dt", { text: label }), el("dd", { text: value }));
 
   function dayBlock(s) {
-    const d = s.day, kids = [el("div", { class: "st-kicker", text: `${t("k_day")} · ${s.date}` })];
+    const d = s.day, classes = classesNow(), kids = [el("div", { class: "st-kicker", text: `${t("k_day")} · ${s.date}` })];
     if (!d) { kids.push(el("p", { class: "st-note", text: s.dayMissing ? t("no_day").replace("{d}", s.date) : t("no_cells") })); return kids; }
     const cls = classes.find((c) => d.mean < c.max);
     // If the error bar crosses a class limit the class itself is uncertain, so both ends are named.
@@ -125,7 +125,7 @@ export function createStatsPanel(root, { t, classes, classLabel, onClose, onMeth
     if (!c) return [];
     const pct = (a, b) => (b ? `${Math.round((a / b) * 100)}%` : "—"), n = (v) => v.toLocaleString("en-US");
     const p = c.parcels, h = c.herders;
-    const segs = classes.map((k, i) => ({ k, v: p.byClass[i] })).filter((x) => x.v > 0);
+    const segs = classesNow().map((k, i) => ({ k, v: p.byClass[i] })).filter((x) => x.v > 0);
     return [el("div", { class: "st-kicker", text: t("k_camps") }),
       p.total ? el("div", { class: "seg" }, segs.map((x) => el("i", { style: `flex:${x.v};background:${x.k.color}`, title: `${classLabel(x.k.key)} ${x.v}` }))) : null,
       el("dl", { class: "st-rows" },

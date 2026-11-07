@@ -1,5 +1,6 @@
 /* The download menu. Every kind of data is offered in the formats that suit it: pictures as images, gridded values as a
- * raster, tables as CSV, boundaries as vector files. Only what exists on the screen at that moment is listed. */
+ * raster, tables as CSV, boundaries as vector files. Data files follow the selected area, and every download is one ZIP that
+ * also holds a text file explaining the result and its possible error, so a number never travels without its error. */
 import { CLASSES, GIBS } from "./config.js";
 import { decode } from "./dataset.js";
 import { boxCells } from "./stats.js";
@@ -16,10 +17,13 @@ const SOUM_FIELDS = [
 ];
 
 const text = new TextEncoder();
-const blob = (data, ext) => new Blob([data], { type: MIME[ext] });
 const round = (v, d = 1) => (typeof v === "number" ? +v.toFixed(d) : null);
+const bytesOf = async (b) => new Uint8Array(await b.arrayBuffer());
+const entry = async (name, data) => ({ name, data: data instanceof Blob ? await bytesOf(data) : typeof data === "string" ? text.encode(data) : data });
+/** A job gives the base name of the download and its files. */
+const single = async (name, data) => ({ base: name.replace(/\.([^.]+)$/, "_$1"), files: [await entry(name, data)] });
 
-export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, classLabel, soumsReady }) {
+export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, classLabel, classes, soumsReady, borders }) {
   const fill = (k, o) => Object.entries(o).reduce((a, [x, y]) => a.replace(`{${x}}`, y), t(k));
   const baseLayer = () => versionAt(GIBS.layers.find((l) => l.kind === "base" && state.sat[l.key].on), state.date);
   const fileBase = (c) => `mongolia_${c.day ? state.hazard : "image"}_${state.date}${c.s ? "_area" : ""}`;
@@ -40,7 +44,7 @@ export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, cla
     const f = (v) => (typeof v === "number" ? `±${v.toFixed(1)}` : t("u_none")), b = c.day.budget, v = c.m.verification?.[state.hazard];
     const at = b.missing.length ? "≥" : "";
     const lines = [{ text: t("x_error"), strong: true },
-      { text: `${c.s ? t("x_sel") : t("x_view")}: ${c.day.mean.toFixed(0)} ± ${at}${b.U.toFixed(0)} ${t("points")} (k=2, ≈95%)`, strong: true },
+      { text: `${c.s ? t("x_sel") : t("x_view")}: ${c.day.mean.toFixed(0)} ± ${at}${b.U.toFixed(0)} ${t("points")} (95%)`, strong: true },
       { text: fill("x_parts", { i: f(b.parts.input), m: f(b.parts.model), s: f(b.parts.sampling) }) }];
     if (b.missing.length) lines.push({ text: t("x_missing"), warn: true });
     if (v?.auc) lines.push({ text: fill("x_verify", { a: v.auc.toFixed(2), p: v.period ?? "" }) });
@@ -66,22 +70,23 @@ export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, cla
       subtitle: risky ? [`${t(state.hazard)} · ${state.date}`, c.s ? c.s.label : t("x_view")] : [`${base.sensor} · ${state.date}`],
       risk: risky && state.mode === "zones" ? { canvas: state.risk.canvas, box: state.risk.box } : null,
       soums: risky && state.mode === "soums" && state.soums ? state.soums.features.map((f) => { const v = state.soumLayer.score(f); return { geometry: f.geometry, color: v === null || v === undefined ? "#555" : classOf(v).color }; }) : null,
-      outline: risky ? state.outline : null, camps: risky ? state.campsImage : null, plume: c.plume, selection: c.s ? { box: c.s.box, geom: c.s.geom } : null,
-      legend: risky ? CLASSES.map((k) => ({ color: k.color, label: classLabel(k.key) })) : [], error: risky ? errorLines(c) : imageLines(c),
+      borders: borders(), camps: risky ? state.campsImage : null, plume: c.plume, selection: c.s ? { box: c.s.box, geom: c.s.geom } : null,
+      legend: risky ? classes().map((k) => ({ color: k.color, label: classLabel(k.key) })) : [], error: risky ? errorLines(c) : imageLines(c),
     });
   }
 
-  const asJpg = async (c) => [await toJpeg((await mapCanvas(c)).canvas), `${fileBase(c)}.jpg`];
-  const asPng = async (c) => [await toPng((await mapCanvas(c)).canvas), `${fileBase(c)}.png`];
+  const asJpg = async (c) => single(`${fileBase(c)}.jpg`, await toJpeg((await mapCanvas(c)).canvas));
+  const asPng = async (c) => single(`${fileBase(c)}.png`, await toPng((await mapCanvas(c)).canvas));
   async function asPdf(c) {
-    const { canvas } = await mapCanvas(c), jpeg = new Uint8Array(await (await toJpeg(canvas)).arrayBuffer());
-    return [blob(pdfFromJpeg(jpeg, canvas.width, canvas.height), "pdf"), `${fileBase(c)}.pdf`];
+    const { canvas } = await mapCanvas(c), jpeg = await bytesOf(await toJpeg(canvas));
+    return single(`${fileBase(c)}.pdf`, pdfFromJpeg(jpeg, canvas.width, canvas.height));
   }
-  /** The image with what GIS software needs to place it. A plain satellite image stays free of any labels. */
+  /** The image with what GIS software needs to place it. ArcGIS reads the projection from the .aux.xml, others from the .prj.
+   * A plain satellite image stays free of any labels. */
   async function asGisImage(c) {
     const name = fileBase(c), { canvas, bounds } = await mapCanvas(c, !c.day);
-    const jpeg = new Uint8Array(await (await toJpeg(canvas)).arrayBuffer());
-    return [zip([{ name: `${name}.jpg`, data: jpeg }, { name: `${name}.jgw`, data: text.encode(worldFile(bounds, canvas.width, canvas.height)) }, { name: `${name}.prj`, data: text.encode(MERCATOR_WKT) }]), `${name}_gis.zip`];
+    return { base: `${name}_gis`, files: [await entry(`${name}.jpg`, await toJpeg(canvas)), await entry(`${name}.jgw`, worldFile(bounds, canvas.width, canvas.height)),
+      await entry(`${name}.prj`, MERCATOR_WKT), await entry(`${name}.jpg.aux.xml`, `<PAMDataset><SRS>${MERCATOR_WKT}</SRS></PAMDataset>`)] };
   }
 
   /* --------------------------------------------------------- grid values */
@@ -99,7 +104,7 @@ export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, cla
       score[i] = r.score;
       if (r.U95 !== null) u[i] = r.U95;
     }
-    return [blob(geoTiff({ w: e.w, h: e.h, bands: [score, u], west: e.west, north: e.north, dx: c.m.grid.dx, dy: c.m.grid.dy }), "tif"), `${fileBase(c)}_score_U95.tif`];
+    return single(`${fileBase(c)}_score_U95.tif`, geoTiff({ w: e.w, h: e.h, bands: [score, u], west: e.west, north: e.north, dx: c.m.grid.dx, dy: c.m.grid.dy }));
   }
 
   /** The risk classes as a picture for Google Earth, one square per cell, regular in latitude and longitude. */
@@ -109,54 +114,55 @@ export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, cla
     const ctx = cv.getContext("2d");
     ctx.globalAlpha = 0.75;
     for (const r of rowsOf(c)) { ctx.fillStyle = classOf(r.score).color; ctx.fillRect((r.c - e.c0) * K, (r.r - e.r0) * K, K, K); }
-    const g = c.m.grid, png = new Uint8Array(await (await toPng(cv)).arrayBuffer());
-    const doc = kmlGroundOverlay({ name: `${t(state.hazard)} ${state.date}`, description: `${c.day.mean.toFixed(0)} ± ${c.day.budget.missing.length ? "≥" : ""}${c.day.budget.U.toFixed(0)} ${t("points")} (k=2). ${t("x_not_official")}`, href: "risk.png", box: { n: e.north, s: e.north - e.h * g.dy, w: e.west, e: e.west + e.w * g.dx } });
-    return [zip([{ name: "doc.kml", data: text.encode(doc) }, { name: "risk.png", data: png }], MIME.kmz), `${fileBase(c)}.kmz`];
+    const g = c.m.grid, png = await bytesOf(await toPng(cv));
+    const doc = kmlGroundOverlay({ name: `${t(state.hazard)} ${state.date}`, description: `${c.day.mean.toFixed(0)} ± ${c.day.budget.missing.length ? "≥" : ""}${c.day.budget.U.toFixed(0)} ${t("points")} (95%). ${t("x_not_official")}`, href: "risk.png", box: { n: e.north, s: e.north - e.h * g.dy, w: e.west, e: e.west + e.w * g.dx } });
+    return single(`${fileBase(c)}.kmz`, zip([{ name: "doc.kml", data: text.encode(doc) }, { name: "risk.png", data: png }], MIME.kmz));
   }
 
   const CELL_HEAD = ["lat", "lon", "score", "class", "u_input", "u_model", "U95", "U95_is_lower_bound"];
-  const asCellsCsv = (c) => [blob(csv(CELL_HEAD, rowsOf(c).map((r) => [r.lat, r.lon, r.score, r.label, r.u_input, r.u_model, r.U95, r.U95_min])), "csv"), `${fileBase(c)}_cells.csv`];
-  const asCellsGeoJson = (c) => [blob(featureCollection(rowsOf(c).map((r) => pointFeature(r.lon, r.lat, { score: r.score, class: r.label, u_input: r.u_input, u_model: r.u_model, U95: r.U95, U95_is_lower_bound: r.U95_min }))), "geojson"), `${fileBase(c)}_cells.geojson`];
+  const asCellsCsv = (c) => single(`${fileBase(c)}_cells.csv`, csv(CELL_HEAD, rowsOf(c).map((r) => [r.lat, r.lon, r.score, r.label, r.u_input, r.u_model, r.U95, r.U95_min])));
+  const asCellsGeoJson = (c) => single(`${fileBase(c)}_cells.geojson`, featureCollection(rowsOf(c).map((r) => pointFeature(r.lon, r.lat, { score: r.score, class: r.label, u_input: r.u_input, u_model: r.u_model, U95: r.U95, U95_is_lower_bound: r.U95_min }))));
 
   /* --------------------------------------------------------------- soums */
+  /** The soums touched by the selection, or all of them when nothing is selected. */
   async function soumRows(c) {
     const soums = await soumsReady();
     if (!soums) throw new Error(t("soum_none"));
-    return soums.features.map((f) => {
+    const inside = c.s ? new Set(c.s.cells.map((x) => x.i)) : null;
+    return soums.features.filter((f) => !inside || f.cells.some((x) => inside.has(x.i))).map((f) => {
       const d = dayReport({ frame: c.fr, uframe: uFrameNow(), cells: f.cells, grid: c.m.grid, classes: CLASSES, uModel: c.uModel });
       return { geometry: f.geometry, color: d ? classOf(d.mean).color : "#555555", values: { soum: f.names.mn, aimag: f.aimags.mn, soum_en: f.names.en, aimag_en: f.aimags.en, hazard: state.hazard, date: state.date, score: d ? round(d.mean) : null, class: d ? classLabel(classOf(d.mean).key) : "", U95: d ? round(d.budget.U) : null, U95_min: d?.budget.missing.length ? "Y" : "N" } };
     });
   }
-  const soumName = () => `mongolia_${state.hazard}_${state.date}_soums`;
-  const asSoumCsv = async (c) => { const r = await soumRows(c), k = SOUM_FIELDS.map((f) => f.name); return [blob(csv(k, r.map((x) => k.map((n) => x.values[n]))), "csv"), `${soumName()}.csv`]; };
-  const asSoumGeoJson = async (c) => [blob(featureCollection((await soumRows(c)).map((x) => ({ type: "Feature", geometry: x.geometry, properties: x.values }))), "geojson"), `${soumName()}.geojson`];
+  const soumName = (c) => `${fileBase(c)}_soums`;
+  const asSoumCsv = async (c) => { const r = await soumRows(c), k = SOUM_FIELDS.map((f) => f.name); return single(`${soumName(c)}.csv`, csv(k, r.map((x) => k.map((n) => x.values[n])))); };
+  const asSoumGeoJson = async (c) => single(`${soumName(c)}.geojson`, featureCollection((await soumRows(c)).map((x) => ({ type: "Feature", geometry: x.geometry, properties: x.values }))));
   async function asSoumKml(c) {
     const r = await soumRows(c), v = (x) => x.values;
-    return [blob(kmlPolygons(`${t(state.hazard)} ${state.date}`, r.map((x) => ({ name: `${v(x).soum} (${v(x).aimag})`, description: v(x).score === null ? t("no_data") : `${v(x).score} ± ${v(x).U95_min === "Y" ? "≥" : ""}${v(x).U95} ${t("points")} (k=2) · ${v(x).class}`, color: x.color, geometry: x.geometry }))), "kml"), `${soumName()}.kml`];
+    return single(`${soumName(c)}.kml`, kmlPolygons(`${t(state.hazard)} ${state.date}`, r.map((x) => ({ name: `${v(x).soum} (${v(x).aimag})`, description: v(x).score === null ? t("no_data") : `${v(x).score} ± ${v(x).U95_min === "Y" ? "≥" : ""}${v(x).U95} ${t("points")} (95%) · ${v(x).class}`, color: x.color, geometry: x.geometry }))));
   }
-  async function shpFiles(c) {
-    const name = soumName(), s = shapefile({ features: await soumRows(c), fields: SOUM_FIELDS });
-    return ["shp", "shx", "dbf", "prj", "cpg"].map((x) => ({ name: `${name}.${x}`, data: s[x] }));
+  async function asSoumShp(c) {
+    const name = soumName(c), s = shapefile({ features: await soumRows(c), fields: SOUM_FIELDS });
+    return { base: `${name}_shp`, files: ["shp", "shx", "dbf", "prj", "cpg"].map((x) => ({ name: `${name}.${x}`, data: s[x] })) };
   }
-  const asSoumShp = async (c) => [zip(await shpFiles(c)), `${soumName()}_shp.zip`];
 
   /* -------------------------------------------------------------- series */
   const hasSeries = (c) => Boolean(c.s?.long);
-  const asSeriesCsv = (c) => [blob("﻿" + toCsv({ label: c.s.label, hazard: state.hazard, months: c.s.months, years: c.s.long.years, high: c.s.long.high }), "csv"), `${fileBase(c)}_series.csv`];
+  const asSeriesCsv = (c) => single(`${fileBase(c)}_series.csv`, "﻿" + toCsv({ label: c.s.label, hazard: state.hazard, months: c.s.months, years: c.s.long.years, high: c.s.long.high }));
   function asSeriesJson(c) {
     const s = c.s, days = new Map(s.long.high.map((r) => [r.y, r.v]));
     const data = { area: s.label, hazard: state.hazard, unit: "score 0-100",
       months: s.months.map((r) => ({ period: `${r.y}-${String(r.m).padStart(2, "0")}`, mean_score: round(r.v, 2) })),
       years: s.long.years.map((r) => ({ year: r.y, mean_score: round(r.v, 2), high_risk_days: round(days.get(r.y)) })), trend: s.long.trend };
-    return [blob(JSON.stringify(data, null, 1), "json"), `${fileBase(c)}_series.json`];
+    return single(`${fileBase(c)}_series.json`, JSON.stringify(data, null, 1));
   }
 
   /* --------------------------------------------------------------- plume */
   function asPlumeTif(c) {
     const p = c.plume, e = p.box;
-    return [blob(geoTiff({ w: p.w, h: p.h, bands: [p.index], west: e.w, north: e.n, dx: (e.e - e.w) / p.w, dy: (e.n - e.s) / p.h }), "tif"), `${fileBase(c)}_dust_${p.material}.tif`];
+    return single(`${fileBase(c)}_dust_${p.material}.tif`, geoTiff({ w: p.w, h: p.h, bands: [p.index], west: e.w, north: e.n, dx: (e.e - e.w) / p.w, dy: (e.n - e.s) / p.h }));
   }
-  const asWindCsv = (c) => [blob(csv(["lat", "lon", "u_m_s", "v_m_s", "speed_m_s", "from_deg", "time"], c.plume.wind.map((w) => [round(w.lat, 4), round(w.lon, 4), round(w.u, 2), round(w.v, 2), round(w.speed, 2), round(w.from), c.plume.time])), "csv"), `${fileBase(c)}_wind.csv`];
+  const asWindCsv = (c) => single(`${fileBase(c)}_wind.csv`, csv(["lat", "lon", "u_m_s", "v_m_s", "speed_m_s", "from_deg", "time"], c.plume.wind.map((w) => [round(w.lat, 4), round(w.lon, 4), round(w.u, 2), round(w.v, 2), round(w.speed, 2), round(w.from), c.plume.time])));
 
   /* -------------------------------------------------------------- report */
   function reportOf(c) {
@@ -173,34 +179,106 @@ export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, cla
       disclaimer: t("footer"),
     };
   }
-  const asReport = (c) => [blob(JSON.stringify(reportOf(c), null, 1), "json"), `${fileBase(c)}_report.json`];
+  const asReport = (c) => single(`${fileBase(c)}_report.json`, JSON.stringify(reportOf(c), null, 1));
+
+  /* ------------------------------------------------- the explanation text */
+  function explanation(c, what, files) {
+    const L = [], pair = (k, v) => L.push(`${t(k)}: ${v}`), section = (k) => L.push("", t(k).toUpperCase(), "-".repeat(46));
+    const num = (v) => v.toLocaleString("en-US"), part = (v) => (typeof v === "number" ? `±${v.toFixed(1)}` : t("u_none"));
+    L.push(t(c.day ? "title" : "x_image_title").toUpperCase(), "=".repeat(46));
+    if (c.day) {
+      const d = c.day, b = d.budget, at = b.missing.length ? "≥" : "", all = classes(), v = c.m.verification?.[state.hazard];
+      const nameAt = (x) => classLabel(all.find((k) => Math.min(Math.max(x, 0), 100) < k.max).key);
+      const lo = Math.max(0, d.mean - b.U), hi = Math.min(100, d.mean + b.U);
+      pair("n_hazard", t(state.hazard));
+      pair("n_date", state.date);
+      pair("n_area", `${c.s ? c.s.label : t("x_view")} (${num(Math.round(d.area))} ${t("km2")})`);
+      pair("n_file", what);
+      section("n_result");
+      pair("n_mean", d.mean.toFixed(1));
+      pair("n_class", classLabel(all.find((k) => d.mean < k.max).key));
+      pair("n_range", `${lo.toFixed(0)}–${hi.toFixed(0)} ${t("points")} (${nameAt(lo)} – ${nameAt(hi)})`);
+      pair("n_max", d.max.toFixed(0));
+      pair("n_cover", `${Math.round(d.coverage * 100)}%`);
+      pair("n_shares", all.map((k, i) => `${classLabel(k.key)} ${Math.round(d.share[i] * 100)}%`).join(", "));
+      section("n_error");
+      pair("n_total", `±${at}${b.U.toFixed(1)} ${t("points")}`);
+      pair("n_pct_scale", `${at}${b.U.toFixed(0)}%`);
+      if (d.mean >= 1) pair("n_pct_value", `${at}${(b.U / d.mean * 100).toFixed(0)}%`);
+      pair("u_input", part(b.parts.input));
+      pair("u_model", part(b.parts.model));
+      pair("u_sampling", part(b.parts.sampling));
+      if (b.missing.length) L.push(t("u_note"));
+      if (c.m.bridge_from && state.date >= c.m.bridge_from) L.push(t("x_bridge"));
+      section("k_verify");
+      if (!v) L.push(t(state.hazard === "all" ? "v_all" : "v_none"));
+      else {
+        if (v.reference) pair("v_reference", v.reference);
+        if (v.period) pair("n_period", v.period);
+        if (typeof v.auc === "number") pair("v_auc", v.auc_ci ? `${v.auc.toFixed(2)} [${v.auc_ci[0].toFixed(2)}, ${v.auc_ci[1].toFixed(2)}]` : v.auc.toFixed(2));
+        if (typeof v.pod === "number") pair("v_pod_far", `${v.pod.toFixed(2)} · ${v.far.toFixed(3)}`);
+        if (typeof v.events_hit === "number") pair("v_events", `${v.events_hit} / ${v.n}`);
+      }
+      section("n_read");
+      L.push(t("n_read1"), t("n_read2"), all.map((k) => `  ${k.min}–${Math.min(Math.round(k.max), 100)}: ${classLabel(k.key)}`).join("\r\n"));
+      const p = c.s?.campReport?.parcels, h = c.s?.campReport?.herders;
+      if (p) {
+        section("k_camps");
+        pair("camps_parcels", num(p.total));
+        pair("camps_herders", num(h.total));
+        pair("camps_high_p", `${num(p.high)} (${t("camps_range")}: ${num(p.highLow)}–${num(p.highHigh)})`);
+        pair("camps_high_h", num(h.high));
+        L.push(t("camps_note"));
+      }
+    } else {
+      const b = baseLayer();
+      pair("n_date", state.date);
+      pair("n_file", what);
+      pair("n_sensor", `${b.sensor}, ${b.res}`);
+      L.push("", t("n_image"));
+    }
+    if (c.plume) {
+      section("dl_plume");
+      pair("n_material", `${c.plume.materialName} (${c.plume.density} g/cm³)`);
+      pair("n_time", c.plume.time.replace("T", " "));
+      L.push(t("n_plume"));
+    }
+    section("n_files");
+    for (const f of files) L.push(`  ${f.name}`);
+    L.push(t("n_unzip"));
+    section("n_sources");
+    L.push(c.day ? t("x_grid") : fill("x_image_src", { r: baseLayer().res }));
+    if (c.day) pair("n_version", c.m.generated_at);
+    L.push("", t("footer"));
+    return "﻿" + L.join("\r\n") + "\r\n";
+  }
 
   /* ----------------------------------------------------------- all at once */
   async function asBundle(c) {
-    const jobs = [[asJpg, "dl_map"], [asTif, "dl_raster"], [asCellsCsv, "dl_table"], [asSoumGeoJson, "dl_soums"], [asReport, "dl_report"]];
-    if (hasSeries(c)) jobs.push([asSeriesCsv, "dl_series"]);
-    if (c.plume) jobs.push([asPlumeTif, "dl_plume"], [asWindCsv, "dl_plume"]);
-    const files = [], list = [];
-    for (const [job, key] of jobs) {
-      const [b, name] = await job(c);
-      files.push({ name, data: new Uint8Array(await b.arrayBuffer()) });
-      list.push(`${name}: ${t(key)}`);
-    }
-    files.push({ name: "README.txt", data: text.encode("﻿" + [t("title"), `${t(state.hazard)} · ${state.date}`, "", ...list, "", t("footer")].join("\r\n")) });
-    return [zip(files), `${fileBase(c)}_all.zip`];
+    const jobs = [asJpg, asTif, asCellsCsv, asSoumGeoJson, asReport];
+    if (hasSeries(c)) jobs.push(asSeriesCsv);
+    if (c.plume) jobs.push(asPlumeTif, asWindCsv);
+    const files = [];
+    for (const job of jobs) files.push(...(await job(c)).files);
+    return { base: `${fileBase(c)}_all`, files };
   }
 
   /* ---------------------------------------------------------------- menu */
   const message = el("p", { class: "dl-msg" });
 
-  async function run(button, job) {
+  /** One ZIP with the file and its explanation: two separate downloads could be stopped by the browser and lose the text. */
+  async function deliver(c, job, what) {
+    const { base, files } = await job(c);
+    save(zip([...files, await entry(`${base}_tailbar.txt`, explanation(c, what, files))]), `${base}.zip`);
+  }
+
+  async function run(button, job, what) {
     const label = button.textContent;
     message.textContent = "";
     button.disabled = true;
     button.textContent = "…";
     try {
-      const [b, name] = await job(context());
-      save(b, name);
+      await deliver(context(), job, what);
     } catch (e) {
       console.error(e);
       message.textContent = t("dl_fail") + e.message;
@@ -209,31 +287,36 @@ export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, cla
     button.textContent = label;
   }
 
-  const row = (key, formats) => el("div", { class: "dl-row" },
-    el("div", {}, el("b", { text: t(key) }), el("small", { text: t(key + "_sub") })),
-    el("div", { class: "dl-fmt" }, formats.map(([label, job, tip]) => el("button", { type: "button", title: tip ?? null, text: label, onclick: (e) => run(e.currentTarget, job) }))));
+  const row = (key, formats, sub = key + "_sub") => el("div", { class: "dl-row" },
+    el("div", {}, el("b", { text: t(key) }), el("small", { text: t(sub) })),
+    el("div", { class: "dl-fmt" }, formats.map(([label, job, tip]) => el("button", { type: "button", title: tip ?? null, text: label, onclick: (e) => run(e.currentTarget, job, `${t(key)} (${label})`) }))));
 
   function render() {
     const c = context(), rows = [];
     const image = [["JPG", asJpg], ["PNG", asPng], ["PDF", asPdf], ["JPG+JGW", asGisImage, t("dl_gis_tip")]];
     if (c.day) {
       rows.push(row("dl_map", image));
-      rows.push(row("dl_raster", [["GeoTIFF", asTif], ["KMZ", asKmz]]));
-      rows.push(row("dl_table", [["CSV", asCellsCsv], ["GeoJSON", asCellsGeoJson]]));
-      rows.push(row("dl_soums", [["SHP", asSoumShp], ["GeoJSON", asSoumGeoJson], ["KML", asSoumKml], ["CSV", asSoumCsv]]));
-      if (hasSeries(c)) rows.push(row("dl_series", [["CSV", asSeriesCsv], ["JSON", asSeriesJson]]));
+      if (c.s) {
+        rows.push(row("dl_raster", [["GeoTIFF", asTif], ["KMZ", asKmz]]));
+        rows.push(row("dl_table", [["CSV", asCellsCsv], ["GeoJSON", asCellsGeoJson]]));
+        rows.push(row("dl_soums", [["SHP", asSoumShp], ["GeoJSON", asSoumGeoJson], ["KML", asSoumKml], ["CSV", asSoumCsv]]));
+        if (hasSeries(c)) rows.push(row("dl_series", [["CSV", asSeriesCsv], ["JSON", asSeriesJson]]));
+      }
     } else rows.push(row("dl_image", image));
     if (c.plume) rows.push(row("dl_plume", [["GeoTIFF", asPlumeTif], ["CSV", asWindCsv]]));
-    if (c.day) { rows.push(row("dl_report", [["JSON", asReport]])); rows.push(row("dl_all", [["ZIP", asBundle]])); }
+    if (c.day) {
+      if (c.s) rows.push(row("dl_report", [["JSON", asReport]]));
+      rows.push(row(c.s ? "dl_all" : "dl_view", [["ZIP", asBundle]]));
+    }
     const scope = c.day ? `${t(state.hazard)} · ${state.date} · ${c.s ? t("x_sel") : t("x_view")}` : `${baseLayer().sensor} · ${state.date}`;
     message.textContent = "";
-    box.replaceChildren(el("p", { class: "dl-scope", text: scope }), ...rows, message);
+    box.replaceChildren(el("p", { class: "dl-scope", text: scope }), el("p", { class: "dl-note", text: t(c.day && !c.s ? "dl_pick" : "dl_note") }), ...rows, message);
   }
 
   return {
     toggle() { box.hidden = !box.hidden; if (!box.hidden) render(); },
     /** The menu lists what exists right now, so it follows every change while it is open. */
     refresh() { if (!box.hidden) render(); },
-    seriesCsv() { const c = context(); if (hasSeries(c)) { const [b, name] = asSeriesCsv(c); save(b, name); } },
+    seriesCsv() { const c = context(); if (hasSeries(c)) deliver(c, asSeriesCsv, t("dl_series")).catch(console.error); },
   };
 }

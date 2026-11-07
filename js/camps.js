@@ -51,22 +51,23 @@ export function campsReport(points, frame, grid, classes, U) {
 
 const merc = (lat) => Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360));
 
-/** Dots on a transparent canvas covering `box`, in Web Mercator rows, coloured by the risk class of the day. */
-export function campsCanvas(points, box, classes, width = 1600) {
+/** Fine dots on a transparent canvas covering `box`, in Web Mercator rows. They are white with a hairline edge so that they stay
+ * visible on every risk colour and on snow; the risk class of the camps is in the area window. `scale` is canvas pixels per
+ * screen pixel. Dots shrink where they crowd, so that a large area stays a fine speckle and never turns into a grey patch. */
+export function campsCanvas(points, box, width = 1600, scale = 1) {
   const y0 = merc(box.n), y1 = merc(box.s), span = (box.e - box.w) * Math.PI / 180;
   const W = width, H = Math.max(2, Math.round(W * (y0 - y1) / span));
   const cv = document.createElement("canvas");
   cv.width = W; cv.height = H;
-  const ctx = cv.getContext("2d"), r = points.length > 4000 ? 2 : 3.5;
-  ctx.lineWidth = 1;
-  ctx.strokeStyle = "#101214";
+  const ctx = cv.getContext("2d"), r = Math.min(0.8 * scale, Math.sqrt(0.18 * W * H / (Math.max(points.length, 1) * Math.PI)));
+  ctx.lineWidth = 0.25 * scale;
+  ctx.strokeStyle = "rgba(0, 0, 0, .5)";
+  ctx.fillStyle = "rgba(255, 255, 255, .9)";
   for (const p of points) {
-    const k = p.score === null || p.score === undefined ? null : classes.find((c) => p.score < c.max);
-    ctx.fillStyle = k ? k.color : "#c3c2b7";
     ctx.beginPath();
     ctx.arc((p.lon - box.w) / (box.e - box.w) * W, (y0 - merc(p.lat)) / (y0 - y1) * H, r, 0, 7);
     ctx.fill();
-    ctx.stroke();
+    if (r > 0.5 * scale) ctx.stroke();
   }
   return cv;
 }
