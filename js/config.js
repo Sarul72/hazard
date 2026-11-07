@@ -154,7 +154,6 @@ export const GIBS = {
     { key: "precip_imerg", kind: "overlay", id: "IMERG_Precipitation_Rate", ext: "png", tms: "GoogleMapsCompatible_Level6", sensor: "GPM IMERG", res: "10 km" },
     { key: "flood_modis", kind: "overlay", id: "MODIS_Combined_Flood_2-Day", ext: "png", tms: "GoogleMapsCompatible_Level9", sensor: "MODIS Aqua+Terra LANCE flood, 2-day", res: "250 m", opacity: 0.55 },
     { key: "flood_viirs", kind: "overlay", id: "VIIRS_Combined_Flood_2-Day", ext: "png", tms: "GoogleMapsCompatible_Level9", sensor: "VIIRS LANCE flood, 2-day", res: "375 m", opacity: 0.55 },
-    { key: "water_dswx", kind: "overlay", id: "OPERA_L3_Dynamic_Surface_Water_Extent-HLS", ext: "png", tms: "GoogleMapsCompatible_Level12", sensor: "OPERA DSWx from HLS (Landsat + Sentinel-2)", res: "30 m" },
     { key: "snow_modis", kind: "overlay", id: "MODIS_Terra_NDSI_Snow_Cover", ext: "png", tms: "GoogleMapsCompatible_Level8", sensor: "MODIS Terra NDSI snow cover", res: "500 m", opacity: 0.7 },
     { key: "hls_s30", kind: "overlay", id: "HLS_S30_Nadir_BRDF_Adjusted_Reflectance", ext: "png", tms: "GoogleMapsCompatible_Level12", sensor: "HLS Sentinel-2", res: "30 m", opacity: 1 },
     { key: "hls_l30", kind: "overlay", id: "HLS_L30_Nadir_BRDF_Adjusted_Reflectance", ext: "png", tms: "GoogleMapsCompatible_Level12", sensor: "HLS Landsat 8/9", res: "30 m", opacity: 1 },
@@ -167,5 +166,8 @@ export const MINES = [
   { id: "uhg", material: "coal", mn: "Ухаа Худаг (Цогтцэций сум, Өмнөговь)", en: "Ukhaa Khudag (Tsogttsetsii, Ömnögovi)", lat: 43.6678, lon: 105.5181, src: "user script; Wikipedia 43.6754 N 105.5211 E" },
   { id: "tt_small", material: "coal", mn: "Жижиг Таван толгой (Цогтцэций, Өмнөговь)", en: "Small Tavan Tolgoi (Tsogttsetsii, Ömnögovi)", lat: 43.6517, lon: 105.4417, src: "Global Energy Monitor (approximate)" },
   { id: "bayanshand", material: "coal", mn: "Баяншанд / Довцог Худаг (Мандах сум, Дорноговь)", en: "Bayanshand / Dovtsog Khudag (Mandakh, Dornogovi)", lat: 44.1797, lon: 108.3206, src: "Global Energy Monitor (exact)" },
+  { id: "oyu", material: "chalcopyrite", mn: "Оюу Толгой (Ханбогд сум, Өмнөговь)", en: "Oyu Tolgoi (Khanbogd, Ömnögovi)", lat: 43.0083, lon: 106.8431, src: "Wikipedia, List of mines in Mongolia" },
+  { id: "erdenet", material: "chalcopyrite", mn: "Эрдэнэт (Баян-Өндөр сум, Орхон)", en: "Erdenet (Bayan-Öndör, Orkhon)", lat: 49.0278, lon: 104.0444, src: "Wikipedia, List of mines in Mongolia" },
+  { id: "baganuur", material: "coal", mn: "Багануур (Улаанбаатар)", en: "Baganuur (Ulaanbaatar)", lat: 47.7506, lon: 108.3249, src: "Global Energy Monitor wiki, exact" },
   { id: "eldev", material: "coal", mn: "Элдэв (Далан-Жаргалан сум, Дорноговь)", en: "Eldev (Dalanjargalan, Dornogovi)", lat: 46.1203, lon: 108.9915, src: "Global Energy Monitor (exact)" },
 ];

@@ -33,7 +33,7 @@ const state = {
   lang: store.get("hw.lang") || "mn", hazard: null, mode: "zones",
   manifest: null, date: utcDate(-1), day: null, dayMissing: false,
   sel: null, selToken: 0, dayToken: 0, soums: null, soumQuery: "", sat: {},
-  borders: { country: false, aimag: false, soum: false }, bordersTouched: false, borderLayers: {}, borderData: {},
+  borders: { country: true, aimag: false, soum: false, water: false }, borderLayers: {}, borderData: {},
   dateFolded: store.get("hw.datefold") === "1",
 };
 
@@ -56,6 +56,7 @@ function renderStatic() {
   $("t-borders").textContent = t("borders");
   $("back").innerHTML = ICON.back;
   $("back").append(t("back"));
+  $("busy-text").textContent = t("busy");
   $("t-sat").textContent = t("satellites");
   $("t-sat-base").textContent = t("base");
   $("t-sat-overlay").textContent = t("overlays");
@@ -86,6 +87,7 @@ function renderLegend() {
 
 /* ---------------------------------------------------------------- borders */
 const BORDERS = {
+  water: { file: "data/water.geojson", weight: 0.5, opacity: 0.9, color: "#9ad4ff", fill: "#2f8fe0", fillOpacity: 0.8 },
   soum: { file: "data/soums.geojson", weight: 0.6, opacity: 0.55 },
   aimag: { file: "data/aimags.geojson", weight: 1.1, opacity: 0.8 },
   country: { file: "data/mongolia.geojson", weight: 1.8, opacity: 0.95 },
@@ -97,19 +99,28 @@ async function applyBorders() {
     if (!state.borderLayers[key]) {
       state.borderData[key] ??= await fetch(def.file).then((r) => (r.ok ? r.json() : null)).catch(() => null);
       if (!state.borderData[key]) continue;
-      state.borderLayers[key] ??= window.L.geoJSON(state.borderData[key], { pane: "borderPane", interactive: false, style: { color: "#fff", weight: def.weight, opacity: def.opacity, fill: false } });
+      state.borderLayers[key] ??= window.L.geoJSON(state.borderData[key], { pane: "borderPane", interactive: false, style: { color: def.color ?? "#fff", weight: def.weight, opacity: def.opacity, fill: Boolean(def.fill), fillColor: def.fill, fillOpacity: def.fillOpacity } });
     }
     if (state.borders[key]) state.borderLayers[key].addTo(state.map);
   }
 }
 
 function renderBorders() {
-  $("borders").replaceChildren(...["country", "aimag", "soum"].map((k) => el("label", { class: "check" },
-    el("input", { type: "checkbox", checked: state.borders[k], onchange: (e) => { state.borders[k] = e.target.checked; state.bordersTouched = true; applyBorders(); } }), el("span", { text: t("b_" + k) }))));
+  $("borders").replaceChildren(...["country", "aimag", "soum", "water"].map((k) => el("label", { class: "check" },
+    el("input", { type: "checkbox", checked: state.borders[k], onchange: (e) => { state.borders[k] = e.target.checked; applyBorders(); } }), el("span", { text: t("b_" + k) }))));
 }
 
 /** What the image needs to draw the same lines as the screen, thinnest first. */
-const activeBorders = () => Object.entries(BORDERS).filter(([k]) => state.borders[k] && state.borderData[k]).map(([k, d]) => ({ data: state.borderData[k], weight: d.weight, opacity: d.opacity }));
+const activeBorders = () => Object.entries(BORDERS).filter(([k]) => state.borders[k] && state.borderData[k]).map(([k, d]) => ({ data: state.borderData[k], weight: d.weight, opacity: d.opacity, color: d.color, fill: d.fill }));
+
+/* ---------------------------------------------------------- computing screen */
+let working = 0;
+/** The screen softens with a small note while something takes time. Short tasks end before it shows. */
+function busy(on) {
+  working = Math.max(0, working + (on ? 1 : -1));
+  $("busy").classList.toggle("on", working > 0);
+}
+const whileBusy = async (job) => { busy(true); try { return await job(); } finally { busy(false); } };
 
 /* --------------------------------------------------------------- day picker */
 function renderDateFold() {
@@ -161,7 +172,6 @@ function renderScreen() {
   const results = Boolean(state.hazard);
   document.body.classList.toggle("bare", !results);
   state.rect.setActive(results);
-  if (!state.bordersTouched) state.borders.country = results; // the opening image has no lines until somebody asks for them
   applyBorders();
   renderBorders();
   $("t-hazards").textContent = t(results ? "hazards" : "pick_hazard");
@@ -265,7 +275,7 @@ async function setDate(d) {
   const my = ++state.dayToken;
   let day = null;
   state.loadError = null;
-  try { day = await loadDaily(state.manifest, d); }
+  try { day = await whileBusy(() => loadDaily(state.manifest, d)); }
   catch (e) { console.error(e); state.loadError = e.message; }
   if (my !== state.dayToken) return;
   state.day = day;
@@ -336,7 +346,7 @@ function soumsReady() {
 async function showSoums() {
   const on = state.mode === "soums" && Boolean(state.hazard);
   $("soum-box").hidden = !on;
-  if (on) await soumsReady();
+  if (on) await whileBusy(soumsReady);
   state.soumLayer?.show(state.mode === "soums" && Boolean(state.hazard));
   paintSoums();
 }
@@ -402,7 +412,7 @@ async function loadSelection() {
   });
   try {
     const name = state.hazard;
-    const [mc, hc] = await Promise.all([loadCube(m, "monthly_" + name), loadCube(m, "highdays_" + name)]);
+    const [mc, hc] = await whileBusy(() => Promise.all([loadCube(m, "monthly_" + name), loadCube(m, "highdays_" + name)]));
     if (my !== state.selToken) return;
     s.months = monthSeries(mc, m.first_month, s.cells);
     s.high = highDaySeries(hc, m.first_month, s.cells);
@@ -536,10 +546,11 @@ async function boot() {
   initMap();
   state.rect = initRectDraw(state.map, { onDone: onBox, isBlocked: () => $("dlg").open });
   state.panel = createStatsPanel($("stats"), { t, classes: classesNow, classLabel, onClose: closeSelection, onMethods: showMethods, onCsv: () => state.downloads.seriesCsv(), onPlume: showPlume, onCamps: (on) => { if (state.sel) { state.sel.campsOn = on; renderSelection(); } } });
-  state.tools = initTools({ map: state.map, getLang: () => state.lang, requestSat, containers: { poly: el("div"), mine: $("view-mine") }, onMethods: showMethods,
+  state.tools = initTools({ map: state.map, getLang: () => state.lang, requestSat, containers: { poly: el("div"), mine: $("view-mine") }, onMethods: showMethods, busy,
+    onWater: (on) => { if (state.borders.water !== on) { state.borders.water = on; applyBorders(); renderBorders(); } },
     campsFor: async (box) => { const a = await loadCamps(); return a ? campsInside(a, box) : null; } });
   state.dateBar = initDateBar($("datebar"), { onChange: setDate, text: t, monthName: (m) => t("months")[m - 1] });
-  state.downloads = initDownloads({ box: $("dl-menu"), state, t, frameNow, uFrameNow, classOf, classLabel, classes: classesNow, soumsReady, borders: activeBorders });
+  state.downloads = initDownloads({ box: $("dl-menu"), state, t, frameNow, uFrameNow, classOf, classLabel, classes: classesNow, soumsReady, borders: activeBorders, busy });
   renderSat();
   renderScreen();
   renderDateFold();

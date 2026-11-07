@@ -72,21 +72,25 @@ export async function drawMap(o) {
     }
   }
   for (const line of o.borders ?? []) {
-    ctx.strokeStyle = `rgba(255,255,255,${line.opacity})`;
+    ctx.strokeStyle = line.color ?? `rgba(255,255,255,${line.opacity})`;
+    ctx.fillStyle = line.fill ?? "transparent";
     ctx.lineWidth = line.weight * S;
-    for (const f of line.data.features ?? [line.data]) { trace(f.geometry ?? f); ctx.stroke(); }
+    for (const f of line.data.features ?? [line.data]) { trace(f.geometry ?? f); if (line.fill) ctx.fill("evenodd"); ctx.stroke(); }
   }
   if (o.plume?.image) image(o.plume.image, o.plume.box);
+  if (o.plume?.homes) image(o.plume.homes, o.plume.box);
   for (const a of o.plume?.arrows ?? []) {
-    const [x, y] = P(a.lat, a.lon), len = (8 + Math.min(a.speed, 20)) * S;
+    const [x, y] = P(a.lat, a.lon), len = (10 + Math.min(a.speed, 16) * 0.8) * S, head = len * 0.22;
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(a.angle * Math.PI / 180);
-    ctx.fillStyle = a.color;
+    ctx.strokeStyle = "rgba(255,255,255,.88)";
+    ctx.lineWidth = 1.1 * S;
+    ctx.lineCap = ctx.lineJoin = "round";
     ctx.beginPath();
-    ctx.moveTo(0, -len / 2); ctx.lineTo(len / 3, len / 2); ctx.lineTo(0, len / 4); ctx.lineTo(-len / 3, len / 2);
-    ctx.closePath();
-    ctx.fill();
+    ctx.moveTo(0, len / 2); ctx.lineTo(0, -len / 2);
+    ctx.moveTo(-head * 0.75, -len / 2 + head); ctx.lineTo(0, -len / 2); ctx.lineTo(head * 0.75, -len / 2 + head);
+    ctx.stroke();
     ctx.restore();
   }
   if (o.camps) image(o.camps.canvas, o.camps.box);

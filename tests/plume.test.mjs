@@ -59,7 +59,7 @@ test("windVec: wind FROM the west blows east, FROM the north blows south", () =>
 test("sigmaY grows with distance and equals the source size at x=0", () => {
   near(sigmaY(0), 150, 1e-9);
   assert.ok(sigmaY(10000) > sigmaY(1000));
-  near(sigmaY(1000), Math.hypot(150, 0.11 * 1000 / Math.sqrt(1.1)), 1e-6);
+  near(sigmaY(1000), Math.hypot(150, 0.08 * 1000 / Math.sqrt(1.1)), 1e-6, "Briggs class D");
   assert.ok(emissionFactor(15) > emissionFactor(5));
 });
 

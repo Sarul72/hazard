@@ -23,7 +23,7 @@ const entry = async (name, data) => ({ name, data: data instanceof Blob ? await 
 /** A job gives the base name of the download and its files. */
 const single = async (name, data) => ({ base: name.replace(/\.([^.]+)$/, "_$1"), files: [await entry(name, data)] });
 
-export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, classLabel, classes, soumsReady, borders }) {
+export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, classLabel, classes, soumsReady, borders, busy }) {
   const fill = (k, o) => Object.entries(o).reduce((a, [x, y]) => a.replace(`{${x}}`, y), t(k));
   const baseLayer = () => versionAt(GIBS.layers.find((l) => l.kind === "base" && state.sat[l.key].on), state.date);
   const fileBase = (c) => `mongolia_${c.day ? state.hazard : "image"}_${state.date}${c.s ? "_area" : ""}`;
@@ -175,7 +175,7 @@ export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, cla
       uncertainty: { method: "JCGM 100 (GUM), quadrature, k = 2", u_input: b.parts.input ?? null, u_model: b.parts.model ?? null, u_sampling: b.parts.sampling ?? null, u_combined: +b.uc.toFixed(2), U_expanded: +b.U.toFixed(2), not_estimated: b.missing, is_lower_bound: b.missing.length > 0 },
       verification: v, score_classes: CLASSES.map((k) => ({ class: k.key, from: k.min, to: Math.min(k.max, 100) })), lineage: c.m.sources?.[state.hazard] ?? c.m.sources ?? null,
       camps: c.s?.campReport ? { cadastre: c.s.campReport.parcels, herder_points: c.s.campReport.herders, note: "Positions rounded to 0.01 degree; the two registers may overlap and must not be added." } : null,
-      plume: c.plume ? { material: c.plume.material, density_g_cm3: c.plume.density, source: [c.plume.lat, c.plume.lon], time: c.plume.time, wind_spread_deg: c.plume.spread, exposed_camps: c.plume.camps, note: "Relative index, not a concentration." } : null,
+      plume: c.plume ? { material: c.plume.material, density_g_cm3: c.plume.density, source: [c.plume.lat, c.plume.lon], time: c.plume.time, wind_spread_deg: c.plume.spread, exposed_camps: c.plume.camps, reach_km: round(c.plume.stats?.reach), area_km2: round(c.plume.stats?.area, 0), reach_at_view_edge: c.plume.stats?.edge ?? null, range_with_wind_changed: c.plume.range, water_reached: c.plume.water, note: "Relative index, not a concentration. The range turns the wind by 20 degrees and scales it by 20 percent; it is not a statistical error." } : null,
       disclaimer: t("footer"),
     };
   }
@@ -241,6 +241,15 @@ export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, cla
       section("dl_plume");
       pair("n_material", `${c.plume.materialName} (${c.plume.density} g/cm³)`);
       pair("n_time", c.plume.time.replace("T", " "));
+      const s = c.plume.stats, r = c.plume.range, whole = (v) => num(Math.round(v)), span = (a) => `${whole(Math.min(...a))}–${whole(Math.max(...a))}`;
+      if (s?.area) {
+        pair("n_reach", `${s.edge ? "≥ " : ""}${whole(s.reach)} ${t("n_km")} (${span(r.reach)})`);
+        pair("n_reach_area", `${whole(s.area)} ${t("km2")} (${span(r.area)})`);
+        pair("n_reach_dir", c.plume.direction);
+        if (r.parcels) pair("n_reach_camps", span(r.parcels));
+        if (c.plume.water) pair("n_reach_water", `${c.plume.water.n}, ${whole(c.plume.water.km2)} ${t("km2")}`);
+        L.push(t("n_range_note"));
+      }
       L.push(t("n_plume"));
     }
     section("n_files");
@@ -277,12 +286,15 @@ export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, cla
     message.textContent = "";
     button.disabled = true;
     button.textContent = "…";
+    busy(true);
     try {
+      await new Promise((ok) => setTimeout(ok, 60)); // let the computing screen appear before the page is busy
       await deliver(context(), job, what);
     } catch (e) {
       console.error(e);
       message.textContent = t("dl_fail") + e.message;
     }
+    busy(false);
     button.disabled = false;
     button.textContent = label;
   }

@@ -26,7 +26,7 @@ Layer ids, tile matrix sets and formats below were **read from GIBS's own WMTS G
 | dust_airs | `AIRS_L2_Dust_Score_Day` | Level6 | AIRS dust score |
 | precip_imerg | `IMERG_Precipitation_Rate` | Level6 | |
 | flood_modis / flood_viirs | `MODIS_Combined_Flood_2-Day`, `VIIRS_Combined_Flood_2-Day` | Level9 | NASA LANCE NRT flood products; layer is mostly opaque, shown at 55 % |
-| water_dswx | `OPERA_L3_Dynamic_Surface_Water_Extent-HLS` | Level12 | surface water from Harmonized Landsat Sentinel-2 |
+| lakes and rivers | JRC Global Surface Water v1.4 on Earth Engine, occurrence >= 50%, traced to `data/water.geojson` by `scripts/build_water.py` | static | replaced OPERA DSWx, whose single-day tiles paint 'not water', cloud and snow classes |
 | snow_modis | `MODIS_Terra_NDSI_Snow_Cover` | Level8 | |
 | hls_s30 / hls_l30 | `HLS_S30_…`, `HLS_L30_Nadir_BRDF_Adjusted_Reflectance` | Level12 | 30 m Sentinel-2 / Landsat |
 

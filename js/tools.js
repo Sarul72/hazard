@@ -7,8 +7,9 @@ import { MINES, API, TZ, CLASSES } from "./config.js";
 import { fetchAll, nowLocalString } from "./openmeteo.js";
 import { computePoint, classOf } from "./risk.js";
 import { makeGrid, rasterize, summarize, polygonAreaKm2, kmPerDegLon, KM_PER_DEG_LAT } from "./geo.js";
-import { buildField, simulate, concGrid, referenceMax, exposure, plumeClass, PLUME_CLASSES, peakFromFrames, halfDepositionKm, airborneShare } from "./plume.js";
+import { buildField, buildMet, shiftField, simulate, concGrid, referenceMax, exposure, plumeClass, plumeColor, plumeStats, PLUME_CLASSES, peakFromFrames, halfDepositionKm, airborneShare } from "./plume.js";
 import { MATERIALS, materialById } from "./materials.js";
+import { campsCanvas } from "./camps.js";
 
 const TT = {
   mn: {
@@ -21,9 +22,9 @@ const TT = {
     mine_title: "Уул уурхайн шороон тоос", mine_help: "Уурхай, огноо, үргэлжлэх хугацаа сонгоод «Тооцоолох». Салхи, тоосны тархалт цагаар хөдөлнө.",
     mine_src: "Уурхай", mine_lat: "Өргөрөг", mine_lon: "Уртраг", mine_pick: "Газраас сонгох", mine_pick_on: "Газрын зураг дээр дарна уу…",
     mine_date: "Эхлэх огноо (УБ цаг)", mine_hour: "Эхлэх цаг", mine_dur: "Үргэлжлэх хугацаа", mine_hours: "цаг", mine_radius: "Харах радиус", mine_spread: "Салхины чиглэлийн тодорхойгүй байдал", mine_km: "км",
-    mine_event: "2025-06-01 16:00 (таны script)", mine_run: "Тооцоолох", mine_busy: "Тооцоолж байна…",
+    mine_event: "Жишээ: 2025-06-01", mine_run: "Тооцоолох", mine_busy: "Тооцоолж байна…",
     play: "▶ Тоглуулах", pause: "⏸ Зогсоох", speed: "Хурд", t_wind: "Салхи", t_gust: "Давыг", t_dir: "Чиглэл (хаанаас)", t_cams: "CAMS тоос", t_pm10: "CAMS PM10",
-    l_plume: "Тоосны тархалт", l_wind: "Салхины сум", l_homes: "Айл өрх, өвөлжөө, хаваржаа", l_water: "Гадаргын ус (Landsat/Sentinel-2)", l_aod: "MODIS Deep Blue тоосны аэрозол — бодит хиймэл дагуулын хэмжилт", l_hls: "Sentinel-2 / Landsat 30 м (тухайн өдөр)",
+    l_plume: "Тоосны тархалт", l_wind: "Салхины сум", l_homes: "Өвөлжөө, хаваржаа", l_water: "Гол, нуур (JRC, Landsat 1984–2021)", l_aod: "MODIS Deep Blue тоосны аэрозол — бодит хиймэл дагуулын хэмжилт", l_hls: "Sentinel-2 / Landsat 30 м (тухайн өдөр)",
     homes_none: "Айл өрхийн өгөгдөл хараахан бэлэн биш (GitHub Actions «Settlements» ажилласны дараа гарна).", homes_title: "Тархацад өртөж буй айл өрх", homes_total: "Радиус доторх нийт", homes_exposed: "Өртөж буй (индекс ≥ 2)",
     homes_note: "Өгөгдөл: OpenStreetMap, уурхайгаас ≈60 км радиус. Алслагдсан говьд бүх гэр бүртгэгдээгүй байж болно, тиймээс энэ нь доод тооцоо.",
     type_ger: "Гэр", type_house: "Байшин", type_hut: "Майхан/хашаа", type_farmyard: "Мал аж ахуйн талбай", type_place: "Суурин", type_winter: "Өвөлжөө", type_spring: "Хаваржаа",
@@ -31,6 +32,7 @@ const TT = {
     plume_note: "Тоосны индекс нь харьцангуй (0–100): суулгүй агаарт үлдсэн бол эх үүсвэрээс 3 км-ээс цааш гарах байсан хамгийн хүчтэй цэгтэй харьцуулсан. Иймээс хүнд эрдэс бодитоор бага индекс өгнө. µг/м³ биш: уурхайн бодит ялгарал тодорхойгүй. Салхи: Open-Meteo (ERA5/прогноз, ≈25 км).",
     mine_material: "Тоосны төрөл", mat_title: "Тоосны төрлүүдийг харьцуулах", mat_name: "Төрөл", mat_rho: "Нягт, г/см³", mat_half: "Хагас нь суух зай", mat_left: "50 км-т агаарт", mat_far: "> 500 км", mat_wind: "Дундаж салхи", mat_hint: "Элемент өөрөө тоосыг хөдөлгөдөггүй: нягт, ширхэгийн хэмжээ л тархалтыг өөрчилнө. Бүх төрөлд ижил ширхэгийн хэмжээ авсан.", mine_method: "Арга зүй",
     camps_title: "Тархацад өртсөн өвөлжөө, хаваржаа", camps_parcels: "Кадастрын нэгж (индекс ≥ 2)", camps_herders: "Малчны цэг (индекс ≥ 2)", camps_hint: "Байршил ≈1 км-ээр бүдүүлэгжсэн. Хоёр бүртгэл давхцаж болох тул нэмж болохгүй.",
+    s_title: "Тоосны тархалтын дүн", s_reach: "Хамгийн алс хүрсэн зай", s_area: "Тоос хүрсэн талбай", s_dir: "Гол чиглэл", s_peak: "Хамгийн их үе", s_camps: "Тоос хүрсэн өвөлжөө (кадастр)", s_water: "Тоос хүрсэн гол, нуур", s_none: "Индекс ≥ 2 хүрсэн газар алга.", s_range: "Хаалтад: салхины чиглэлийг ±20°, хурдыг ±20% өөрчилсөн үеийн хязгаар. Энэ бол статистик алдаа биш, тооцоо салхинаас хэр хамаарахыг заана.", s_edge: "Тоос харах радиусын хязгаарт хүрсэн: бодит зай үүнээс их байж болно.", t_stab: "Агаарын тогтворшил", t_rain: "Хур тунадас", t_mix: "Холилдох давхарга", met_none: "Цаг агаарын нэмэлт өгөгдөл ирсэнгүй: саармаг агаар, бороогүй гэж тооцов.", key_title: "Тоосны индекс", stab: { A: "A: маш тогтворгүй", B: "B: тогтворгүй", C: "C: бага зэрэг тогтворгүй", D: "D: саармаг", E: "E: тогтвортой", F: "F: маш тогтвортой" }, dirs: ["хойд", "зүүн хойд", "зүүн", "зүүн өмнөд", "өмнөд", "баруун өмнөд", "баруун", "баруун хойд"],
     mine_err: "Алдаа: ", cams_chart: "Эх үүсвэр дэх CAMS тоос (µг/м³) ба салхи (м/с)", frames_ready: "Бэлэн", peak_time: "Оргил цаг", no_homes_exposed: "Өртсөн айл олдсонгүй.", index: "индекс",
     sat_date_note: "Хиймэл дагуулын давхаргууд сонгосон эхлэх огнооны зургийг харуулна.", future_limit: "Огноо өнөөдрөөс 14 хоногоос хэтрэхгүй байх ёстой.",
   },
@@ -44,9 +46,9 @@ const TT = {
     mine_title: "Mine dust plume", mine_help: "Pick a mine, a date and a duration, then Compute. Wind and dust spread animate hour by hour.",
     mine_src: "Mine", mine_lat: "Latitude", mine_lon: "Longitude", mine_pick: "Pick on map", mine_pick_on: "Click the map…",
     mine_date: "Start date (Ulaanbaatar time)", mine_hour: "Start hour", mine_dur: "Duration", mine_hours: "h", mine_radius: "View radius", mine_spread: "Wind-direction uncertainty", mine_km: "km",
-    mine_event: "2025-06-01 16:00 (your script)", mine_run: "Compute", mine_busy: "Computing…",
+    mine_event: "Example: 2025-06-01", mine_run: "Compute", mine_busy: "Computing…",
     play: "▶ Play", pause: "⏸ Pause", speed: "Speed", t_wind: "Wind", t_gust: "Gust", t_dir: "Direction (from)", t_cams: "CAMS dust", t_pm10: "CAMS PM10",
-    l_plume: "Dust plume", l_wind: "Wind arrows", l_homes: "Households, winter and spring camps", l_water: "Surface water (Landsat/Sentinel-2)", l_aod: "MODIS Deep Blue dust aerosol — real satellite measurement", l_hls: "Sentinel-2 / Landsat 30 m (that day)",
+    l_plume: "Dust plume", l_wind: "Wind arrows", l_homes: "Winter and spring camps", l_water: "Lakes and rivers (JRC, Landsat 1984-2021)", l_aod: "MODIS Deep Blue dust aerosol — real satellite measurement", l_hls: "Sentinel-2 / Landsat 30 m (that day)",
     homes_none: "Household data not built yet (appears after the GitHub Actions workflow “Settlements” has run).", homes_title: "Households in the plume", homes_total: "Total inside radius", homes_exposed: "Exposed (index ≥ 2)",
     homes_note: "Data: OpenStreetMap, about 60 km around the mine. Remote Gobi may have unmapped gers, so this is a lower bound.",
     type_ger: "Ger", type_house: "House", type_hut: "Hut/tent", type_farmyard: "Livestock yard", type_place: "Settlement", type_winter: "Winter camp", type_spring: "Spring camp",
@@ -54,6 +56,7 @@ const TT = {
     plume_note: "The plume index is relative (0–100): compared with the strongest spot beyond 3 km the dust would reach if none of it settled, so a heavy mineral really gives a lower index. It is not ug/m3 because the real emission of the mine is unknown. Wind: Open-Meteo (ERA5/forecast, ≈25 km).",
     mine_material: "Dust type", mat_title: "Dust types compared", mat_name: "Type", mat_rho: "Density, g/cm³", mat_half: "Half settled at", mat_left: "Airborne at 50 km", mat_far: "> 500 km", mat_wind: "Mean wind", mat_hint: "An element does not move dust by itself: density and particle size change the spread. All types use the same particle sizes.", mine_method: "Method",
     camps_title: "Winter and spring camps in the plume", camps_parcels: "Cadastre camps (index ≥ 2)", camps_herders: "Herder points (index ≥ 2)", camps_hint: "Positions are rounded to about 1 km. The two registers may overlap, so do not add them.",
+    s_title: "Dust plume result", s_reach: "Farthest reach", s_area: "Area reached", s_dir: "Main direction", s_peak: "Strongest at", s_camps: "Camps reached (cadastre)", s_water: "Lakes and rivers reached", s_none: "The index did not reach 2 anywhere.", s_range: "In brackets: the range when the wind direction moves by ±20° and its speed by ±20%. It is not a statistical error; it shows how much the result leans on the wind.", s_edge: "The dust reached the edge of the view, so the true distance may be larger.", t_stab: "Air stability", t_rain: "Precipitation", t_mix: "Mixed layer", met_none: "Extra weather data did not arrive: neutral air and no rain are assumed.", key_title: "Dust index", stab: { A: "A: very unstable", B: "B: unstable", C: "C: slightly unstable", D: "D: neutral", E: "E: stable", F: "F: very stable" }, dirs: ["north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west"],
     mine_err: "Error: ", cams_chart: "CAMS dust at the source (ug/m3) and wind (m/s)", frames_ready: "Ready", peak_time: "Peak time", no_homes_exposed: "No exposed households found.", index: "index",
     sat_date_note: "Satellite layers show imagery for the chosen start date.", future_limit: "The date must be no more than 14 days from today.",
   },
@@ -95,7 +98,7 @@ async function fetchJson(url, { timeoutMs = 30000, retries = 1 } = {}) {
 const isoDate = (d) => d.toISOString().slice(0, 10);
 const addDaysIso = (iso, n) => isoDate(new Date(Date.parse(iso + "T00:00:00Z") + n * 86400000));
 
-export function initTools({ map, getLang, requestSat, containers, campsFor, onMethods }) {
+export function initTools({ map, getLang, requestSat, containers, campsFor, onMethods, onWater, busy = () => {} }) {
   const L = window.L;
   const t = (k) => (TT[getLang()] && TT[getLang()][k]) ?? TT.mn[k] ?? k;
   const T = { poly: initPoly(), mine: initMine() };
@@ -227,12 +230,12 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
   function initMine() {
     const today = isoDate(new Date());
     const st = {
-      mineId: MINES[0].id, lat: MINES[0].lat, lon: MINES[0].lon, date: "2025-06-01", hour: 0, dur: 48, radius: 100, spread: 10, materialId: MINES[0].material,
+      mineId: MINES[0].id, lat: MINES[0].lat, lon: MINES[0].lon, date: addDaysIso(today, -1), hour: 0, dur: 48, radius: 100, spread: 10, materialId: MINES[0].material,
       sim: null, frames: null, ref: 0, extent: null, W: 150, H: 150, h: 0, playing: false, timer: null, speed: 500,
       cams: null, homes: null, exposure: null, homesAll: undefined, busy: false, picking: false,
-      layers: { plume: L.layerGroup(), wind: L.layerGroup(), homes: L.layerGroup(), water: L.layerGroup(), src: L.layerGroup() },
+      layers: { plume: L.layerGroup(), wind: L.layerGroup(), homes: L.layerGroup(), src: L.layerGroup() },
       show: { plume: true, wind: true, homes: true, water: false, hls: false, aod: false },
-      overlay: null, arrows: [], srcArrow: null, osmWater: undefined, error: null, active: false,
+      overlay: null, arrows: [], srcArrow: null, water: undefined, error: null, active: false, met: null, stats: null, range: null, waterHit: null, campCanvas: null, campOverlay: null,
     };
     const root = containers.mine;
     const ui = {};
@@ -253,9 +256,13 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
       const nodes = []; for (const la of lats) for (const lo of lons) nodes.push([la, lo]);
       return { lats, lons, ny: 7, nx: 7, nodes };
     }
+    const weatherApi = (startDate) => ((Date.now() - Date.parse(startDate + "T00:00:00Z")) / 86400000 > 85 ? API.archive : API.forecast);
+    function metUrl(startDate, endDate) {
+      const q = new URLSearchParams({ latitude: st.lat.toFixed(3), longitude: st.lon.toFixed(3), hourly: "precipitation,cloud_cover,shortwave_radiation,boundary_layer_height,temperature_2m", start_date: startDate, end_date: endDate, timezone: TZ });
+      return `${weatherApi(startDate)}?${q}`;
+    }
     function windUrl(g, startDate, endDate) {
-      const ageDays = (Date.now() - Date.parse(startDate + "T00:00:00Z")) / 86400000;
-      const base = ageDays > 85 ? API.archive : API.forecast;
+      const base = weatherApi(startDate);
       const q = new URLSearchParams({
         latitude: g.nodes.map((n) => n[0].toFixed(3)).join(","), longitude: g.nodes.map((n) => n[1].toFixed(3)).join(","),
         hourly: "wind_speed_10m,wind_direction_10m,wind_gusts_10m", wind_speed_unit: "ms", start_date: startDate, end_date: endDate, timezone: TZ,
@@ -271,10 +278,40 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
       try { st.homesAll = (await fetchJson("data/settlements.json", { retries: 0, timeoutMs: 15000 })); } catch { st.homesAll = null; }
       return st.homesAll;
     }
-    async function loadOsmWater() {
-      if (st.osmWater !== undefined) return st.osmWater;
-      try { st.osmWater = await fetchJson("data/water.json", { retries: 0, timeoutMs: 15000 }); } catch { st.osmWater = null; }
-      return st.osmWater;
+    async function loadWater() {
+      if (st.water !== undefined) return st.water;
+      try { st.water = await fetchJson("data/water.geojson", { retries: 0, timeoutMs: 20000 }); } catch { st.water = null; }
+      return st.water;
+    }
+
+    /** Lakes and rivers the dust reached: the strongest index along the shore of each one inside the view. */
+    async function waterReached() {
+      const w = await loadWater(), e = st.extent;
+      if (!w) return null;
+      const inside = (p) => p[1] >= e.s && p[1] <= e.n && p[0] >= e.w && p[0] <= e.e, shapes = [], pts = [];
+      for (const f of w.features) {
+        const ring = f.geometry.coordinates[0].filter(inside);
+        if (!ring.length) continue;
+        const step = Math.ceil(ring.length / 60), first = pts.length;
+        for (let i = 0; i < ring.length; i += step) pts.push({ lon: ring[i][0], lat: ring[i][1] });
+        shapes.push({ first, last: pts.length, km2: f.properties.km2 });
+      }
+      const peak = peakFromFrames(st.frames, e, st.W, st.H, pts, st.ref);
+      const hit = shapes.filter((s) => peak.slice(s.first, s.last).some((v) => v >= 2));
+      return { n: hit.length, km2: hit.reduce((a, s) => a + s.km2, 0) };
+    }
+
+    /** The run again with the wind turned and scaled: how much the answer leans on the wind, which is the weakest input. */
+    function windRange(field, rho, pts) {
+      const out = { reach: [st.stats.reach], area: [st.stats.area], parcels: pts ? [st.camps.filter((c) => c.index >= 2).reduce((a, c) => a + c.parcels, 0)] : null };
+      for (const [deg, k] of [[-20, 0.8], [20, 1.2]]) {
+        const sim = simulate({ source: { lat: st.lat, lon: st.lon }, field: shiftField(field, deg, k), spreadDeg: st.spread, rho, met: st.met, dtMin: 6 });
+        const frames = sim.snaps.filter((_, i) => i % 2 === 0).map((s) => concGrid(s, st.extent, st.W, st.H));
+        const s = plumeStats(frames, st.extent, st.W, st.H, { lat: st.lat, lon: st.lon }, st.ref);
+        out.reach.push(s.reach); out.area.push(s.area);
+        if (pts) { const peak = peakFromFrames(frames, st.extent, st.W, st.H, pts, st.ref); out.parcels.push(pts.reduce((a, p, i) => a + (peak[i] >= 2 ? p.parcels : 0), 0)); }
+      }
+      return out;
     }
 
     async function run() {
@@ -283,11 +320,12 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
       const maxDate = addDaysIso(today, 14);
       if (st.date > maxDate) { setStatus(t("future_limit")); return; }
       st.busy = true; ui.run.disabled = true; setStatus(t("mine_busy"));
+      busy(true);
       try {
         const days = Math.ceil((st.hour + st.dur) / 24);
         const endDate = addDaysIso(st.date, days - 1);
         const g = windGrid();
-        const [wind, air] = await Promise.all([fetchJson(windUrl(g, st.date, endDate)), fetchJson(airUrl(st.date, endDate)).catch(() => null)]);
+        const [wind, air, weather] = await Promise.all([fetchJson(windUrl(g, st.date, endDate)), fetchJson(airUrl(st.date, endDate)).catch(() => null), fetchJson(metUrl(st.date, endDate)).catch(() => null)]);
         const arr = Array.isArray(wind) ? wind : [wind];
         if (arr.length !== g.nodes.length) throw new Error(`wind nodes: expected ${g.nodes.length}, got ${arr.length}`);
         const sl = (a) => (a || []).slice(st.hour, st.hour + st.dur);
@@ -295,8 +333,11 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
         if (results[0].time.length < 2) throw new Error("no hourly data for that date");
         const valid = results.filter((r) => r.wind_speed_10m.some(fin)).length;
         if (!valid) throw new Error("wind data are empty for that date");
-        const field = buildField(g, results);
-        st.sim = simulate({ source: { lat: st.lat, lon: st.lon }, field, spreadDeg: st.spread, rho: materialById(st.materialId).rho });
+        const field = buildField(g, results), rho = materialById(st.materialId).rho;
+        st.srcSeries = sourceSeries(field);
+        st.met = weather?.hourly ? buildMet(Object.fromEntries(Object.entries(weather.hourly).map(([k, v]) => [k, sl(v)])), st.srcSeries.spd) : null;
+        await new Promise((ok) => setTimeout(ok, 60)); // let the computing screen appear before the page is busy
+        st.sim = simulate({ source: { lat: st.lat, lon: st.lon }, field, spreadDeg: st.spread, rho, met: st.met });
         const R = st.radius, dLat = R / KM_PER_DEG_LAT, dLon = R / kmPerDegLon(st.lat);
         st.extent = { s: st.lat - dLat, n: st.lat + dLat, w: st.lon - dLon, e: st.lon + dLon };
         st.frames = st.sim.snaps.map((s) => concGrid(s, st.extent, st.W, st.H));
@@ -304,7 +345,7 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
         const emitted = st.sim.snaps.filter((_, i) => i % 2 === 0).map((s) => concGrid(s, st.extent, st.W, st.H, true));
         st.ref = referenceMax(emitted, st.extent, st.W, st.H, { lat: st.lat, lon: st.lon });
         st.cams = air && air.hourly ? { time: sl(air.hourly.time), dust: sl(air.hourly.dust), pm10: sl(air.hourly.pm10) } : null;
-        st.srcSeries = sourceSeries(field);
+        st.stats = plumeStats(st.frames, st.extent, st.W, st.H, { lat: st.lat, lon: st.lon }, st.ref);
         const homes = await loadHomes();
         st.homes = null; st.exposure = null;
         if (homes && Array.isArray(homes.items)) {
@@ -317,6 +358,8 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
           const peak = peakFromFrames(st.frames, st.extent, st.W, st.H, pts, st.ref);
           st.camps = pts.map((p, i) => ({ ...p, index: peak[i] }));
         }
+        st.range = windRange(field, rho, pts?.length ? pts : null);
+        st.waterHit = await waterReached();
         st.h = Math.min(st.h, field.hours - 1);
         const evt = st.cams && st.cams.dust.some(fin) ? st.cams.dust.indexOf(Math.max(...st.cams.dust.filter(fin))) : 0;
         st.h = evt >= 0 ? evt : 0;
@@ -330,6 +373,7 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
         setStatus(`${t("frames_ready")}: ${field.hours} ${t("mine_hours")}. ${t("sat_date_note")}`);
       } catch (e) { st.error = String(e.message || e); setStatus(t("mine_err") + st.error); }
       st.busy = false; ui.run.disabled = false;
+      busy(false);
     }
 
     function sourceSeries(field) {
@@ -348,7 +392,7 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
       st.layers.wind.clearLayers(); st.arrows = [];
       const f = st.sim.field;
       for (let iy = 0; iy < f.ny; iy++) for (let ix = 0; ix < f.nx; ix++) {
-        const m = L.marker([f.lats[iy], f.lons[ix]], { interactive: false, icon: L.divIcon({ className: "windicon", html: '<svg viewBox="-12 -12 24 24"><path d="M0,-10 L6,6 L0,2 L-6,6 Z"/></svg>', iconSize: [24, 24], iconAnchor: [12, 12] }) });
+        const m = L.marker([f.lats[iy], f.lons[ix]], { interactive: false, icon: L.divIcon({ className: "windicon", html: '<svg viewBox="-12 -12 24 24"><path d="M0 10V-10M-3.4-5.2 0-10 3.4-5.2"/></svg>', iconSize: [24, 24], iconAnchor: [12, 12] }) });
         m.addTo(st.layers.wind); st.arrows.push({ m, k: iy * f.nx + ix });
       }
       st.layers.homes.clearLayers();
@@ -360,23 +404,21 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
           mk.addTo(st.layers.homes);
         });
       }
-      if (st.camps) {
-        const renderer = L.canvas();
-        for (const c of st.camps.filter((x) => x.index >= 2).sort((a, b) => b.index - a.index).slice(0, 3000)) {
-          L.circleMarker([c.lat, c.lon], { renderer, radius: 3.5, color: "#101820", weight: 1, fillColor: plumeClass(c.index).color, fillOpacity: 0.95, interactive: false }).addTo(st.layers.homes);
-        }
-      }
-      st.layers.water.clearLayers();
-      loadOsmWater().then((w) => {
-        if (!w || !Array.isArray(w.items)) return;
-        for (const poly of w.items) {
-          if (poly.length < 3) continue;
-          const b = poly.reduce((a, p) => [Math.min(a[0], p[0]), Math.min(a[1], p[1]), Math.max(a[2], p[0]), Math.max(a[3], p[1])], [90, 180, -90, -180]);
-          if (b[2] < st.extent.s || b[0] > st.extent.n || b[3] < st.extent.w || b[1] > st.extent.e) continue;
-          L.polygon(poly, { color: "#1e6fff", weight: 1, fillColor: "#2e8bff", fillOpacity: 0.7, interactive: false }).addTo(st.layers.water);
-        }
-      });
+      st.campOverlay = null;
+      drawCampMarks();
       syncLayerVisibility();
+    }
+
+    /** The camps the dust reached, as tiny gers drawn for the zoom of the moment and tinted by how much dust reached them. */
+    function drawCampMarks() {
+      if (st.campOverlay) st.layers.homes.removeLayer(st.campOverlay);
+      st.campOverlay = null; st.campCanvas = null;
+      const hit = (st.camps ?? []).filter((c) => c.index >= 2), e = st.extent;
+      if (!hit.length) return;
+      const left = map.latLngToContainerPoint([e.n, e.w]).x, right = map.latLngToContainerPoint([e.n, e.e]).x;
+      const onScreen = Math.max(right - left, 1), width = Math.max(200, Math.min(4096, Math.round(onScreen * 3)));
+      st.campCanvas = campsCanvas(hit, e, width, width / onScreen, (p) => plumeClass(p.index).color);
+      st.campOverlay = L.imageOverlay(st.campCanvas.toDataURL(), [[e.s, e.w], [e.n, e.e]], { interactive: false, zIndex: 8 }).addTo(st.layers.homes);
     }
 
     function syncLayerVisibility() {
@@ -384,8 +426,7 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
       st.layers.src.addTo(map); if (!on) { for (const g of Object.values(st.layers)) g.remove(); return; }
       for (const [k, g] of Object.entries(st.layers)) {
         if (k === "src") continue;
-        const wanted = k === "water" ? st.show.water : st.show[k];
-        if (wanted && st.sim) g.addTo(map); else g.remove();
+        if (st.show[k] && st.sim) g.addTo(map); else g.remove();
       }
       if (st.sim && st.show.wind) updateArrows(st.h);
     }
@@ -398,15 +439,13 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
       const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
       const ctx = cv.getContext("2d"), img = ctx.createImageData(W, H);
       for (let i = 0; i < f.length; i++) {
-        const idx = st.ref > 0 ? Math.min(100, (100 * f[i]) / st.ref) : 0, c = plumeClass(idx);
-        if (!c.color) continue;
-        const [R, G, B] = hexRgb(c.color);
-        img.data.set([R, G, B, 185], i * 4);
+        const c = plumeColor(st.ref > 0 ? Math.min(100, (100 * f[i]) / st.ref) : 0);
+        if (c) img.data.set(c, i * 4);
       }
       ctx.putImageData(img, 0, 0);
       const e = st.extent;
       if (st.overlay) st.layers.plume.removeLayer(st.overlay);
-      st.overlay = L.imageOverlay(cv.toDataURL(), [[e.s, e.w], [e.n, e.e]], { interactive: false, className: "pixel-overlay", zIndex: 7, opacity: 1 });
+      st.overlay = L.imageOverlay(cv.toDataURL(), [[e.s, e.w], [e.n, e.e]], { interactive: false, zIndex: 7, opacity: 1 });
       st.overlay.addTo(st.layers.plume);
       updateArrows(h);
       renderReadout();
@@ -420,10 +459,9 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
         const svg = elx.firstChild;
         if (!fin(u) || !fin(v)) { svg.style.opacity = "0"; continue; }
         const sp = Math.hypot(u, v), ang = (Math.atan2(u, v) * 180) / Math.PI; // clockwise from north, toward
-        const size = Math.round(14 + Math.min(sp, 20) * 1.3);
-        svg.style.opacity = "0.95"; svg.style.width = svg.style.height = size + "px"; svg.style.transform = `rotate(${ang}deg)`;
+        const size = Math.round(11 + Math.min(sp, 16) * 0.8); // only the length speaks of the speed
+        svg.style.opacity = "0.85"; svg.style.width = svg.style.height = size + "px"; svg.style.transform = `rotate(${ang}deg)`;
         svg.style.margin = `${(24 - size) / 2}px`;
-        svg.firstChild.style.fill = sp < 4 ? "#7fc8ff" : sp < 8 ? "#ffe66b" : sp < 12 ? "#ff9a3c" : "#ff4d4d";
         a.m.bindTooltip(`${fmt(sp)} m/s ← ${Math.round((ang + 180) % 360)}°`);
       }
     }
@@ -434,8 +472,14 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
       rows.push(row(t("mine_date"), `${when}`));
       rows.push(row(t("t_wind"), `${fmt(s.spd[h])} m/s`));
       rows.push(row(t("t_dir"), fin(s.dir[h]) ? `${Math.round(s.dir[h])}° (${compass(s.dir[h])})` : "—"));
+      if (st.met) {
+        rows.push(row(t("t_stab"), t("stab")[st.met.cls[h]]));
+        rows.push(row(t("t_rain"), `${fmt(st.met.rain[h])} mm`));
+        rows.push(row(t("t_mix"), `${Math.round(st.met.zi[h])} m`));
+      }
       if (st.cams) { rows.push(row(t("t_cams"), `${fmt(st.cams.dust[h], 0)} µg/m³`)); rows.push(row(t("t_pm10"), `${fmt(st.cams.pm10[h], 0)} µg/m³`)); }
-      ui.readout.replaceChildren(el("table", { class: "kv" }, ...rows), chart());
+      const key = el("div", { class: "plume-key" }, el("b", { text: t("key_title") }), el("i"), el("div", {}, ...PLUME_CLASSES.slice(1).map((c) => el("span", { text: t(c.key) }))));
+      ui.readout.replaceChildren(...[key, el("table", { class: "kv" }, ...rows), st.met ? null : el("p", { class: "note", text: t("met_none") }), chart()].filter(Boolean));
     }
     const compass = (d) => ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"][Math.round(d / 22.5) % 16];
 
@@ -468,9 +512,23 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
         el("p", { class: "note", text: `${t("mat_wind")} ${fmt(u)} m/s. ${t("mat_hint")}` }), note ? el("p", { class: "note", text: note }) : null];
     }
 
+    function summary() {
+      const s = st.stats, r = st.range;
+      if (!s) return [];
+      if (!s.area) return [el("h4", { text: t("s_title") }), el("p", { class: "note", text: t("s_none") })];
+      const n = (v) => Math.round(v).toLocaleString("en-US"), span = (a) => `(${n(Math.min(...a))}–${n(Math.max(...a))})`;
+      const hit = st.camps?.filter((c) => c.index >= 2).reduce((a, c) => a + c.parcels, 0);
+      const dir = t("dirs")[Math.round(s.bearing / 45) % 8];
+      return [el("h4", { text: t("s_title") }), el("table", { class: "kv" },
+        row(t("s_reach"), `${s.edge ? "≥ " : ""}${n(s.reach)} ${t("mine_km")} ${span(r.reach)}`), row(t("s_area"), `${n(s.area)} км² ${span(r.area)}`), row(t("s_dir"), dir),
+        row(t("s_peak"), st.sim.field.time[s.peakHour].replace("T", " ")), st.camps ? row(t("s_camps"), `${n(hit)} ${span(r.parcels)}`) : null,
+        st.waterHit ? row(t("s_water"), `${st.waterHit.n} · ${n(st.waterHit.km2)} км²`) : null),
+      s.edge ? el("p", { class: "note", text: t("s_edge") }) : null, el("p", { class: "note", text: t("s_range") })];
+    }
+
     function renderResults() {
       if (!st.sim) { ui.results.replaceChildren(); return; }
-      const kids = [...materialTable()];
+      const kids = [...summary(), ...materialTable()];
       if (st.camps) {
         const hit = st.camps.filter((c) => c.index >= 2), sum = (k) => hit.reduce((a, c) => a + c[k], 0);
         kids.push(el("h4", { text: t("camps_title") }), el("table", { class: "kv" }, row(t("camps_parcels"), String(sum("parcels"))), row(t("camps_herders"), String(sum("herders")))),
@@ -488,9 +546,9 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
         if (top.length) kids.push(el("table", { class: "kv small" }, ...top.map(({ e, h }) => el("tr", { class: "clk", onclick: () => map.setView([h.lat, h.lon], 12) }, el("td", { text: `${t("type_" + h.type)}${h.name ? " · " + h.name : ""}` }), el("td", { text: `${Math.round(e.index)} · ${st.sim.field.time[e.hour].slice(5, 16).replace("T", " ")}` })))));
         else kids.push(el("p", { class: "note", text: t("no_homes_exposed") }));
         kids.push(el("p", { class: "note", text: t("homes_note") }));
-      } else kids.push(el("p", { class: "note", text: t("homes_none") }));
+      }
       kids.push(el("p", { class: "note", text: t("plume_note") }));
-      ui.results.replaceChildren(...kids);
+      ui.results.replaceChildren(...kids.filter(Boolean));
     }
 
     /* ---------- playback ---------- */
@@ -501,7 +559,7 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
     function applySatToggles() {
       const d = st.date;
       requestSat({ date: d });
-      requestSat({ key: "water_dswx", on: st.show.water });
+      onWater?.(st.show.water);
       requestSat({ key: "hls_s30", on: st.show.hls });
       requestSat({ key: "aod_deepblue", on: st.show.aod });
     }
@@ -536,6 +594,7 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
       ui.fields.append(field("mine_src", ui.mine), field("mine_material", ui.material), field("mine_lat", ui.lat), field("mine_lon", ui.lon, ui.pick), field("mine_date", ui.date), field("mine_hour", ui.hour), field("mine_dur", ui.dur), field("mine_radius", ui.rad), field("mine_spread", ui.spread));
       ui.transport = el("div", { class: "transport" }, ui.play, ui.slider, ui.speed);
       root.replaceChildren(ui.title, ui.help, ui.fields, el("div", { class: "btnrow" }, ui.run, ui.event, ui.method), ui.status, ui.transport, ui.readout, ui.toggles, ui.results);
+      map.on("zoomend", () => { if (st.sim && st.active) drawCampMarks(); });
       map.on("click", (e) => { if (st.picking && st.active) { st.picking = false; map.getContainer().style.cursor = ""; ui.pick.textContent = t("mine_pick"); ui.mine.value = ""; setSource(e.latlng.lat, e.latlng.lng, null); } });
       ui.hour.value = String(st.hour); ui.lat.value = st.lat.toFixed(4); ui.lon.value = st.lon.toFixed(4);
       relabel(); drawSource();
@@ -571,8 +630,7 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
       if (st.show.wind) for (const a of st.arrows) {
         const u = f.u[h * 49 + a.k], v = f.v[h * 49 + a.k];
         if (!fin(u) || !fin(v)) continue;
-        const speed = Math.hypot(u, v);
-        arrows.push({ lat: f.lats[Math.floor(a.k / f.nx)], lon: f.lons[a.k % f.nx], speed, angle: (Math.atan2(u, v) * 180) / Math.PI, color: speed < 4 ? "#7fc8ff" : speed < 8 ? "#ffe66b" : speed < 12 ? "#ff9a3c" : "#ff4d4d" });
+        arrows.push({ lat: f.lats[Math.floor(a.k / f.nx)], lon: f.lons[a.k % f.nx], speed: Math.hypot(u, v), angle: (Math.atan2(u, v) * 180) / Math.PI });
       }
       const m = materialById(st.materialId), hit = (st.camps ?? []).filter((c) => c.index >= 2);
       const wind = [];
@@ -581,7 +639,7 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
         if (fin(u) && fin(v)) wind.push({ lat, lon, u, v, speed: Math.hypot(u, v), from: ((Math.atan2(u, v) * 180) / Math.PI + 540) % 360 });
       }));
       const index = Float32Array.from(st.frames[h], (x) => (st.ref > 0 ? Math.min(100, (100 * x) / st.ref) : 0));
-      return { image: st.show.plume ? st.overlay.getElement() : null, box: { n: e.n, s: e.s, w: e.w, e: e.e }, arrows, wind, index, w: st.W, h: st.H, material: m.id, materialName: getLang() === "mn" ? m.mn : m.en, density: m.rho, time: f.time[h], lat: st.lat, lon: st.lon, spread: st.spread,
+      return { image: st.show.plume ? st.overlay.getElement() : null, homes: st.show.homes ? st.campCanvas : null, stats: st.stats, range: st.range, direction: st.stats?.area ? t("dirs")[Math.round(st.stats.bearing / 45) % 8] : null, water: st.waterHit, box: { n: e.n, s: e.s, w: e.w, e: e.e }, arrows, wind, index, w: st.W, h: st.H, material: m.id, materialName: getLang() === "mn" ? m.mn : m.en, density: m.rho, time: f.time[h], lat: st.lat, lon: st.lon, spread: st.spread,
         camps: st.camps ? { parcels: hit.reduce((a, c) => a + c.parcels, 0), herders: hit.reduce((a, c) => a + c.herders, 0) } : null };
     }
     return { st, relabel, runAt, snapshotForExport, show(on, keepView) { st.active = on; if (!on) stopPlay(); syncLayerVisibility(); if (on && !st.sim && !keepView) { map.setView([st.lat, st.lon], 8); } } };
