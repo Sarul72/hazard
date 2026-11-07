@@ -15,7 +15,7 @@ export const SCALE = 0.4;
 export const decode = (v) => (v === NODATA ? null : v * SCALE);
 export const decodeCount = (v) => (v === NODATA ? null : v);
 
-async function bytes(url) {
+export async function bytes(url) {
   const res = await fetch(url);
   if (!res.ok) { const e = new Error(`${url}: HTTP ${res.status}`); e.status = res.status; throw e; }
   const buf = new Uint8Array(await res.arrayBuffer());

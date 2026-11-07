@@ -16,6 +16,17 @@ const REF = {
   devries: ["DeVries, B., et al. (2020). Rapid and robust monitoring of flood events using Sentinel-1 and Landsat data on the Google Earth Engine. Remote Sens. Environ. 240.", "https://doi.org/10.1016/j.rse.2020.111664"],
   ubflood: ["Ishdorj, E., Lkhamjav, O., Ganbold, U. (2025). Integrating satellite remote sensing and dynamic GIS for urban flood risk modelling in Ulaanbaatar City. ISPRS Archives XLVIII-4/W14-2025, 75-81.", "https://doi.org/10.5194/isprs-archives-XLVIII-4-W14-2025-75-2025"],
   khovd: ["Narangerel, S., Suzuki, Y., Hasegawa, T., Takaichi, Y. (2025). Flood hazard mapping and disaster prevention recommendations based on detailed topographical analysis in Khovd City, Western Mongolia. Nat. Hazards Earth Syst. Sci. 25, 4563-4576.", "https://doi.org/10.5194/nhess-25-4563-2025"],
+  ap42: ["US EPA. AP-42, Section 13.2.4, Aggregate Handling and Storage Piles: particle size multipliers.", "https://gaftp.epa.gov/ap42/ch13/s024/draft/d13s0204.pdf"],
+  aermod: ["Thurman, J. (2019). Deposition in AERMOD: overview. 12th Conference on Air Quality Modeling, US EPA. Method 1: diameter, mass fraction and density by size bin.", "https://gaftp.epa.gov/Air/aqmg/SCRAM/conferences/2019_12th_Conference_On_Air_Quality_Modeling/Presentations/2-6_12thMC-Deposition.pdf"],
+  hysplit: ["NOAA ARL. HYSPLIT User's Guide: deposition. Particles defined by diameter, density and shape; Stokes settling.", "https://www.ready.noaa.gov/hysplitusersguide/S314.htm"],
+  briggs: ["Briggs, G.A. (1973). Diffusion estimation for small emissions. ATDL Contribution File 79, NOAA; formulas as reproduced in a course page.", "https://cyclone.unbc.ca/presentations/ccwwf/aq/node6.html"],
+  horst: ["Horst, T.W. (1984). Comparison of diffusion-deposition models and plume depletion corrections. Boundary-Layer Meteorology (read from a search summary only).", "https://link.springer.com/article/10.1007/BF00121964"],
+  usgscoal: ["USGS Circular 891, Coal Resource Classification System: average specific gravity of coal by rank.", "https://pubs.usgs.gov/circ/c891/table2.htm"],
+  usgsquartz: ["USGS. Gemstones: quartz specific gravity 2.65.", "https://pubs.usgs.gov/gip/gemstones/mineral.html"],
+  eu2004: ["Directive 2004/107/EC, Annex I: target values for arsenic, cadmium and nickel in PM10.", "https://www.legislation.gov.uk/eudr/2004/107/annex/I"],
+  niosh: ["NIOSH Pocket Guide: silica, crystalline (as respirable dust).", "https://www.cdc.gov/niosh/npg/npgd0684.html"],
+  egu2019: ["Abstract EGU2019-6274-2: dust at the Baganuur and Tumurtolgoi mines of Mongolia.", "https://meetingorganizer.copernicus.org/EGU2019/EGU2019-6274-2.pdf"],
+  mjgg: ["Environmental conditions in the mining areas of the Umnugovi province of Mongolia. Mongolian Journal of Geography and Geoecology.", "https://mongoliajol.info/index.php/MJGG/article/view/4093"],
   gum: ["JCGM 100:2008. Evaluation of measurement data: Guide to the expression of uncertainty in measurement (GUM).", "https://www.bipm.org/en/committees/jc/jcgm/publications"],
   olofsson: ["Olofsson, P., et al. (2014). Good practices for estimating area and assessing accuracy of land change. Remote Sens. Environ. 148, 42-57.", "https://eprints.nottingham.ac.uk/44846/"],
   weatherhead: ["Weatherhead, E.C., et al. (2000). Detecting the recovery of total column ozone. J. Geophys. Res. 105(D17), 22201-22210, eq. 2; after Weatherhead, E.C., et al. (1998). Factors affecting the detection of trends. J. Geophys. Res. 103, 17149-17161.", "https://doi.org/10.1029/98JD00995"],
@@ -191,6 +202,52 @@ export const METHODS = {
   },
 };
 
+METHODS.plume = {
+  mn: {
+    title: "Тоосны тархалт: арга зүй, материал",
+    lead: "Салхиар зөөгдөх Гауссын «puff» загвар. Тоосны төрөл бүр ширхэгийн хэмжээ, нягтаараа өөр хурдтай сууна.",
+    method: [
+      "Элемент өөрөө тархалтыг өөрчилдөггүй. AERMOD (Method 1), HYSPLIT зэрэг олон улсын загварууд ширхэгийг диаметр, нягт, хэлбэрээр тодорхойлдог. Тиймээс сонгосон төрөл эрдсийн нягтаар дамжин нөлөөлнө.",
+      "Ширхэгийн 5 бүлэг: US EPA AP-42 13.2.4-ийн үржүүлэгч (30 мкм-ээс бага 0.74, 15-аас бага 0.48, 10-аас бага 0.35, 5-аас бага 0.20, 2.5-аас бага 0.053).",
+      "Бүлэг бүрийн суух хурд: Стоксын тэгшитгэл, Каннингемийн залруулгатай, AERMOD Method 1-ийн Vg-тэй ижил хэлбэр.",
+      "Агаараас алдагдах хурд: хагас Гауссын баганын гадаргын концентраци √(2/π)/σz-ээр (Chamberlain-ийн эх үүсвэрийн хомсдолын арга). σz нь Briggs-ийн задгай талбайн D анги, 1000 м-ийн холимог давхаргаар хязгаарлагдсан.",
+      "Индексийн хэмжүүр бүх төрөлд ижил: суулгүй агаарт үлдсэн бол гарах байсан хамгийн хүчтэй цэг. Тиймээс хүнд эрдсийн тархац үнэхээр жижиг харагдана.",
+    ],
+    limits: [
+      "Бүх төрөлд ижил ширхэгийн хэмжээ авсан: Монголын уурхайн тоосны хэмжсэн хуваарилалт олдсонгүй. AP-42-ийн хэмжээ нь аэродинамик диаметр боловч энд физик диаметр гэж уншсан. Энэ бол бидний таамаглал бөгөөд бодит ялгаа үүнээс өөр байж болно.",
+      "Эх үүсвэрийн хомсдолын арга хялбарчилсан бөгөөд гадаргын ойролцоох босоо өөрчлөлтийг тооцдоггүй (Horst 1984). Ширхэгийн инерци, суусан тоос дахин хийсэх, хөрсний барзгаршил, бороо ороогүй.",
+      "HYSPLIT-ийн гарын авлагад Стоксын тэгшитгэл 20 мкм-ээс том ширхэгт суух хурдыг хэтрүүлдэг гэсэн, манай хамгийн том бүлэг 21 мкм.",
+      "Үр дүн нь харьцангуй индекс, концентраци биш. Монгол Улсын MNS 4585:2016 стандартын хязгаарыг шалгаж чадаагүй, мөн концентраци мэдэхгүй тул ямар ч хязгаартай шууд харьцуулж болохгүй.",
+      "Уурхайн орчны хөрсөнд Ni, Cu, Zn, As өндөр илэрсэн судалгаа бий ч агаар дахь тоосны найрлагыг хэмжсэн судалгаа Таван толгой, Оюу толгойд олдсонгүй. Тиймээс сонголт нь тухайн уурхайн бодит найрлага биш, зөвхөн эрдсийн төрөл.",
+    ],
+    refs: ["aermod", "hysplit", "ap42", "briggs", "horst", "usgscoal", "usgsquartz", "niosh", "eu2004", "egu2019", "mjgg"],
+  },
+  en: {
+    title: "Dust plume: methods and materials",
+    lead: "A Gaussian puff model carried by the wind. Each dust type settles at its own speed according to particle size and density.",
+    method: [
+      "An element does not change the spread by itself. International models such as AERMOD (Method 1) and HYSPLIT define a particle by diameter, density and shape, so the chosen type acts through the density of the mineral.",
+      "Five size bins from the US EPA AP-42 13.2.4 multipliers (0.74 below 30 µm, 0.48 below 15, 0.35 below 10, 0.20 below 5, 0.053 below 2.5).",
+      "Settling speed of each bin: Stokes with the Cunningham correction, the same form as Vg in AERMOD Method 1.",
+      "Loss from the air: surface concentration of a half-Gaussian column, √(2/π)/σz (Chamberlain source depletion). σz is Briggs open-country class D, capped by a 1000 m mixed layer.",
+      "The index scale is the same for all types: the strongest spot the dust would reach if none of it settled. A heavy mineral therefore really shows a smaller plume.",
+    ],
+    limits: [
+      "All types use the same particle sizes: no measured distribution of Mongolian mine dust was found. AP-42 sizes are aerodynamic but are read as physical sizes here. This is our assumption, and real differences may not match it.",
+      "Source depletion is a simplification and ignores the change of the vertical profile near the ground (Horst 1984). Particle inertia, resuspension, surface roughness and rain are left out.",
+      "The HYSPLIT guide says Stokes overestimates fall speeds above about 20 µm; our largest bin is 21 µm.",
+      "The result is a relative index, not a concentration. The limits of Mongolian standard MNS 4585:2016 could not be checked, and without a concentration no limit can be compared directly.",
+      "Studies report high Ni, Cu, Zn and As in soils near mines, but none measuring airborne dust composition at Tavan Tolgoi or Oyu Tolgoi was found. The choice is a mineral type, not the real composition of a mine.",
+    ],
+    refs: ["aermod", "hysplit", "ap42", "briggs", "horst", "usgscoal", "usgsquartz", "niosh", "eu2004", "egu2019", "mjgg"],
+  },
+  data: [
+    ["Open-Meteo (ERA5, forecast)", "≈25 км", { mn: "Цаг тутмын салхи", en: "Hourly wind" }],
+    ["Open-Meteo (CAMS)", "≈45 км", { mn: "Эх үүсвэр дэх тоос, харьцуулахад", en: "Dust at the source, for comparison" }],
+    ["Кадастр, малчны бүртгэл", "≈1 км болгосон", { mn: "Өртсөн өвөлжөө, хаваржаа", en: "Exposed camps" }],
+  ],
+};
+
 METHODS.all = {
   mn: {
     title: "Нэгдсэн эрсдэл: арга зүй, материал",
@@ -220,7 +277,7 @@ export function openMethods(dlg, hazard, { lang, t, manifest }) {
     el("h2", { text: c.title }), el("p", { class: "lead", text: c.lead }),
     el("h3", { text: t("m_method") }), list(c.method),
     rows.length ? el("h3", { text: t("m_material") }) : null,
-    rows.length && !sources ? el("p", { class: "dlg-warn", text: t("m_planned") }) : null,
+    rows.length && !sources && hazard !== "plume" ? el("p", { class: "dlg-warn", text: t("m_planned") }) : null,
     rows.length ? el("table", {}, el("thead", {}, el("tr", {}, ["m_col_data", "m_col_res", "m_col_role"].map((k) => el("th", { text: t(k) })))), el("tbody", {}, rows.map((r) => el("tr", {}, r.map((v) => el("td", { text: v })))))) : null,
     el("h3", { text: t("m_error") }), list(COMMON_ERROR[lang] ?? COMMON_ERROR.mn),
     el("h3", { text: t("m_limits") }), list(c.limits),

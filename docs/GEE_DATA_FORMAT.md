@@ -13,6 +13,7 @@ keeps the cost independent of the number of visitors.
 | `build.py` | write `data/gee`; with a month argument, only from that month on |
 | `update.py` | daily job: last two months, from an empty cache, using `model*.npz`, `static_small.npz` and `state/` |
 | `soum_names.py` | Cyrillic soum names |
+| `build_camps.py` | winter and spring camps as rounded counts, run by hand from the source shapefiles |
 
 Full rebuild: fetch everything, then `calibrate.py prep`, `fire`, `dust`, `flood`, `uinput`, then `build.py`.
 `tests/test_fwi_np.py` holds the FWI to the cffdrs reference values.
@@ -30,6 +31,10 @@ The daily job writes to the branch `gee-data`, which holds one commit and is rep
 
 `data/soums.geojson`: 339 soums from geoBoundaries (NSO Mongolia, OCHA ROAP, CC BY 3.0 IGO), simplified; `name`, `aimag` are the
 source romanisation, `name_mn`, `aimag_mn` our conversion to Cyrillic.
+
+`data/camps.bin.gz`: uint16 little-endian records `[x, y, herder_points, cadastre_camps]`, with `x = (lon − 87)·100`, `y = (lat − 41)·100`;
+counts in `data/camps_meta.json`. Written once by `pipeline/build_camps.py`, not by the daily job. It holds counts at rounded positions only, and the
+source shapefiles must stay out of the repository (see `LIMITATIONS.md`).
 
 Encoding: scores are stored as `value / 0.4`, so 0–100 fits in 0–250. **255 = no data.**
 Row 0 is the northern edge. Cell `(r, c)` has its centre at `north − (r + 0.5)·dy`, `west + (c + 0.5)·dx`.

@@ -137,8 +137,8 @@ export const GIBS = {
 /** Mines offered in the dust-plume tool. Coordinates come from Global Energy Monitor / Wikipedia and are good to
  * about 1 km; the first one is the point in the user's own Earth Engine script. "Any point" is set by a map click. */
 export const MINES = [
-  { id: "uhg", mn: "Ухаа Худаг (Цогтцэций сум, Өмнөговь)", en: "Ukhaa Khudag (Tsogttsetsii, Ömnögovi)", lat: 43.6678, lon: 105.5181, src: "user script; Wikipedia 43.6754 N 105.5211 E" },
-  { id: "tt_small", mn: "Жижиг Таван толгой (Цогтцэций, Өмнөговь)", en: "Small Tavan Tolgoi (Tsogttsetsii, Ömnögovi)", lat: 43.6517, lon: 105.4417, src: "Global Energy Monitor (approximate)" },
-  { id: "bayanshand", mn: "Баяншанд / Довцог Худаг (Мандах сум, Дорноговь)", en: "Bayanshand / Dovtsog Khudag (Mandakh, Dornogovi)", lat: 44.1797, lon: 108.3206, src: "Global Energy Monitor (exact)" },
-  { id: "eldev", mn: "Элдэв (Далан-Жаргалан сум, Дорноговь)", en: "Eldev (Dalanjargalan, Dornogovi)", lat: 46.1203, lon: 108.9915, src: "Global Energy Monitor (exact)" },
+  { id: "uhg", material: "coal", mn: "Ухаа Худаг (Цогтцэций сум, Өмнөговь)", en: "Ukhaa Khudag (Tsogttsetsii, Ömnögovi)", lat: 43.6678, lon: 105.5181, src: "user script; Wikipedia 43.6754 N 105.5211 E" },
+  { id: "tt_small", material: "coal", mn: "Жижиг Таван толгой (Цогтцэций, Өмнөговь)", en: "Small Tavan Tolgoi (Tsogttsetsii, Ömnögovi)", lat: 43.6517, lon: 105.4417, src: "Global Energy Monitor (approximate)" },
+  { id: "bayanshand", material: "coal", mn: "Баяншанд / Довцог Худаг (Мандах сум, Дорноговь)", en: "Bayanshand / Dovtsog Khudag (Mandakh, Dornogovi)", lat: 44.1797, lon: 108.3206, src: "Global Energy Monitor (exact)" },
+  { id: "eldev", material: "coal", mn: "Элдэв (Далан-Жаргалан сум, Дорноговь)", en: "Eldev (Dalanjargalan, Dornogovi)", lat: 46.1203, lon: 108.9915, src: "Global Energy Monitor (exact)" },
 ];

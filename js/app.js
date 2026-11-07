@@ -7,6 +7,8 @@ import { U } from "./ui_text.js";
 import { makeLayer, utcDate } from "./gibs.js";
 import { initTools } from "./tools.js";
 import { decode, loadCube, loadDaily, loadManifest } from "./dataset.js";
+import { campsCanvas, campsInside, campsReport, loadCamps } from "./camps.js";
+import { cellsCsv, drawMap, geoTiff, save, toJpeg, zip } from "./export.js";
 import { createRiskLayer } from "./riskmap.js";
 import { initRectDraw } from "./rectdraw.js";
 import { initDateBar } from "./datebar.js";
@@ -72,6 +74,7 @@ function renderLegend() {
 const ICON = {
   draw: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="6.5" width="15" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2.4"/></svg>',
   move: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  download: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   home: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
   menu: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
 };
@@ -87,6 +90,7 @@ function renderRail() {
     button(ICON.menu, t("rail_menu"), () => $("side").classList.toggle("open"), "side-toggle"),
     button(draw ? ICON.draw : ICON.move, t(draw ? "rail_draw" : "rail_move"), () => { state.rect.toggle(); renderRail(); }, draw ? "on" : ""),
     button("i", t("rail_method"), () => showMethods(state.hazard)),
+    button(ICON.download, t("rail_download"), toggleDownloads),
     button(ICON.home, t("rail_home"), fitMongolia),
     button(t("lang"), t("lang"), () => { state.lang = state.lang === "mn" ? "en" : "mn"; store.set("hw.lang", state.lang); renderAllText(); }));
 }
@@ -227,7 +231,8 @@ function renderSoumList() {
 
 function pickSoum(f, fly) {
   state.rect.clear();
-  state.sel = { kind: t("mode_soums"), label: soumLabel(f), cells: f.cells, soum: f.id };
+  const b = state.soumLayer.bounds(f);
+  state.sel = { kind: t("mode_soums"), label: soumLabel(f), cells: f.cells, soum: f.id, geom: f.geometry, box: { s: b.getSouth(), n: b.getNorth(), w: b.getWest(), e: b.getEast() } };
   state.soumLayer.pick(f.id);
   if (fly) state.map.fitBounds(state.soumLayer.bounds(f), { maxZoom: 9, paddingBottomRight: [420, 100] });
   renderSoumList();
@@ -238,8 +243,14 @@ function pickSoum(f, fly) {
 async function loadSelection() {
   const my = ++state.selToken, s = state.sel, m = state.manifest;
   s.long = null; s.months = null; s.high = null; s.longError = false;
+  s.campsOn ??= true;
   renderSelection();
   if (!m || !s.cells.length) return;
+  loadCamps().then((a) => {
+    if (!a || state.sel !== s) return;
+    s.campPoints = campsInside(a, s.box, s.geom);
+    renderSelection();
+  });
   try {
     const name = state.hazard;
     const [mc, hc] = await Promise.all([loadCube(m, "monthly_" + name), loadCube(m, "highdays_" + name)]);
@@ -260,22 +271,36 @@ function renderSelection() {
   if (!s) return;
   const m = state.manifest, fr = frameNow();
   const day = fr ? dayReport({ frame: fr, uframe: uFrameNow(), cells: s.cells, grid: m.grid, classes: CLASSES, uModel: m.uncertainty?.[state.hazard]?.u_model }) : null;
+  s.campReport = s.campPoints ? campsReport(s.campPoints, fr, m.grid, CLASSES, day?.budget?.U ?? 0) : null;
+  drawCamps(s);
   state.panel.render({
-    kind: s.kind, label: s.label, hazard: state.hazard, hazardLabel: t(state.hazard), date: state.date,
+    kind: s.kind, label: s.label, hazard: state.hazard, hazardLabel: t(state.hazard), date: state.date, camps: s.campReport, campsOn: s.campsOn,
     day, dayMissing: !fr, long: s.long, months: s.months, longError: s.longError || !m, verification: m?.verification?.[state.hazard],
   });
+}
+
+/** Camps appear only inside the selected area, as one image, and leave with the selection. */
+function drawCamps(s) {
+  state.campsLayer?.remove();
+  state.campsLayer = null;
+  state.campsImage = null;
+  if (!s?.campPoints?.length || !s.campsOn) return;
+  const cv = campsCanvas(s.campPoints, s.box, CLASSES);
+  state.campsImage = { canvas: cv, box: s.box };
+  state.campsLayer = window.L.imageOverlay(cv.toDataURL(), [[s.box.s, s.box.w], [s.box.n, s.box.e]], { interactive: false }).addTo(state.map);
 }
 
 function onBox(box) {
   state.soumLayer?.pick(null);
   if (!state.manifest) return;
-  state.sel = { kind: t("box_label"), label: `${box.s.toFixed(2)}–${box.n.toFixed(2)}°N · ${box.w.toFixed(2)}–${box.e.toFixed(2)}°E`, cells: boxCells(state.manifest.grid, box) };
+  state.sel = { kind: t("box_label"), label: `${box.s.toFixed(2)}–${box.n.toFixed(2)}°N · ${box.w.toFixed(2)}–${box.e.toFixed(2)}°E`, cells: boxCells(state.manifest.grid, box), box };
   loadSelection();
 }
 
 function closeSelection() {
   state.sel = null;
   state.selToken++;
+  drawCamps(null);
   state.rect.clear();
   state.soumLayer?.pick(null);
   state.panel.close();
@@ -293,9 +318,92 @@ function showPlume() {
   $("side").classList.add("open");
   $("mine-box").open = true;
   return state.tools.plumeAt({
-    lat, lon, date: state.date, radius: [50, 100, 200].find((r) => r >= halfKm) ?? 200,
+    lat, lon, date: state.date, radius: [50, 100, 200].find((r) => r >= halfKm) ?? 200, material: "quartz",
     fit: { paddingTopLeft: [window.innerWidth > 1000 ? 360 : 10, 10], paddingBottomRight: [window.innerWidth > 720 ? 420 : 10, 110] },
   });
+}
+
+/* -------------------------------------------------------------- download */
+function toggleDownloads() {
+  const box = $("dl-menu");
+  box.hidden = !box.hidden;
+  if (box.hidden) return;
+  const item = (key, on) => el("button", { type: "button", onclick: on }, t(key), el("small", { text: t(key + "_sub") }));
+  box.replaceChildren(item("dl_jpeg", () => download(false)), item("dl_zip", () => download(true)));
+}
+
+/** Everything the image and the files are made from, for the selection if there is one, otherwise for the view. */
+function exportContext() {
+  const m = state.manifest, fr = frameNow(), s = state.sel;
+  if (!m || !fr) return null;
+  const b = state.map.getBounds(), view = { s: b.getSouth(), n: b.getNorth(), w: b.getWest(), e: b.getEast() };
+  const cells = s?.cells?.length ? s.cells : boxCells(m.grid, view);
+  const uModel = m.uncertainty?.[state.hazard]?.u_model ?? null;
+  const day = dayReport({ frame: fr, uframe: uFrameNow(), cells, grid: m.grid, classes: CLASSES, uModel });
+  return day && { m, fr, s, cells, uModel, day, view, plume: state.tools.plumeSnapshot() };
+}
+
+function errorLines(c) {
+  const f = (v) => (typeof v === "number" ? `±${v.toFixed(1)}` : t("u_none")), b = c.day.budget, v = c.m.verification?.[state.hazard];
+  const fill = (k, o) => Object.entries(o).reduce((a, [x, y]) => a.replace(`{${x}}`, y), t(k));
+  const at = b.missing.length ? "≥" : "";
+  const lines = [{ text: t("x_error"), strong: true },
+    { text: `${c.s ? t("x_sel") : t("x_view")}: ${c.day.mean.toFixed(0)} ± ${at}${b.U.toFixed(0)} ${t("points")} (k=2, ≈95%)`, strong: true },
+    { text: fill("x_parts", { i: f(b.parts.input), m: f(b.parts.model), s: f(b.parts.sampling) }) }];
+  if (b.missing.length) lines.push({ text: t("x_missing"), warn: true });
+  if (v?.auc) lines.push({ text: fill("x_verify", { a: v.auc.toFixed(2), p: v.period ?? "" }) });
+  if (c.m.bridge_from && state.date >= c.m.bridge_from) lines.push({ text: t("x_bridge"), warn: true });
+  const camps = c.s?.campReport?.parcels;
+  if (camps) lines.push({ text: fill("x_camps", { n: camps.total.toLocaleString("en-US"), h: camps.high.toLocaleString("en-US") }) });
+  if (c.plume) lines.push({ text: fill("x_plume", { m: c.plume.materialName, t: c.plume.time.replace("T", " ") }) });
+  lines.push({ text: t("x_grid") }, { text: t("x_not_official"), warn: true });
+  return lines;
+}
+
+function reportOf(c) {
+  const b = c.day.budget, v = c.m.verification?.[state.hazard] ?? null;
+  return {
+    title: `${t("title")}: ${t(state.hazard)}`, date: state.date, hazard: state.hazard, generated: new Date().toISOString(),
+    area: c.s ? { label: c.s.label, kind: c.s.kind, bbox: c.s.box } : { label: t("x_view"), bbox: c.view },
+    reference_system: "EPSG:4326 (WGS 84)", spatial_resolution_deg: c.m.grid.dx, data_version: c.m.generated_at, weather_from_gfs: Boolean(c.m.bridge_from && state.date >= c.m.bridge_from),
+    result: { mean_score: +c.day.mean.toFixed(1), max_score: +c.day.max.toFixed(1), coverage: +c.day.coverage.toFixed(3), area_km2: Math.round(c.day.area), class_shares: Object.fromEntries(CLASSES.map((k, i) => [k.key, +c.day.share[i].toFixed(3)])) },
+    uncertainty: { method: "JCGM 100 (GUM), quadrature, k = 2", u_input: b.parts.input ?? null, u_model: b.parts.model ?? null, u_sampling: b.parts.sampling ?? null, u_combined: +b.uc.toFixed(2), U_expanded: +b.U.toFixed(2), not_estimated: b.missing, is_lower_bound: b.missing.length > 0 },
+    verification: v, score_classes: CLASSES.map((k) => ({ class: k.key, from: k.min, to: Math.min(k.max, 100) })), lineage: c.m.sources?.[state.hazard] ?? c.m.sources ?? null,
+    camps: c.s?.campReport ? { cadastre: c.s.campReport.parcels, herder_points: c.s.campReport.herders, note: "Positions rounded to 0.01 degree; the two registers may overlap and must not be added." } : null,
+    plume: c.plume ? { material: c.plume.material, density_g_cm3: c.plume.density, source: [c.plume.lat, c.plume.lon], time: c.plume.time, wind_spread_deg: c.plume.spread, exposed_camps: c.plume.camps, note: "Relative index, not a concentration." } : null,
+    disclaimer: t("footer"),
+  };
+}
+
+async function download(all) {
+  const box = $("dl-menu"), c = exportContext();
+  if (!c) { box.replaceChildren(el("p", { text: t("dl_none") })); return; }
+  box.replaceChildren(el("p", { text: t("dl_busy") }));
+  try {
+    const base = GIBS.layers.find((l) => l.kind === "base" && state.sat[l.key].on);
+    const name = `mongolia_${state.hazard}_${state.date}`;
+    const { canvas } = await drawMap({
+      map: state.map, base, date: state.date, title: t("title"), subtitle: [`${t(state.hazard)} · ${state.date}`, c.s ? c.s.label : t("x_view")],
+      risk: state.mode === "zones" ? { canvas: state.risk.canvas, box: state.risk.box } : null,
+      soums: state.mode === "soums" && state.soums ? state.soums.features.map((f) => { const v = state.soumLayer.score(f); return { geometry: f.geometry, color: v === null || v === undefined ? "#555" : classOf(v).color }; }) : null,
+      outline: state.outline, camps: state.campsImage, plume: c.plume, selection: c.s ? { box: c.s.box, geom: c.s.geom } : null,
+      legend: CLASSES.map((k) => ({ color: k.color, label: classLabel(k.key) })), error: errorLines(c),
+    });
+    const jpeg = await toJpeg(canvas);
+    if (!all) { save(jpeg, `${name}.jpg`); box.hidden = true; return; }
+    const args = { grid: c.m.grid, cells: c.cells, frame: c.fr, uframe: uFrameNow(), uModel: c.uModel, decode };
+    const text = new TextEncoder();
+    save(zip([
+      { name: `${name}.jpg`, data: new Uint8Array(await jpeg.arrayBuffer()) },
+      { name: `${name}.csv`, data: text.encode(cellsCsv({ ...args, classOf, label: classLabel })) },
+      { name: `${name}.tif`, data: geoTiff(args) },
+      { name: `${name}_report.json`, data: text.encode(JSON.stringify(reportOf(c), null, 1)) },
+    ]), `${name}.zip`);
+    box.hidden = true;
+  } catch (e) {
+    console.error(e);
+    box.replaceChildren(el("p", { text: t("dl_fail") + e.message }));
+  }
 }
 
 function downloadCsv() {
@@ -351,13 +459,15 @@ async function boot() {
   renderStatic();
   initMap();
   state.rect = initRectDraw(state.map, { onDone: onBox, isBlocked: () => $("dlg").open });
-  state.panel = createStatsPanel($("stats"), { t, classes: CLASSES, classLabel, onClose: closeSelection, onMethods: showMethods, onCsv: downloadCsv, onPlume: showPlume });
-  state.tools = initTools({ map: state.map, getLang: () => state.lang, requestSat, containers: { poly: el("div"), mine: $("view-mine") } });
+  state.panel = createStatsPanel($("stats"), { t, classes: CLASSES, classLabel, onClose: closeSelection, onMethods: showMethods, onCsv: downloadCsv, onPlume: showPlume, onCamps: (on) => { if (state.sel) { state.sel.campsOn = on; renderSelection(); } } });
+  state.tools = initTools({ map: state.map, getLang: () => state.lang, requestSat, containers: { poly: el("div"), mine: $("view-mine") }, onMethods: showMethods,
+    campsFor: async (box) => { const a = await loadCamps(); return a ? campsInside(a, box) : null; } });
   state.dateBar = initDateBar($("datebar"), { onChange: setDate, text: t, monthName: (m) => t("months")[m - 1] });
   renderMenus(); renderLegend(); renderRail(); renderSat();
   wire();
   syncSat();
   const outline = await loadOutline();
+  state.outline = outline;
 
   try { state.manifest = await loadManifest(); }
   catch (e) { console.error(e); state.loadError = e.message; }

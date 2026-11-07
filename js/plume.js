@@ -5,7 +5,9 @@
  *  - Each puff is carried by the hourly 10 m wind interpolated in space and time (Open-Meteo, ERA5 or forecast model).
  *  - Its horizontal spread grows with the distance travelled: Briggs (1973) open-country curve for neutral
  *    air (class D), sigma_y = 0.11 x / sqrt(1 + 0.0001 x), plus a 150 m source size.
- *  - Coarse dust settles out: the puff mass decays exponentially with time constant `tauH` hours.
+ *  - Coarse dust settles out. With `material`, as in AERMOD deposition Method 1, each puff carries size bins and every bin
+ *    settles at its own Stokes speed, which depends on particle size and density (see settlingVelocity, depositionRate).
+ *    Without `material` the puff mass decays with a fixed time constant `tauH` hours.
  *  - Ground-level index = sum of the puffs' 2-D Gaussian footprints (vertically well mixed).
  *
  * The result is a RELATIVE index, not a concentration in ug/m3: the emission rate of a real mine is not
@@ -32,6 +34,56 @@ export function toward(dirFromDeg) { return (dirFromDeg + 180) % 360; }
 export function sigmaY(xMeters, spreadDeg = 0) {
   const x = Math.max(0, xMeters);
   return Math.hypot(SIGMA0_M, (0.11 * x) / Math.sqrt(1 + 0.0001 * x), x * Math.tan((spreadDeg * Math.PI) / 180));
+}
+
+/* Size bins from the particle size multipliers of US EPA AP-42 13.2.4: 0.74 below 30 um, 0.48 below 15, 0.35 below 10,
+ * 0.20 below 5, 0.053 below 2.5. Mass fraction of each bin among particles below 30 um, at the geometric middle of the bin.
+ * AP-42 gives aerodynamic sizes; here they are read as physical sizes shared by all materials, so that a denser mineral
+ * of the same crushed size falls faster. That is an assumption: no measured distribution of Mongolian mine dust was found. */
+export const SIZE_BINS = [
+  { d: 1.6, f: 0.053 / 0.74 }, { d: 3.5, f: (0.2 - 0.053) / 0.74 }, { d: 7.1, f: (0.35 - 0.2) / 0.74 },
+  { d: 12.2, f: (0.48 - 0.35) / 0.74 }, { d: 21.2, f: (0.74 - 0.48) / 0.74 },
+];
+const AIR_VISCOSITY = 1.8e-5, AIR_DENSITY = 1.2, GRAVITY = 9.81, MEAN_FREE_PATH_UM = 0.066;
+const MIXED_LAYER_M = 1000, SOURCE_SIGMA_Z_M = 10;
+
+/** Stokes settling speed in m/s with the Cunningham slip correction (the Vg of AERMOD Method 1). dUm in um, rho in g/cm3. */
+export function settlingVelocity(dUm, rho) {
+  const kn = (2 * MEAN_FREE_PATH_UM) / dUm;
+  const slip = 1 + kn * (1.257 + 0.4 * Math.exp(-1.1 / kn));
+  return ((rho * 1000 - AIR_DENSITY) * GRAVITY * (dUm * 1e-6) ** 2 * slip) / (18 * AIR_VISCOSITY);
+}
+
+/** Vertical spread (m) after xMeters: Briggs open-country class D, from a 10 m source, capped when the layer is well mixed. */
+export function sigmaZ(xMeters) {
+  const x = Math.max(0, xMeters);
+  return Math.min(Math.hypot(SOURCE_SIGMA_Z_M, (0.06 * x) / Math.sqrt(1 + 0.0015 * x)), MIXED_LAYER_M * Math.sqrt(2 / Math.PI));
+}
+
+/** Share of the airborne mass lost per second: the surface concentration of a half-Gaussian column is sqrt(2/pi)/sigma_z of its
+ * mass per square metre, and the ground takes up vg times that (source depletion, Chamberlain). */
+export function depositionRate(vg, xMeters) { return (vg * Math.sqrt(2 / Math.PI)) / sigmaZ(xMeters); }
+
+/** Share of the emitted mass still airborne after xMeters at a steady wind u. */
+export function airborneShare(rho, xMeters, u) {
+  const steps = 400, dx = xMeters / steps;
+  return SIZE_BINS.reduce((sum, b) => {
+    const vg = settlingVelocity(b.d, rho);
+    let loss = 0;
+    for (let i = 0; i < steps; i++) loss += (depositionRate(vg, (i + 0.5) * dx) * dx) / u;
+    return sum + b.f * Math.exp(-loss);
+  }, 0) / SIZE_BINS.reduce((sum, b) => sum + b.f, 0);
+}
+
+/** Distance in km at which half of the emitted mass has reached the ground, or null beyond maxKm. */
+export function halfDepositionKm(rho, u, maxKm = 500) {
+  if (airborneShare(rho, maxKm * 1000, u) > 0.5) return null;
+  let lo = 0, hi = maxKm;
+  for (let i = 0; i < 30; i++) {
+    const mid = (lo + hi) / 2;
+    if (airborneShare(rho, mid * 1000, u) > 0.5) lo = mid; else hi = mid;
+  }
+  return (lo + hi) / 2;
 }
 
 /** Relative emission factor for wind speed u (m/s): dust lift grows steeply with wind speed (cube law above calm). */
@@ -86,9 +138,11 @@ export function windAt(field, tH, lat, lon) {
  * Run the puff model. Returns { snaps } where snaps[h] is the puff cloud at the start of hour h (h = 0..hours-1),
  * each snap = { n, lat, lon, q, x, sp } (typed arrays).
  */
-export function simulate({ source, field, dtMin = 3, tauH = 6, emission = emissionFactor, spreadDeg = 0 }) {
+export function simulate({ source, field, dtMin = 3, tauH = 6, emission = emissionFactor, spreadDeg = 0, rho = null }) {
   const dt = dtMin * 60, steps = Math.round(3600 / dt);
-  const tauS = tauH * 3600, maxAge = 5 * tauS;
+  const tauS = tauH * 3600, maxAge = rho === null ? 5 * tauS : 24 * 3600;
+  const vg = rho === null ? null : SIZE_BINS.map((b) => settlingVelocity(b.d, rho));
+  const share = SIZE_BINS.reduce((a, b) => a + b.f, 0);
   const snaps = [];
   let P = []; // {lat, lon, q, x, sp, age}
   for (let h = 0; h < field.hours; h++) {
@@ -98,7 +152,8 @@ export function simulate({ source, field, dtMin = 3, tauH = 6, emission = emissi
       const w0 = windAt(field, tH, source.lat, source.lon);
       if (w0) {
         const sp = Math.hypot(w0[0], w0[1]);
-        P.push({ lat: source.lat, lon: source.lon, q: emission(sp) * dt, x: 0, sp: Math.max(sp, CALM_MS) * dt, age: 0 });
+        const q = emission(sp) * dt;
+        P.push({ lat: source.lat, lon: source.lon, q, q0: q, bins: vg && SIZE_BINS.map((b) => (b.f / share) * q), x: 0, sp: Math.max(sp, CALM_MS) * dt, age: 0 });
       }
       const decay = Math.exp(-dt / tauS);
       for (const p of P) {
@@ -108,7 +163,12 @@ export function simulate({ source, field, dtMin = 3, tauH = 6, emission = emissi
           p.lon += (w[0] * dt) / (kmPerDegLon(p.lat) * 1000);
           p.x += Math.hypot(w[0], w[1]) * dt;
         }
-        p.q *= decay; p.age += dt;
+        if (vg) {
+          let q = 0;
+          for (let b = 0; b < vg.length; b++) { p.bins[b] *= Math.exp(-depositionRate(vg[b], p.x) * dt); q += p.bins[b]; }
+          p.q = q;
+        } else p.q *= decay;
+        p.age += dt;
       }
       P = P.filter((p) => p.age < maxAge);
     }
@@ -118,8 +178,8 @@ export function simulate({ source, field, dtMin = 3, tauH = 6, emission = emissi
 
 function snapshot(P, spreadDeg) {
   const n = P.length;
-  const out = { n, spreadDeg, lat: new Float64Array(n), lon: new Float64Array(n), q: new Float64Array(n), x: new Float64Array(n), sp: new Float64Array(n) };
-  P.forEach((p, i) => { out.lat[i] = p.lat; out.lon[i] = p.lon; out.q[i] = p.q; out.x[i] = p.x; out.sp[i] = p.sp; });
+  const out = { n, spreadDeg, lat: new Float64Array(n), lon: new Float64Array(n), q: new Float64Array(n), q0: new Float64Array(n), x: new Float64Array(n), sp: new Float64Array(n) };
+  P.forEach((p, i) => { out.lat[i] = p.lat; out.lon[i] = p.lon; out.q[i] = p.q; out.q0[i] = p.q0; out.x[i] = p.x; out.sp[i] = p.sp; });
   return out;
 }
 
@@ -139,8 +199,9 @@ export function concAt(snap, lat, lon) {
   return c;
 }
 
-/** Index on a w x h raster covering `extent` {s, w, n, e}; rows run north to south. */
-export function concGrid(snap, extent, w, h) {
+/** Index on a w x h raster covering `extent` {s, w, n, e}; rows run north to south. With `emitted`, the mass as released, before
+ * settling: a scale built on it stays the same for every material, so that a heavy mineral really shows a smaller plume. */
+export function concGrid(snap, extent, w, h, emitted = false) {
   const out = new Float32Array(w * h);
   const latMid = (extent.n + extent.s) / 2;
   const kx = kmPerDegLon(latMid) * 1000, ky = KM_PER_DEG_LAT * 1000;
@@ -150,7 +211,7 @@ export function concGrid(snap, extent, w, h) {
     const c0 = Math.max(0, Math.floor((snap.lon[i] - reach / kx - extent.w) / dLon)), c1 = Math.min(w - 1, Math.ceil((snap.lon[i] + reach / kx - extent.w) / dLon));
     const r0 = Math.max(0, Math.floor((extent.n - (snap.lat[i] + reach / ky)) / dLat)), r1 = Math.min(h - 1, Math.ceil((extent.n - (snap.lat[i] - reach / ky)) / dLat));
     if (c0 > c1 || r0 > r1) continue;
-    const a = snap.q[i] / (2 * Math.PI * s * s);
+    const a = (emitted ? snap.q0[i] : snap.q[i]) / (2 * Math.PI * s * s);
     for (let r = r0; r <= r1; r++) {
       const dy = (extent.n - (r + 0.5) * dLat - snap.lat[i]) * ky;
       for (let c = c0; c <= c1; c++) {
@@ -189,6 +250,18 @@ export const PLUME_CLASSES = [
   { key: "p_very_high", min: 70, max: Infinity, color: "#8e1b6b" },
 ];
 export function plumeClass(index) { return PLUME_CLASSES.find((c) => index >= c.min && index < c.max) || PLUME_CLASSES[0]; }
+
+/** Peak index of many points from the frames already drawn: [index 0..100 for each {lat, lon}]. */
+export function peakFromFrames(frames, extent, w, h, points, ref) {
+  const dLon = (extent.e - extent.w) / w, dLat = (extent.n - extent.s) / h;
+  const peak = new Float32Array(w * h);
+  for (const f of frames) for (let i = 0; i < peak.length; i++) if (f[i] > peak[i]) peak[i] = f[i];
+  return points.map((p) => {
+    const c = Math.floor((p.lon - extent.w) / dLon), r = Math.floor((extent.n - p.lat) / dLat);
+    if (c < 0 || c >= w || r < 0 || r >= h || !(ref > 0)) return 0;
+    return Math.min(100, (100 * peak[r * w + c]) / ref);
+  });
+}
 
 /** Peak exposure of fixed points (households): [{ idx, index (0..100, relative), hour }]. */
 export function exposure(snaps, points, ref) {

@@ -88,7 +88,7 @@ const key = (cls, label) => el("span", { class: "key" }, el("i", { class: cls })
 /** A budget with a part not estimated is a lower bound on the error, and has to read as one. */
 const atLeast = (b) => (b.missing.length ? "≥" : "");
 
-export function createStatsPanel(root, { t, classes, classLabel, onClose, onMethods, onCsv, onPlume }) {
+export function createStatsPanel(root, { t, classes, classLabel, onClose, onMethods, onCsv, onPlume, onCamps }) {
   const row = (label, value, cls) => el("div", { class: "st-row" + (cls ? " " + cls : "") }, el("dt", { text: label }), el("dd", { text: value }));
 
   function dayBlock(s) {
@@ -118,6 +118,22 @@ export function createStatsPanel(root, { t, classes, classLabel, onClose, onMeth
       row(t("u_input"), p("input")), row(t("u_model"), p("model")), row(t("u_sampling"), p("sampling"))));
     if (b.missing.length) kids.push(el("p", { class: "st-note warn", text: t("u_note") }));
     return kids;
+  }
+
+  function campsBlock(s) {
+    const c = s.camps;
+    if (!c) return [];
+    const pct = (a, b) => (b ? `${Math.round((a / b) * 100)}%` : "—"), n = (v) => v.toLocaleString("en-US");
+    const p = c.parcels, h = c.herders;
+    const segs = classes.map((k, i) => ({ k, v: p.byClass[i] })).filter((x) => x.v > 0);
+    return [el("div", { class: "st-kicker", text: t("k_camps") }),
+      p.total ? el("div", { class: "seg" }, segs.map((x) => el("i", { style: `flex:${x.v};background:${x.k.color}`, title: `${classLabel(x.k.key)} ${x.v}` }))) : null,
+      el("dl", { class: "st-rows" },
+        row(t("camps_parcels"), n(p.total)), row(t("camps_herders"), n(h.total)),
+        row(t("camps_high_p"), `${n(p.high)} (${pct(p.high, p.total)})`), row(t("camps_range"), `${n(p.highLow)}–${n(p.highHigh)}`),
+        row(t("camps_high_h"), `${n(h.high)} (${pct(h.high, h.total)})`)),
+      el("label", { class: "st-check" }, el("input", { type: "checkbox", checked: s.campsOn, onchange: (e) => onCamps(e.target.checked) }), t("camps_show")),
+      el("p", { class: "st-note", text: t("camps_note") })].filter(Boolean);
   }
 
   function trendBlock(s) {
@@ -182,7 +198,7 @@ export function createStatsPanel(root, { t, classes, classLabel, onClose, onMeth
             s.long ? el("button", { class: "st-btn", type: "button", text: `⤓ ${t("csv")}`, onclick: onCsv }) : null,
             el("button", { class: "st-btn", type: "button", "aria-label": t("close"), title: t("close"), text: "✕", onclick: onClose }))),
         el("button", { class: "st-btn wide top", type: "button", text: t("plume_here"), onclick: onPlume }),
-        ...[...dayBlock(s), ...errorBlock(s.day), ...trendBlock(s), ...yearsBlock(s), ...verifyBlock(s), tableView(s)].filter(Boolean),
+        ...[...dayBlock(s), ...errorBlock(s.day), ...campsBlock(s), ...trendBlock(s), ...yearsBlock(s), ...verifyBlock(s), tableView(s)].filter(Boolean),
         el("button", { class: "st-btn wide", type: "button", text: t("method_of"), onclick: () => onMethods(s.hazard) }));
     },
     close() { root.hidden = true; root.replaceChildren(); document.body.classList.remove("stats-open"); },

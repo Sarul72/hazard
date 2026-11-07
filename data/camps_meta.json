@@ -1,0 +1,9 @@
+{
+ "step_deg": 0.01,
+ "lon0": 87.0,
+ "lat0": 41.0,
+ "locations": 149640,
+ "herder_points": 100589,
+ "cadastre_camps": 116065,
+ "cancelled_left_out": 498
+}

@@ -89,6 +89,8 @@ export function createRiskLayer(map, grid, classes, outline) {
   }
 
   return {
+    canvas: cv,
+    box: { n: north, s: south, w: west, e: east },
     /** A null frame clears the map: a day with no data must not keep showing another day's zones. */
     setFrame(values, uncertainty) { frame = values; uframe = uncertainty ?? null; draw(); },
     setOpacity(o) { overlay.setOpacity(o); },

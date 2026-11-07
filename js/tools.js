@@ -7,7 +7,8 @@ import { MINES, API, TZ, CLASSES } from "./config.js";
 import { fetchAll, nowLocalString } from "./openmeteo.js";
 import { computePoint, classOf } from "./risk.js";
 import { makeGrid, rasterize, summarize, polygonAreaKm2, kmPerDegLon, KM_PER_DEG_LAT } from "./geo.js";
-import { buildField, simulate, concGrid, referenceMax, exposure, plumeClass, PLUME_CLASSES } from "./plume.js";
+import { buildField, simulate, concGrid, referenceMax, exposure, plumeClass, PLUME_CLASSES, peakFromFrames, halfDepositionKm, airborneShare } from "./plume.js";
+import { MATERIALS, materialById } from "./materials.js";
 
 const TT = {
   mn: {
@@ -27,7 +28,9 @@ const TT = {
     homes_note: "Өгөгдөл: OpenStreetMap, уурхайгаас ≈60 км радиус. Алслагдсан говьд бүх гэр бүртгэгдээгүй байж болно, тиймээс энэ нь доод тооцоо.",
     type_ger: "Гэр", type_house: "Байшин", type_hut: "Майхан/хашаа", type_farmyard: "Мал аж ахуйн талбай", type_place: "Суурин", type_winter: "Өвөлжөө", type_spring: "Хаваржаа",
     p_none: "Өртөөгүй", p_low: "Бага", p_moderate: "Дунд", p_high: "Өндөр", p_very_high: "Маш өндөр",
-    plume_note: "Тоосны индекс нь харьцангуй (0–100): энэ хугацааны, уурхайгаас 3 км-ээс холхи хамгийн хүчтэй цэгтэй харьцуулсан. µг/м³ биш — уурхайн бодит ялгарал тодорхойгүй. Салхи: Open-Meteo (ERA5/прогноз, ≈25 км).",
+    plume_note: "Тоосны индекс нь харьцангуй (0–100): суулгүй агаарт үлдсэн бол эх үүсвэрээс 3 км-ээс цааш гарах байсан хамгийн хүчтэй цэгтэй харьцуулсан. Иймээс хүнд эрдэс бодитоор бага индекс өгнө. µг/м³ биш: уурхайн бодит ялгарал тодорхойгүй. Салхи: Open-Meteo (ERA5/прогноз, ≈25 км).",
+    mine_material: "Тоосны төрөл", mat_title: "Тоосны төрлүүдийг харьцуулах", mat_name: "Төрөл", mat_rho: "Нягт, г/см³", mat_half: "Хагас нь суух зай", mat_left: "50 км-т агаарт", mat_far: "> 500 км", mat_wind: "Дундаж салхи", mat_hint: "Элемент өөрөө тоосыг хөдөлгөдөггүй: нягт, ширхэгийн хэмжээ л тархалтыг өөрчилнө. Бүх төрөлд ижил ширхэгийн хэмжээ авсан.", mine_method: "Арга зүй",
+    camps_title: "Тархацад өртсөн өвөлжөө, хаваржаа", camps_parcels: "Кадастрын нэгж (индекс ≥ 2)", camps_herders: "Малчны цэг (индекс ≥ 2)", camps_hint: "Байршил ≈1 км-ээр бүдүүлэгжсэн. Хоёр бүртгэл давхцаж болох тул нэмж болохгүй.",
     mine_err: "Алдаа: ", cams_chart: "Эх үүсвэр дэх CAMS тоос (µг/м³) ба салхи (м/с)", frames_ready: "Бэлэн", peak_time: "Оргил цаг", no_homes_exposed: "Өртсөн айл олдсонгүй.", index: "индекс",
     sat_date_note: "Хиймэл дагуулын давхаргууд сонгосон эхлэх огнооны зургийг харуулна.", future_limit: "Огноо өнөөдрөөс 14 хоногоос хэтрэхгүй байх ёстой.",
   },
@@ -48,7 +51,9 @@ const TT = {
     homes_note: "Data: OpenStreetMap, about 60 km around the mine. Remote Gobi may have unmapped gers, so this is a lower bound.",
     type_ger: "Ger", type_house: "House", type_hut: "Hut/tent", type_farmyard: "Livestock yard", type_place: "Settlement", type_winter: "Winter camp", type_spring: "Spring camp",
     p_none: "Not exposed", p_low: "Low", p_moderate: "Moderate", p_high: "High", p_very_high: "Very high",
-    plume_note: "The plume index is relative (0–100): compared with the strongest spot more than 3 km from the source in this run. It is not ug/m3 because the real emission of the mine is unknown. Wind: Open-Meteo (ERA5/forecast, ≈25 km).",
+    plume_note: "The plume index is relative (0–100): compared with the strongest spot beyond 3 km the dust would reach if none of it settled, so a heavy mineral really gives a lower index. It is not ug/m3 because the real emission of the mine is unknown. Wind: Open-Meteo (ERA5/forecast, ≈25 km).",
+    mine_material: "Dust type", mat_title: "Dust types compared", mat_name: "Type", mat_rho: "Density, g/cm³", mat_half: "Half settled at", mat_left: "Airborne at 50 km", mat_far: "> 500 km", mat_wind: "Mean wind", mat_hint: "An element does not move dust by itself: density and particle size change the spread. All types use the same particle sizes.", mine_method: "Method",
+    camps_title: "Winter and spring camps in the plume", camps_parcels: "Cadastre camps (index ≥ 2)", camps_herders: "Herder points (index ≥ 2)", camps_hint: "Positions are rounded to about 1 km. The two registers may overlap, so do not add them.",
     mine_err: "Error: ", cams_chart: "CAMS dust at the source (ug/m3) and wind (m/s)", frames_ready: "Ready", peak_time: "Peak time", no_homes_exposed: "No exposed households found.", index: "index",
     sat_date_note: "Satellite layers show imagery for the chosen start date.", future_limit: "The date must be no more than 14 days from today.",
   },
@@ -90,7 +95,7 @@ async function fetchJson(url, { timeoutMs = 30000, retries = 1 } = {}) {
 const isoDate = (d) => d.toISOString().slice(0, 10);
 const addDaysIso = (iso, n) => isoDate(new Date(Date.parse(iso + "T00:00:00Z") + n * 86400000));
 
-export function initTools({ map, getLang, requestSat, containers }) {
+export function initTools({ map, getLang, requestSat, containers, campsFor, onMethods }) {
   const L = window.L;
   const t = (k) => (TT[getLang()] && TT[getLang()][k]) ?? TT.mn[k] ?? k;
   const T = { poly: initPoly(), mine: initMine() };
@@ -222,7 +227,7 @@ export function initTools({ map, getLang, requestSat, containers }) {
   function initMine() {
     const today = isoDate(new Date());
     const st = {
-      mineId: MINES[0].id, lat: MINES[0].lat, lon: MINES[0].lon, date: "2025-06-01", hour: 0, dur: 48, radius: 100, spread: 10,
+      mineId: MINES[0].id, lat: MINES[0].lat, lon: MINES[0].lon, date: "2025-06-01", hour: 0, dur: 48, radius: 100, spread: 10, materialId: MINES[0].material,
       sim: null, frames: null, ref: 0, extent: null, W: 150, H: 150, h: 0, playing: false, timer: null, speed: 500,
       cams: null, homes: null, exposure: null, homesAll: undefined, busy: false, picking: false,
       layers: { plume: L.layerGroup(), wind: L.layerGroup(), homes: L.layerGroup(), water: L.layerGroup(), src: L.layerGroup() },
@@ -232,6 +237,7 @@ export function initTools({ map, getLang, requestSat, containers }) {
     const root = containers.mine;
     const ui = {};
 
+    function setMaterial(id) { st.materialId = id; if (ui.material) ui.material.value = id; }
     function setSource(lat, lon, id) { st.lat = lat; st.lon = lon; if (id) st.mineId = id; ui.lat.value = lat.toFixed(4); ui.lon.value = lon.toFixed(4); drawSource(); }
     function drawSource() {
       st.layers.src.clearLayers();
@@ -290,11 +296,13 @@ export function initTools({ map, getLang, requestSat, containers }) {
         const valid = results.filter((r) => r.wind_speed_10m.some(fin)).length;
         if (!valid) throw new Error("wind data are empty for that date");
         const field = buildField(g, results);
-        st.sim = simulate({ source: { lat: st.lat, lon: st.lon }, field, spreadDeg: st.spread });
+        st.sim = simulate({ source: { lat: st.lat, lon: st.lon }, field, spreadDeg: st.spread, rho: materialById(st.materialId).rho });
         const R = st.radius, dLat = R / KM_PER_DEG_LAT, dLon = R / kmPerDegLon(st.lat);
         st.extent = { s: st.lat - dLat, n: st.lat + dLat, w: st.lon - dLon, e: st.lon + dLon };
         st.frames = st.sim.snaps.map((s) => concGrid(s, st.extent, st.W, st.H));
-        st.ref = referenceMax(st.frames, st.extent, st.W, st.H, { lat: st.lat, lon: st.lon });
+        // One scale for every material: what the air would hold if nothing settled.
+        const emitted = st.sim.snaps.filter((_, i) => i % 2 === 0).map((s) => concGrid(s, st.extent, st.W, st.H, true));
+        st.ref = referenceMax(emitted, st.extent, st.W, st.H, { lat: st.lat, lon: st.lon });
         st.cams = air && air.hourly ? { time: sl(air.hourly.time), dust: sl(air.hourly.dust), pm10: sl(air.hourly.pm10) } : null;
         st.srcSeries = sourceSeries(field);
         const homes = await loadHomes();
@@ -303,9 +311,18 @@ export function initTools({ map, getLang, requestSat, containers }) {
           const inBox = homes.items.filter((h) => h.lat >= st.extent.s && h.lat <= st.extent.n && h.lon >= st.extent.w && h.lon <= st.extent.e);
           st.homes = inBox; st.exposure = exposure(st.sim.snaps, inBox, st.ref);
         }
+        st.camps = null;
+        const pts = campsFor ? await campsFor(st.extent) : null;
+        if (pts?.length) {
+          const peak = peakFromFrames(st.frames, st.extent, st.W, st.H, pts, st.ref);
+          st.camps = pts.map((p, i) => ({ ...p, index: peak[i] }));
+        }
         st.h = Math.min(st.h, field.hours - 1);
         const evt = st.cams && st.cams.dust.some(fin) ? st.cams.dust.indexOf(Math.max(...st.cams.dust.filter(fin))) : 0;
         st.h = evt >= 0 ? evt : 0;
+        // The run starts with empty air: when CAMS shows nothing to point at, open on the hour with the most dust.
+        const load = st.frames.map((f) => f.reduce((a, b) => a + b, 0));
+        if (load[st.h] < 0.05 * Math.max(...load)) st.h = load.indexOf(Math.max(...load));
         ui.slider.max = String(field.hours - 1); ui.slider.value = String(st.h);
         buildStaticLayers(); setFrame(st.h); renderResults();
         map.fitBounds([[st.extent.s, st.extent.w], [st.extent.n, st.extent.e]], st.fit ?? { padding: [10, 10] });
@@ -342,6 +359,12 @@ export function initTools({ map, getLang, requestSat, containers }) {
           mk.bindTooltip(`${t("type_" + h.type)}${h.name ? " · " + h.name : ""} · ${t("index")} ${Math.round(ex.index)} · ${ex.hour >= 0 && ex.index >= 2 ? st.sim.field.time[ex.hour].replace("T", " ") : "—"}`);
           mk.addTo(st.layers.homes);
         });
+      }
+      if (st.camps) {
+        const renderer = L.canvas();
+        for (const c of st.camps.filter((x) => x.index >= 2).sort((a, b) => b.index - a.index).slice(0, 3000)) {
+          L.circleMarker([c.lat, c.lon], { renderer, radius: 3.5, color: "#101820", weight: 1, fillColor: plumeClass(c.index).color, fillOpacity: 0.95, interactive: false }).addTo(st.layers.homes);
+        }
       }
       st.layers.water.clearLayers();
       loadOsmWater().then((w) => {
@@ -432,9 +455,27 @@ export function initTools({ map, getLang, requestSat, containers }) {
       return el("div", {}, svg, el("p", { class: "note", text: t("cams_chart") }));
     }
 
+    function materialTable() {
+      const wind = st.srcSeries.spd.filter(fin), u = Math.max(wind.reduce((a, b) => a + b, 0) / Math.max(wind.length, 1), 1);
+      const rows = MATERIALS.map((m) => {
+        const half = halfDepositionKm(m.rho, u);
+        return el("tr", { class: m.id === st.materialId ? "on" : "" }, el("td", { text: getLang() === "mn" ? m.mn : m.en }), el("td", { text: m.rho.toFixed(2) }),
+          el("td", { text: half === null ? t("mat_far") : `${half < 10 ? half.toFixed(1) : Math.round(half)} ${t("mine_km")}` }), el("td", { text: `${Math.round(airborneShare(m.rho, 50000, u) * 100)}%` }));
+      });
+      const note = materialById(st.materialId).note[getLang()];
+      return [el("h4", { text: t("mat_title") }),
+        el("table", { class: "kv small mat" }, el("tr", {}, ...["mat_name", "mat_rho", "mat_half", "mat_left"].map((k) => el("th", { text: t(k) }))), ...rows),
+        el("p", { class: "note", text: `${t("mat_wind")} ${fmt(u)} m/s. ${t("mat_hint")}` }), note ? el("p", { class: "note", text: note }) : null];
+    }
+
     function renderResults() {
       if (!st.sim) { ui.results.replaceChildren(); return; }
-      const kids = [];
+      const kids = [...materialTable()];
+      if (st.camps) {
+        const hit = st.camps.filter((c) => c.index >= 2), sum = (k) => hit.reduce((a, c) => a + c[k], 0);
+        kids.push(el("h4", { text: t("camps_title") }), el("table", { class: "kv" }, row(t("camps_parcels"), String(sum("parcels"))), row(t("camps_herders"), String(sum("herders")))),
+          el("p", { class: "note", text: t("camps_hint") }));
+      }
       if (st.homes) {
         const byClass = {}; const byType = {};
         st.exposure.forEach((e, i) => { const c = plumeClass(e.index); byClass[c.key] = (byClass[c.key] || 0) + 1; if (e.index >= 2) { const ty = st.homes[i].type; byType[ty] = (byType[ty] || 0) + 1; } });
@@ -468,7 +509,8 @@ export function initTools({ map, getLang, requestSat, containers }) {
     /* ---------- UI ---------- */
     function build() {
       ui.title = el("h3"); ui.help = el("p", { class: "note" });
-      ui.mine = el("select", { onchange: (e) => { const m = MINES.find((x) => x.id === e.target.value); if (m) { setSource(m.lat, m.lon, m.id); map.setView([m.lat, m.lon], 9); } } });
+      ui.mine = el("select", { onchange: (e) => { const m = MINES.find((x) => x.id === e.target.value); if (m) { setMaterial(m.material); setSource(m.lat, m.lon, m.id); map.setView([m.lat, m.lon], 9); } } });
+      ui.material = el("select", { onchange: (e) => { st.materialId = e.target.value; if (st.sim) run(); } });
       ui.lat = el("input", { type: "number", step: "0.0001", onchange: (e) => { st.lat = Number(e.target.value); st.mineId = null; drawSource(); } });
       ui.lon = el("input", { type: "number", step: "0.0001", onchange: (e) => { st.lon = Number(e.target.value); st.mineId = null; drawSource(); } });
       ui.pick = el("button", { class: "btn small", onclick: () => { st.picking = !st.picking; ui.pick.textContent = st.picking ? t("mine_pick_on") : t("mine_pick"); map.getContainer().style.cursor = st.picking ? "crosshair" : ""; } });
@@ -479,6 +521,7 @@ export function initTools({ map, getLang, requestSat, containers }) {
       ui.spread = el("select", { onchange: (e) => { st.spread = Number(e.target.value); } }, ...[0, 10, 20].map((v) => el("option", { value: v, text: `${v}°`, selected: v === st.spread })));
       ui.event = el("button", { class: "btn small", onclick: () => { st.date = "2025-06-01"; st.hour = 0; st.dur = 48; ui.date.value = st.date; ui.hour.value = "0"; ui.dur.value = "48"; setSource(MINES[0].lat, MINES[0].lon, MINES[0].id); ui.mine.value = MINES[0].id; run(); } });
       ui.run = el("button", { class: "btn primary", onclick: run });
+      ui.method = el("button", { class: "btn small", onclick: () => onMethods?.("plume") });
       ui.status = el("p", { class: "note", role: "status" });
       ui.play = el("button", { class: "btn small", onclick: () => (st.playing ? stopPlay() : play()) });
       ui.slider = el("input", { type: "range", min: "0", max: "0", value: "0", class: "slider", oninput: (e) => { stopPlay(); setFrame(Number(e.target.value)); } });
@@ -490,15 +533,16 @@ export function initTools({ map, getLang, requestSat, containers }) {
       ui.toggles.append(mkToggle("plume", syncLayerVisibility), mkToggle("wind", syncLayerVisibility), mkToggle("homes", syncLayerVisibility), mkToggle("water", () => { syncLayerVisibility(); applySatToggles(); }), mkToggle("aod", applySatToggles), mkToggle("hls", applySatToggles));
       ui.fields = el("div", { class: "fields" });
       const field = (labelKey, ...ctrl) => { const lab = el("span"); lab.dataset.k = labelKey; return el("label", { class: "inline" }, lab, ...ctrl); };
-      ui.fields.append(field("mine_src", ui.mine), field("mine_lat", ui.lat), field("mine_lon", ui.lon, ui.pick), field("mine_date", ui.date), field("mine_hour", ui.hour), field("mine_dur", ui.dur), field("mine_radius", ui.rad), field("mine_spread", ui.spread));
+      ui.fields.append(field("mine_src", ui.mine), field("mine_material", ui.material), field("mine_lat", ui.lat), field("mine_lon", ui.lon, ui.pick), field("mine_date", ui.date), field("mine_hour", ui.hour), field("mine_dur", ui.dur), field("mine_radius", ui.rad), field("mine_spread", ui.spread));
       ui.transport = el("div", { class: "transport" }, ui.play, ui.slider, ui.speed);
-      root.replaceChildren(ui.title, ui.help, ui.fields, el("div", { class: "btnrow" }, ui.run, ui.event), ui.status, ui.transport, ui.readout, ui.toggles, ui.results);
+      root.replaceChildren(ui.title, ui.help, ui.fields, el("div", { class: "btnrow" }, ui.run, ui.event, ui.method), ui.status, ui.transport, ui.readout, ui.toggles, ui.results);
       map.on("click", (e) => { if (st.picking && st.active) { st.picking = false; map.getContainer().style.cursor = ""; ui.pick.textContent = t("mine_pick"); ui.mine.value = ""; setSource(e.latlng.lat, e.latlng.lng, null); } });
       ui.hour.value = String(st.hour); ui.lat.value = st.lat.toFixed(4); ui.lon.value = st.lon.toFixed(4);
       relabel(); drawSource();
     }
     function relabel() {
-      ui.title.textContent = t("mine_title"); ui.help.textContent = t("mine_help");
+      ui.title.textContent = t("mine_title"); ui.help.textContent = t("mine_help"); ui.method.textContent = t("mine_method");
+      ui.material.replaceChildren(...MATERIALS.map((m) => el("option", { value: m.id, text: `${getLang() === "mn" ? m.mn : m.en} · ${m.elements}`, selected: m.id === st.materialId })));
       ui.mine.replaceChildren(...MINES.map((m) => el("option", { value: m.id, text: getLang() === "mn" ? m.mn : m.en, selected: m.id === st.mineId })), el("option", { value: "", text: "—", selected: !st.mineId }));
       for (const s of ui.fields.querySelectorAll("span[data-k]")) s.textContent = t(s.dataset.k) + (s.dataset.k === "mine_dur" ? ` (${t("mine_hours")})` : s.dataset.k === "mine_radius" ? ` (${t("mine_km")})` : "") + ": ";
       ui.pick.textContent = st.picking ? t("mine_pick_on") : t("mine_pick");
@@ -509,7 +553,8 @@ export function initTools({ map, getLang, requestSat, containers }) {
     }
     build();
     /** Same simulation with the source at any point, for the area selected on the map. */
-    async function runAt({ lat, lon, date, radius, fit }) {
+    async function runAt({ lat, lon, date, radius, fit, material }) {
+      if (material) setMaterial(material);
       st.date = date; ui.date.value = date;
       st.hour = 0; ui.hour.value = "0";
       st.radius = radius; ui.rad.value = String(radius);
@@ -519,7 +564,21 @@ export function initTools({ map, getLang, requestSat, containers }) {
       await run();
       st.fit = null;
     }
-    return { st, relabel, runAt, show(on, keepView) { st.active = on; if (!on) stopPlay(); syncLayerVisibility(); if (on && !st.sim && !keepView) { map.setView([st.lat, st.lon], 8); } } };
+    /** What the image and the report need from the current plume, or null. */
+    function snapshotForExport() {
+      if (!st.active || !st.sim || !st.overlay) return null;
+      const f = st.sim.field, h = st.h, e = st.extent, arrows = [];
+      if (st.show.wind) for (const a of st.arrows) {
+        const u = f.u[h * 49 + a.k], v = f.v[h * 49 + a.k];
+        if (!fin(u) || !fin(v)) continue;
+        const speed = Math.hypot(u, v);
+        arrows.push({ lat: f.lats[Math.floor(a.k / f.nx)], lon: f.lons[a.k % f.nx], speed, angle: (Math.atan2(u, v) * 180) / Math.PI, color: speed < 4 ? "#7fc8ff" : speed < 8 ? "#ffe66b" : speed < 12 ? "#ff9a3c" : "#ff4d4d" });
+      }
+      const m = materialById(st.materialId), hit = (st.camps ?? []).filter((c) => c.index >= 2);
+      return { image: st.show.plume ? st.overlay.getElement() : null, box: { n: e.n, s: e.s, w: e.w, e: e.e }, arrows, material: m.id, materialName: getLang() === "mn" ? m.mn : m.en, density: m.rho, time: f.time[h], lat: st.lat, lon: st.lon, spread: st.spread,
+        camps: st.camps ? { parcels: hit.reduce((a, c) => a + c.parcels, 0), herders: hit.reduce((a, c) => a + c.herders, 0) } : null };
+    }
+    return { st, relabel, runAt, snapshotForExport, show(on, keepView) { st.active = on; if (!on) stopPlay(); syncLayerVisibility(); if (on && !st.sim && !keepView) { map.setView([st.lat, st.lon], 8); } } };
   }
 
   /* ============================================================ public API */
@@ -527,6 +586,7 @@ export function initTools({ map, getLang, requestSat, containers }) {
     setView(v) { view = v; T.poly.show(v === "poly"); T.mine.show(v === "mine"); },
     relabel() { T.poly.relabel(); T.mine.relabel(); },
     setHazard(h) { T.poly.setHazard(h); },
+    plumeSnapshot: () => T.mine.snapshotForExport(),
     plumeAt(opts) { view = "mine"; T.poly.show(false); T.mine.show(true, true); return T.mine.runAt(opts); },
   };
 }
