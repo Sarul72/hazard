@@ -248,7 +248,9 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
       const f = st.sim?.field, out = [];
       if (!f) return out;
       const padY = (f.lats[1] - f.lats[0]) / 2, padX = (f.lons[1] - f.lons[0]) / 2;
-      for (const p of v.lattice(120)) {
+      // From far away the wind field is small on screen, so the arrows move closer together and never disappear.
+      const wide = Math.abs(v.project(f.lats[0], f.lons[f.nx - 1])[0] - v.project(f.lats[0], f.lons[0])[0]);
+      for (const p of v.lattice(Math.max(46, Math.min(120, wide / 4)))) {
         if (p.lat < f.lats[0] - padY || p.lat > f.lats[f.ny - 1] + padY || p.lon < f.lons[0] - padX || p.lon > f.lons[f.nx - 1] + padX) continue;
         const w = windAt(f, st.h, p.lat, p.lon);
         if (w) out.push({ ...p, speed: Math.hypot(w[0], w[1]), angle: (Math.atan2(w[0], w[1]) * 180) / Math.PI });
