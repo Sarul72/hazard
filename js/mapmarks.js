@@ -8,36 +8,31 @@ const WHITE = "rgba(255, 255, 255, .95)";
 export const gerSize = (zoom) => Math.min(14, Math.max(3.2, 3.2 * 2 ** ((zoom - 8) / 2)));
 
 /** Length of a wind arrow on screen, in pixels: the only thing that speaks of the speed. */
-export const arrowLength = (speed) => 20 + Math.min(speed, 16) * 1.25;
+export const arrowLength = (speed) => 17 + Math.min(speed, 16) * 0.95;
 
-/** An arrow of the wind, pointing where the air goes. White on a dark edge, so that it reads on snow and on dark ground alike. */
+/** An arrow of the wind, pointing where the air goes: a grey dart with a notched tail, one solid shape with no thin parts. A fine
+ * light edge lets it read on dark ground and a soft shadow on snow. */
 export function drawArrow(ctx, x, y, angleDeg, len, k = 1) {
-  const half = len / 2, head = Math.max(7 * k, len * 0.3), wing = head * 0.62;
+  const half = len / 2, wing = Math.max(5.2 * k, len * 0.3), notch = len * 0.3;
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate((angleDeg * Math.PI) / 180);
-  ctx.lineCap = ctx.lineJoin = "round";
-  const shape = () => {
-    ctx.beginPath();
-    ctx.moveTo(0, half);
-    ctx.lineTo(0, -half + head * 0.7);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(0, -half);
-    ctx.lineTo(wing, -half + head);
-    ctx.lineTo(0, -half + head * 0.72);
-    ctx.lineTo(-wing, -half + head);
-    ctx.closePath();
-  };
-  ctx.strokeStyle = ctx.fillStyle = "rgba(12, 16, 20, .72)";
-  ctx.lineWidth = 4.6 * k;
-  shape();
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  ctx.moveTo(0, -half);
+  ctx.lineTo(wing, half);
+  ctx.lineTo(0, half - notch);
+  ctx.lineTo(-wing, half);
+  ctx.closePath();
+  ctx.shadowColor = "rgba(0, 0, 0, .5)";
+  ctx.shadowBlur = 3 * k;
+  ctx.shadowOffsetY = k;
+  ctx.fillStyle = "#59626b";
   ctx.fill();
+  ctx.shadowColor = "transparent";
+  ctx.strokeStyle = "rgba(240, 243, 246, .92)";
+  ctx.lineWidth = 1.1 * k;
   ctx.stroke();
-  ctx.strokeStyle = ctx.fillStyle = "#fff";
-  ctx.lineWidth = 2 * k;
-  shape();
-  ctx.fill();
   ctx.restore();
 }
 

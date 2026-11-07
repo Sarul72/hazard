@@ -74,7 +74,7 @@ button { cursor: pointer; }
 .bottom { position: fixed; z-index: 900; left: 0; right: 0; bottom: 12px; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
 .bottom > * { pointer-events: auto; }
 .stats-open .bottom { left: 258px; right: calc(var(--panel-w) + 14px); }
-.datebar { display: flex; align-items: center; gap: 4px; padding: 6px 10px; border-radius: 22px; background: rgba(20, 24, 28, .38); position: relative; overflow: hidden; max-height: 110px; transition: max-height .38s cubic-bezier(.22, .8, .3, 1), padding .38s cubic-bezier(.22, .8, .3, 1), margin .38s cubic-bezier(.22, .8, .3, 1), opacity .24s ease, transform .38s cubic-bezier(.22, .8, .3, 1), visibility 0s; }
+.datebar { display: flex; align-items: center; gap: 3px; padding: 3px 8px; border-radius: 16px; background: rgba(20, 24, 28, .38); position: relative; overflow: hidden; max-height: 110px; transition: max-height .38s cubic-bezier(.22, .8, .3, 1), padding .38s cubic-bezier(.22, .8, .3, 1), margin .38s cubic-bezier(.22, .8, .3, 1), opacity .24s ease, transform .38s cubic-bezier(.22, .8, .3, 1), visibility 0s; }
 .folded .datebar { max-height: 0; padding-top: 0; padding-bottom: 0; margin-top: -8px; opacity: 0; transform: translateY(18px); border-color: transparent; box-shadow: none; pointer-events: none; visibility: hidden; transition-delay: 0s, 0s, 0s, 0s, 0s, .38s; }
 .date-fold { display: flex; align-items: center; gap: 6px; height: 20px; margin-bottom: -4px; padding: 0 16px; border: 1px solid var(--line); border-radius: 11px; background: rgba(20, 24, 28, .5); color: var(--ink2); font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .date-fold:hover { background: rgba(60, 66, 72, .85); color: #fff; }
@@ -83,17 +83,17 @@ button { cursor: pointer; }
 .folded .date-fold { margin-bottom: 0; }
 .folded .date-fold svg { transform: rotate(180deg); }
 @media (prefers-reduced-motion: reduce) { .datebar, .date-fold svg { transition: none; } }
-.round { width: 44px; height: 44px; display: grid; place-items: center; background: none; border: 0; border-radius: 50%; }
+.round { width: 34px; height: 34px; display: grid; place-items: center; background: none; border: 0; border-radius: 50%; }
 .round:hover:not(:disabled) { background: rgba(255, 255, 255, .14); }
 .round:disabled { opacity: .35; cursor: default; }
-.round svg { width: 26px; height: 26px; }
-.spin { display: flex; flex-direction: column; align-items: center; min-width: 46px; }
-.spin-month { min-width: 74px; }
-.spin-year { min-width: 58px; }
-.chev { width: 34px; height: 18px; display: grid; place-items: center; background: none; border: 0; border-radius: 6px; color: var(--ink2); padding: 0; }
+.round svg { width: 20px; height: 20px; }
+.spin { display: flex; flex-direction: column; align-items: center; min-width: 38px; }
+.spin-month { min-width: 62px; }
+.spin-year { min-width: 48px; }
+.chev { width: 28px; height: 13px; display: grid; place-items: center; background: none; border: 0; border-radius: 6px; color: var(--ink2); padding: 0; }
 .chev:hover { background: rgba(255, 255, 255, .14); color: #fff; }
-.chev svg { width: 15px; height: 15px; }
-.spin-val { background: none; border: 0; padding: 0 4px; font-size: 19px; font-weight: 650; line-height: 1.25; text-shadow: 0 1px 3px rgba(0, 0, 0, .55); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.chev svg { width: 12px; height: 12px; }
+.spin-val { background: none; border: 0; padding: 0 3px; font-size: 15px; font-weight: 650; line-height: 1.25; text-shadow: 0 1px 3px rgba(0, 0, 0, .55); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .cal { position: absolute; left: 50%; bottom: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .legendbar { display: flex; border-radius: 9px; overflow: hidden; box-shadow: 0 3px 12px rgba(0, 0, 0, .4); font-size: 11px; font-weight: 600; }
 .legendbar span { padding: 3px 11px; }
@@ -188,6 +188,7 @@ button { cursor: pointer; }
 .dl-fmt button:disabled { opacity: .55; }
 .dl-msg { margin: 4px 0 2px; font-size: 12px; color: #f5c04a; }
 .dl-msg:empty { display: none; }
+.dl-msg a { color: inherit; }
 body.bare #legend, body.bare #t-view, body.bare #modes, body.bare #soum-box, body.bare #t-footer, body.bare #hint, body.bare #coords { display: none; }
 table.mat th { text-align: left; color: var(--muted); font-weight: 600; padding-right: 6px; }
 table.mat td:not(:first-child) { text-align: right; white-space: nowrap; }
@@ -250,8 +251,8 @@ table.kv tr.clk:hover { background: rgba(255, 255, 255, .08); }
   .stats-open .rail { right: 14px; }
   .stats-open .bottom { right: 0; bottom: calc(52vh + 8px); }
   .dl-menu { left: 14px; width: auto; }
-  .spin-val { font-size: 16px; }
-  .round { width: 36px; height: 36px; }
+  .spin-val { font-size: 14px; }
+  .round { width: 30px; height: 30px; }
   .coords { display: none; }
   .legendbar { font-size: 10px; }
   .legendbar span { padding: 2px 6px; }

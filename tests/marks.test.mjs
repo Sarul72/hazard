@@ -10,8 +10,8 @@ export function check() {
   yes("a ger stays small from afar", gerSize(5) <= 4);
   yes("a ger has a limit", gerSize(20) <= 14);
   yes("a faster wind gives a longer arrow", arrowLength(10) > arrowLength(2));
-  yes("the weakest arrow can still be read", arrowLength(0) >= 20);
-  yes("the strongest arrow stays compact", arrowLength(40) <= 42);
+  yes("the weakest arrow can still be read", arrowLength(0) >= 16);
+  yes("the strongest arrow stays compact", arrowLength(40) <= 34);
   yes("a sparse area keeps every dot", thinning(100, 100000, 1) === 1);
   yes("a crowded area is thinned to a speckle", thinning(20000, 12000, 0.55) >= 8);
   yes("thinned dots cover at most a sixth", (20000 / thinning(20000, 12000, 0.55)) * Math.PI * 0.55 ** 2 <= 12000 / 6);

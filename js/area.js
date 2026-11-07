@@ -81,13 +81,3 @@ export function longReport({ months, high }) {
     rl: fit ? { t5: returnLevel(fit, 5), t20: returnLevel(fit, 20), n: fit.n } : null,
   };
 }
-
-export function toCsv({ label, hazard, months, years, high }) {
-  const q = (s) => `"${String(s).replace(/"/g, '""')}"`;
-  const lines = ["area,hazard,period,kind,mean_score,high_risk_days"];
-  const num = (v, d) => (fin(v) ? v.toFixed(d) : "");
-  const byYear = new Map(high.map((r) => [r.y, r.v]));
-  for (const r of months) lines.push([q(label), hazard, `${r.y}-${String(r.m).padStart(2, "0")}`, "month", num(r.v, 2), ""].join(","));
-  for (const r of years) lines.push([q(label), hazard, r.y, "year", num(r.v, 2), num(byYear.get(r.y), 1)].join(","));
-  return lines.join("\r\n");
-}

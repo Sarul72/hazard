@@ -29,7 +29,8 @@ export function csv(header, rows) {
   return "﻿" + [header, ...rows].map((r) => r.map(q).join(",")).join("\r\n");
 }
 
-export const featureCollection = (features) => JSON.stringify({ type: "FeatureCollection", features });
+/** `metadata` sits beside the features: GeoJSON allows extra members and GIS programs step over them. */
+export const featureCollection = (features, metadata) => JSON.stringify({ type: "FeatureCollection", ...(metadata ? { metadata } : {}), features });
 export const pointFeature = (lon, lat, properties) => ({ type: "Feature", geometry: { type: "Point", coordinates: [lon, lat] }, properties });
 
 /* ------------------------------------------------------------------- KML */
@@ -38,14 +39,14 @@ const esc = (s) => String(s).replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt
 const kmlColor = (hex, alpha) => `${alpha}${hex.slice(5, 7)}${hex.slice(3, 5)}${hex.slice(1, 3)}`;
 const kmlRing = (ring) => `<LinearRing><coordinates>${ring.map(([x, y]) => `${x},${y}`).join(" ")}</coordinates></LinearRing>`;
 const kmlPolygon = (p) => `<Polygon><outerBoundaryIs>${kmlRing(p[0])}</outerBoundaryIs>${p.slice(1).map((r) => `<innerBoundaryIs>${kmlRing(r)}</innerBoundaryIs>`).join("")}</Polygon>`;
-const kmlDoc = (name, body) => `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${esc(name)}</name>${body}</Document></kml>`;
+const kmlDoc = (name, body, description) => `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${esc(name)}</name>${description ? `<description>${esc(description)}</description>` : ""}${body}</Document></kml>`;
 
 /** Coloured polygons for Google Earth. features: [{ name, description, color, geometry }] */
-export function kmlPolygons(name, features) {
+export function kmlPolygons(name, features, description) {
   return kmlDoc(name, features.map((f) => {
     const g = f.geometry, shape = g.type === "Polygon" ? kmlPolygon(g.coordinates) : `<MultiGeometry>${g.coordinates.map(kmlPolygon).join("")}</MultiGeometry>`;
-    return `<Placemark><name>${esc(f.name)}</name><description>${esc(f.description)}</description><Style><PolyStyle><color>${kmlColor(f.color, "b3")}</color></PolyStyle><LineStyle><color>ffffffff</color><width>0.7</width></LineStyle></Style>${shape}</Placemark>`;
-  }).join(""));
+    return `<Placemark><name>${esc(f.name)}</name><description>${esc(f.description)}</description><Style><LineStyle><color>ffffffff</color><width>0.7</width></LineStyle><PolyStyle><color>${kmlColor(f.color, "b3")}</color></PolyStyle></Style>${shape}</Placemark>`;
+  }).join(""), description);
 }
 
 /** One image laid over the ground. The image must be regular in latitude and longitude. */
@@ -54,26 +55,20 @@ export function kmlGroundOverlay({ name, description, href, box }) {
 }
 
 /* --------------------------------------------------------------- GeoTIFF */
-/** Float GeoTIFF in EPSG:4326, band interleaved by pixel. bands: arrays of w*h values, row 0 at the north edge. */
-export function geoTiff({ w, h, bands, west, north, dx, dy, noData = -9999 }) {
-  const n = bands.length, px = new Float32Array(w * h * n);
-  for (let i = 0; i < w * h; i++) for (let b = 0; b < n; b++) px[i * n + b] = bands[b][i];
-  const geoKeys = [1, 1, 0, 3, 1024, 0, 1, 2, 1025, 0, 1, 1, 2048, 0, 1, 4326];
-  const SHORT = 3, LONG = 4, ASCII = 2, DOUBLE = 12;
-  const tags = [
-    [256, LONG, [w]], [257, LONG, [h]], [258, SHORT, Array(n).fill(32)], [259, SHORT, [1]], [262, SHORT, [1]], [273, LONG, ["data"]],
-    [277, SHORT, [n]], [278, LONG, [h]], [279, LONG, [px.byteLength]], [284, SHORT, [1]],
-    ...(n > 1 ? [[338, SHORT, Array(n - 1).fill(0)]] : []),
-    [339, SHORT, Array(n).fill(3)], [33550, DOUBLE, [dx, dy, 0]], [33922, DOUBLE, [0, 0, 0, west, north, 0]],
-    [34735, SHORT, geoKeys], [42113, ASCII, [...enc.encode(`${noData}\0`)]],
-  ];
-  const size = { [SHORT]: 2, [LONG]: 4, [DOUBLE]: 8, [ASCII]: 1 };
+const SHORT = 3, LONG = 4, ASCII = 2, DOUBLE = 12;
+const TYPE_SIZE = { [SHORT]: 2, [LONG]: 4, [DOUBLE]: 8, [ASCII]: 1 };
+/** TIFF text is plain ASCII, so anything else becomes a question mark. */
+const ascii = (s) => [...enc.encode(`${String(s).replace(/[^\x20-\x7e]/g, "?")}\0`)];
+
+/** A little-endian TIFF with one strip. `tags` are [id, type, values]; the value "data" stands for the offset of the pixels. */
+function tiff(tags, pixels) {
+  tags.sort((a, b) => a[0] - b[0]);
   let extra = 8 + 2 + tags.length * 12 + 4;
-  const place = tags.map(([, type, v]) => { const b = v.length * size[type]; if (b <= 4) return null; const at = extra; extra += b + (b % 2); return at; });
-  const dataAt = (extra + 3) & ~3, out = new ArrayBuffer(dataAt + px.byteLength), d = new DataView(out);
+  const place = tags.map(([, type, v]) => { const n = v.length * TYPE_SIZE[type]; if (n <= 4) return null; const at = extra; extra += n + (n % 2); return at; });
+  const dataAt = (extra + 3) & ~3, out = new ArrayBuffer(dataAt + pixels.byteLength), d = new DataView(out);
   d.setUint16(0, 0x4949, true); d.setUint16(2, 42, true); d.setUint32(4, 8, true); d.setUint16(8, tags.length, true);
   const put = (at, type, v) => v.forEach((x, i) => {
-    const o = at + i * size[type], value = x === "data" ? dataAt : x;
+    const o = at + i * TYPE_SIZE[type], value = x === "data" ? dataAt : x;
     if (type === SHORT) d.setUint16(o, value, true); else if (type === LONG) d.setUint32(o, value, true);
     else if (type === DOUBLE) d.setFloat64(o, value, true); else d.setUint8(o, value);
   });
@@ -82,8 +77,78 @@ export function geoTiff({ w, h, bands, west, north, dx, dy, noData = -9999 }) {
     d.setUint16(at, tag, true); d.setUint16(at + 2, type, true); d.setUint32(at + 4, v.length, true);
     if (place[i] === null) put(at + 8, type, v); else { d.setUint32(at + 8, place[i], true); put(place[i], type, v); }
   });
-  new Float32Array(out, dataAt).set(px);
+  new Uint8Array(out, dataAt).set(new Uint8Array(pixels.buffer, pixels.byteOffset, pixels.byteLength));
   return new Uint8Array(out);
+}
+
+/** Lowest, highest, mean and spread of a band, leaving out cells without data. */
+export function bandStats(band, noData = -9999) {
+  let n = 0, sum = 0, sq = 0, min = Infinity, max = -Infinity;
+  for (const v of band) { if (v === noData) continue; n++; sum += v; sq += v * v; if (v < min) min = v; if (v > max) max = v; }
+  if (!n) return null;
+  const mean = sum / n;
+  return { min, max, mean, sd: Math.sqrt(Math.max(sq / n - mean * mean, 0)) };
+}
+
+const STATS = [["MINIMUM", "min"], ["MAXIMUM", "max"], ["MEAN", "mean"], ["STDDEV", "sd"]];
+
+/** What GDAL and the programs built on it read as band names, statistics and notes. */
+function gdalMetadata(meta, names, bands, noData) {
+  const item = (name, value, more = "") => `<Item name="${esc(name)}"${more}>${esc(value)}</Item>`;
+  const rows = Object.entries(meta).filter(([, v]) => v !== null && v !== undefined).map(([k, v]) => item(k, v));
+  bands.forEach((band, i) => {
+    if (names[i]) rows.push(item("DESCRIPTION", names[i], ` sample="${i}" role="description"`));
+    const s = bandStats(band, noData);
+    if (s) for (const [k, f] of STATS) rows.push(item(`STATISTICS_${k}`, +s[f].toFixed(4), ` sample="${i}"`));
+  });
+  return `<GDALMetadata>${rows.join("")}</GDALMetadata>`;
+}
+
+const notes = (description, xml) => [...(description ? [[270, ASCII, ascii(description)]] : []), [305, ASCII, ascii("Mongolia Hazard Watch")], [42112, ASCII, ascii(xml)]];
+
+/** Float GeoTIFF in EPSG:4326, band interleaved by pixel. bands: arrays of w*h values, row 0 at the north edge. */
+export function geoTiff({ w, h, bands, west, north, dx, dy, noData = -9999, names = [], description = "", meta = {} }) {
+  const n = bands.length, px = new Float32Array(w * h * n);
+  for (let i = 0; i < w * h; i++) for (let b = 0; b < n; b++) px[i * n + b] = bands[b][i];
+  return tiff([
+    [256, LONG, [w]], [257, LONG, [h]], [258, SHORT, Array(n).fill(32)], [259, SHORT, [1]], [262, SHORT, [1]], [273, LONG, ["data"]],
+    [277, SHORT, [n]], [278, LONG, [h]], [279, LONG, [px.byteLength]], [284, SHORT, [1]],
+    ...(n > 1 ? [[338, SHORT, Array(n - 1).fill(0)]] : []),
+    [339, SHORT, Array(n).fill(3)], [33550, DOUBLE, [dx, dy, 0]], [33922, DOUBLE, [0, 0, 0, west, north, 0]],
+    [34735, SHORT, [1, 1, 0, 3, 1024, 0, 1, 2, 1025, 0, 1, 1, 2048, 0, 1, 4326]], [42113, ASCII, ascii(noData)],
+    ...notes(description, gdalMetadata(meta, names, bands, noData)),
+  ], px);
+}
+
+/** The map as one RGB GeoTIFF in Web Mercator. rgba: the pixels of a canvas; box: its corners in degrees. */
+export function geoTiffRgb({ w, h, rgba, box, description = "", meta = {} }) {
+  const px = new Uint8Array(w * h * 3);
+  for (let i = 0, o = 0; i < w * h; i++, o += 3) { px[o] = rgba[i * 4]; px[o + 1] = rgba[i * 4 + 1]; px[o + 2] = rgba[i * 4 + 2]; }
+  const x0 = mercatorX(box.w), y0 = mercatorY(box.n), sx = (mercatorX(box.e) - x0) / w, sy = (y0 - mercatorY(box.s)) / h;
+  return tiff([
+    [256, LONG, [w]], [257, LONG, [h]], [258, SHORT, [8, 8, 8]], [259, SHORT, [1]], [262, SHORT, [2]], [273, LONG, ["data"]],
+    [277, SHORT, [3]], [278, LONG, [h]], [279, LONG, [px.byteLength]], [284, SHORT, [1]],
+    [33550, DOUBLE, [sx, sy, 0]], [33922, DOUBLE, [0, 0, 0, x0, y0, 0]],
+    [34735, SHORT, [1, 1, 0, 3, 1024, 0, 1, 1, 1025, 0, 1, 1, 3072, 0, 1, 3857]],
+    ...notes(description, gdalMetadata(meta, [], [], null)),
+  ], px);
+}
+
+/* -------------------------------------------------------------- metadata */
+/** The metadata ArcGIS shows for a dataset, written beside it as <file>.xml. */
+export const arcgisXml = ({ title, summary, description, credits }) => `<?xml version="1.0" encoding="UTF-8"?>
+<metadata xml:lang="en"><Esri><ArcGISFormat>1.0</ArcGISFormat></Esri><dataIdInfo><idCitation><resTitle>${esc(title)}</resTitle></idCitation><idPurp>${esc(summary)}</idPurp><idAbs>${esc(description)}</idAbs><idCredit>${esc(credits)}</idCredit></dataIdInfo></metadata>
+`;
+
+/** The companion file GDAL and ArcGIS read for a raster or image: its projection, notes, and the name and statistics of each band. */
+export function auxXml({ wkt = null, meta = {}, names = [], bands = [], noData = -9999 }) {
+  const mdi = (k, v) => `<MDI key="${esc(k)}">${esc(v)}</MDI>`;
+  const rows = Object.entries(meta).filter(([, v]) => v !== null && v !== undefined).map(([k, v]) => mdi(k, v));
+  const perBand = bands.map((band, i) => {
+    const s = bandStats(band, noData);
+    return `<PAMRasterBand band="${i + 1}">${names[i] ? `<Description>${esc(names[i])}</Description>` : ""}${s ? `<Metadata>${STATS.map(([k, f]) => mdi(`STATISTICS_${k}`, +s[f].toFixed(4))).join("")}</Metadata>` : ""}</PAMRasterBand>`;
+  });
+  return `<PAMDataset>${wkt ? `<SRS>${esc(wkt)}</SRS>` : ""}${rows.length ? `<Metadata>${rows.join("")}</Metadata>` : ""}${perBand.join("")}</PAMDataset>\n`;
 }
 
 /* ------------------------------------------------------------- Shapefile */
@@ -163,8 +228,11 @@ export function shapefile({ features, fields, now = new Date() }) {
 }
 
 /* ------------------------------------------------------------------- PDF */
-/** One A4 page holding a JPEG, scaled to fit. */
-export function pdfFromJpeg(jpeg, w, h) {
+/** PDF text in UTF-16, the one encoding of the format that holds Cyrillic. */
+const pdfText = (s) => `<FEFF${Array.from({ length: s.length }, (_, i) => s.charCodeAt(i).toString(16).padStart(4, "0")).join("").toUpperCase()}>`;
+
+/** One A4 page holding a JPEG, scaled to fit. `info` goes into the properties of the document. */
+export function pdfFromJpeg(jpeg, w, h, info = {}) {
   const [pw, ph] = w >= h ? [842, 595] : [595, 842], k = Math.min((pw - 36) / w, (ph - 36) / h);
   const iw = (w * k).toFixed(2), ih = (h * k).toFixed(2), x = ((pw - w * k) / 2).toFixed(2), y = ((ph - h * k) / 2).toFixed(2);
   const draw = `q ${iw} 0 0 ${ih} ${x} ${y} cm /Im0 Do Q`;
@@ -174,6 +242,7 @@ export function pdfFromJpeg(jpeg, w, h) {
     [`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pw} ${ph}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>`],
     [`<< /Type /XObject /Subtype /Image /Width ${w} /Height ${h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>`, jpeg],
     [`<< /Length ${draw.length} >>`, enc.encode(draw)],
+    [`<< /Title ${pdfText(info.title ?? "")} /Subject ${pdfText(info.subject ?? "")} /Producer (Mongolia Hazard Watch) >>`],
   ];
   const parts = [enc.encode("%PDF-1.4\n%\xE2\xE3\xCF\xD3\n")], offsets = [];
   let at = parts[0].length;
@@ -185,7 +254,7 @@ export function pdfFromJpeg(jpeg, w, h) {
     push(enc.encode("endobj\n"));
   });
   const xref = at, n = objects.length + 1;
-  push(enc.encode(`xref\n0 ${n}\n0000000000 65535 f \n${offsets.map((o) => `${String(o).padStart(10, "0")} 00000 n \n`).join("")}trailer\n<< /Size ${n} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`));
+  push(enc.encode(`xref\n0 ${n}\n0000000000 65535 f \n${offsets.map((o) => `${String(o).padStart(10, "0")} 00000 n \n`).join("")}trailer\n<< /Size ${n} /Root 1 0 R /Info 6 0 R >>\nstartxref\n${xref}\n%%EOF\n`));
   return concat(parts);
 }
 
@@ -204,17 +273,18 @@ export function worldFile({ n, s, e, w }, width, height) {
 const crcTable = Uint32Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
 function crc32(b) { let c = -1; for (let i = 0; i < b.length; i++) c = crcTable[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ -1) >>> 0; }
 
-/** A plain ZIP with stored (uncompressed) files: [{ name, data: Uint8Array }]. */
-export function zip(files, type = MIME.zip) {
+/** A plain ZIP with stored (uncompressed) files: [{ name, data: Uint8Array }]. The files carry the time of the download. */
+export function zip(files, type = MIME.zip, now = new Date()) {
   const parts = [], central = [];
+  const time = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1), date = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
   let offset = 0;
   for (const f of files) {
     const name = enc.encode(f.name), crc = crc32(f.data), head = new DataView(new ArrayBuffer(30));
-    [[0, 0x04034b50, 4], [4, 20, 2], [6, 0x0800, 2], [8, 0, 2], [10, 0, 2], [12, 0x21, 2], [14, crc, 4], [18, f.data.length, 4], [22, f.data.length, 4], [26, name.length, 2], [28, 0, 2]]
+    [[0, 0x04034b50, 4], [4, 20, 2], [6, 0x0800, 2], [8, 0, 2], [10, time, 2], [12, date, 2], [14, crc, 4], [18, f.data.length, 4], [22, f.data.length, 4], [26, name.length, 2], [28, 0, 2]]
       .forEach(([o, v, n]) => (n === 4 ? head.setUint32(o, v, true) : head.setUint16(o, v, true)));
     parts.push(new Uint8Array(head.buffer), name, f.data);
     const c = new DataView(new ArrayBuffer(46));
-    [[0, 0x02014b50, 4], [4, 20, 2], [6, 20, 2], [8, 0x0800, 2], [10, 0, 2], [12, 0, 2], [14, 0x21, 2], [16, crc, 4], [20, f.data.length, 4], [24, f.data.length, 4], [28, name.length, 2], [42, offset, 4]]
+    [[0, 0x02014b50, 4], [4, 20, 2], [6, 20, 2], [8, 0x0800, 2], [10, 0, 2], [12, time, 2], [14, date, 2], [16, crc, 4], [20, f.data.length, 4], [24, f.data.length, 4], [28, name.length, 2], [42, offset, 4]]
       .forEach(([o, v, n]) => (n === 4 ? c.setUint32(o, v, true) : c.setUint16(o, v, true)));
     central.push(new Uint8Array(c.buffer), name);
     offset += 30 + name.length + f.data.length;

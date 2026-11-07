@@ -76,7 +76,7 @@ export async function drawMap(o) {
     for (const f of line.data.features ?? [line.data]) {
       trace(f.geometry ?? f);
       if (line.fill) { ctx.fillStyle = line.fill; ctx.fill("evenodd"); }
-      if (line.edge) { ctx.setLineDash([]); ctx.strokeStyle = "rgba(16,21,26,.55)"; ctx.lineWidth = line.edge * S; ctx.stroke(); }
+      if (line.edge) { ctx.setLineDash([]); ctx.strokeStyle = line.edgeColor ?? "rgba(16,21,26,.55)"; ctx.lineWidth = line.edge * S; ctx.stroke(); }
       ctx.setLineDash((line.dash ?? []).map((v) => v * S));
       ctx.strokeStyle = line.color ?? `rgba(255,255,255,${line.opacity})`;
       ctx.lineWidth = line.weight * S;
@@ -169,10 +169,16 @@ export function cellRows({ grid, cells, frame, uframe, uModel, decode, classOf, 
   return rows;
 }
 
+/** Starts the download and returns the address of the file. It stays valid for ten minutes: a browser that first asks where to
+ * save, or holds back a download that starts long after the click, reads the file only later. */
 export function save(blob, name) {
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
+  const a = document.createElement("a"), url = URL.createObjectURL(blob);
+  a.href = url;
   a.download = name;
+  a.hidden = true;
+  document.body.append(a);
   a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 600000);
+  return url;
 }

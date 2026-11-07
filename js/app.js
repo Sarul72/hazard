@@ -84,14 +84,15 @@ function renderLegend() {
 }
 
 /* ---------------------------------------------------------------- borders */
-/* Line styles follow the order of topographic map symbols (USGS): the higher the level, the heavier the line. The national border
- * and the first level share one pattern, short-short-long, in two weights; the second level is long-short. A dark edge under
- * each line keeps it readable on satellite imagery, where a plain black map line would be lost. */
+/* Line styles follow the order of topographic map symbols (USGS): the higher the level, the heavier the line. The first level is
+ * short-short-long, the second long-short, with a dark edge under each line so that it reads on satellite imagery, where a plain
+ * black map line would be lost. The national border stands apart by colour: a thin solid bright red, which is easier to follow
+ * than a pattern, with a pale edge so that it holds on the red of the fire map. */
 const BORDERS = {
   water: { file: "data/water.geojson", weight: 0.5, opacity: 0.9, color: "#9ad4ff", fill: "#2f8fe0", fillOpacity: 0.8 },
   soum: { file: "data/soum_lines.geojson", weight: 1, opacity: 0.85, dash: [13, 4, 4, 4], edge: 2.2 },
   aimag: { file: "data/aimag_lines.geojson", weight: 1.7, opacity: 0.95, dash: [6, 4, 6, 4, 20, 4], edge: 3.2 },
-  country: { file: "data/mongolia.geojson", weight: 2.8, opacity: 1, dash: [8, 5, 8, 5, 28, 5], edge: 4.8 },
+  country: { file: "data/mongolia.geojson", weight: 1.8, opacity: 1, color: "#ff1f1f", edge: 3.4, edgeColor: "rgba(255,255,255,.5)" },
 };
 
 async function applyBorders() {
@@ -102,7 +103,7 @@ async function applyBorders() {
       if (!state.borderData[key]) continue;
       const line = (style) => window.L.geoJSON(state.borderData[key], { pane: "borderPane", interactive: false, style: { fill: false, lineCap: "butt", lineJoin: "round", ...style } });
       state.borderLayers[key] ??= def.edge
-        ? window.L.layerGroup([line({ color: "#10151a", weight: def.edge, opacity: 0.55 }), line({ color: "#fff", weight: def.weight, opacity: def.opacity, dashArray: def.dash.join(" ") })])
+        ? window.L.layerGroup([line({ color: def.edgeColor ?? "#10151a", weight: def.edge, opacity: def.edgeColor ? 1 : 0.55 }), line({ color: def.color ?? "#fff", weight: def.weight, opacity: def.opacity, dashArray: def.dash?.join(" ") })])
         : window.L.geoJSON(state.borderData[key], { pane: "borderPane", interactive: false, style: { color: def.color, weight: def.weight, opacity: def.opacity, fill: true, fillColor: def.fill, fillOpacity: def.fillOpacity } });
     }
     if (state.borders[key]) state.borderLayers[key].addTo(state.map);
@@ -115,7 +116,7 @@ function renderBorders() {
 }
 
 /** What the image needs to draw the same lines as the screen, thinnest first. */
-const activeBorders = () => Object.entries(BORDERS).filter(([k]) => state.borders[k] && state.borderData[k]).map(([k, d]) => ({ data: state.borderData[k], weight: d.weight, opacity: d.opacity, color: d.color, fill: d.fill, dash: d.dash, edge: d.edge }));
+const activeBorders = () => Object.entries(BORDERS).filter(([k]) => state.borders[k] && state.borderData[k]).map(([k, d]) => ({ data: state.borderData[k], weight: d.weight, opacity: d.opacity, color: d.color, fill: d.fill, dash: d.dash, edge: d.edge, edgeColor: d.edgeColor }));
 
 /* ---------------------------------------------------------- computing screen */
 let working = 0;

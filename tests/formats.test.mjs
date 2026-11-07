@@ -1,5 +1,5 @@
 /* The hand-written file formats. check() is plain JavaScript so it also runs in a browser where Node is not installed. */
-import { MERCATOR_WKT, csv, geoTiff, kmlGroundOverlay, kmlPolygons, mercatorX, mercatorY, pdfFromJpeg, shapefile, worldFile } from "../js/formats.js";
+import { MERCATOR_WKT, arcgisXml, auxXml, bandStats, csv, featureCollection, geoTiff, geoTiffRgb, kmlGroundOverlay, kmlPolygons, mercatorX, mercatorY, pdfFromJpeg, shapefile, worldFile, zip } from "../js/formats.js";
 
 const dec = new TextDecoder();
 
@@ -33,6 +33,37 @@ export function check() {
     near(`tiff ${n} band north`, d.getFloat64(tie + 32, true), 50);
   }
 
+  /* tags that carry the result inside the file */
+  const tagsOf = (u8) => {
+    const d = new DataView(u8.buffer), tags = new Map();
+    for (let i = 0; i < d.getUint16(8, true); i++) tags.set(d.getUint16(10 + i * 12, true), { at: 10 + i * 12, n: d.getUint32(14 + i * 12, true), off: d.getUint32(18 + i * 12, true) });
+    return { d, tags, str: (id) => dec.decode(u8.slice(tags.get(id).off, tags.get(id).off + tags.get(id).n - 1)) };
+  };
+  const noted = tagsOf(geoTiff({ w: 2, h: 1, bands: [Float32Array.from([10, -9999]), Float32Array.from([4, -9999])], names: ["score", "U95"], west: 100, north: 50, dx: 1, dy: 1, description: "Өндөр: mean 10 +-4", meta: { U95_points: 4, skip: null } }));
+  yes("tiff tags ascend with the notes added", [...noted.tags.keys()].every((k, i, a) => !i || k > a[i - 1]));
+  yes("tiff description is plain ascii", noted.str(270) === "?????: mean 10 +-4");
+  yes("tiff names its software", noted.str(305) === "Mongolia Hazard Watch");
+  const gdal = noted.str(42112);
+  yes("gdal metadata holds the error", gdal.includes('<Item name="U95_points">4</Item>') && !gdal.includes("skip"));
+  yes("gdal metadata names the bands", gdal.includes('<Item name="DESCRIPTION" sample="1" role="description">U95</Item>'));
+  yes("gdal metadata statistics skip no data", gdal.includes('<Item name="STATISTICS_MINIMUM" sample="0">10</Item>'));
+  yes("band statistics leave out no data", bandStats(Float32Array.from([2, 4, -9999])).mean === 3);
+  yes("band statistics of an empty band", bandStats(Float32Array.from([-9999])) === null);
+
+  const rgba = Uint8ClampedArray.from([1, 2, 3, 255, 4, 5, 6, 255]), rgb = geoTiffRgb({ w: 2, h: 1, rgba, box: { n: 10, s: 0, e: 20, w: 10 }, description: "x" }), R = tagsOf(rgb);
+  yes("rgb tiff is rgb", R.d.getUint16(R.tags.get(262).at + 8, true) === 2 && R.d.getUint16(R.tags.get(277).at + 8, true) === 3);
+  yes("rgb tiff drops alpha", [...rgb.slice(rgb.length - 6)].join() === "1,2,3,4,5,6");
+  near("rgb tiff west in metres", R.d.getFloat64(R.tags.get(33922).off + 24, true), mercatorX(10), 1e-6);
+  near("rgb tiff north in metres", R.d.getFloat64(R.tags.get(33922).off + 32, true), mercatorY(10), 1e-6);
+  yes("rgb tiff is web mercator", R.d.getUint16(R.tags.get(34735).off + 30, true) === 3857);
+
+  const pam = auxXml({ wkt: "W<1>", meta: { U95: 4 }, names: ["a"], bands: [Float32Array.from([1, 3])] });
+  yes("aux file holds the projection", pam.includes("<SRS>W&lt;1&gt;</SRS>"));
+  yes("aux file holds the result", pam.includes('<MDI key="U95">4</MDI>'));
+  yes("aux file holds band statistics", pam.includes('<PAMRasterBand band="1"><Description>a</Description>') && pam.includes('<MDI key="STATISTICS_MAXIMUM">3</MDI>'));
+  const esriXml = arcgisXml({ title: "a & b", summary: "s", description: "d", credits: "c" });
+  yes("arcgis metadata", esriXml.startsWith("<?xml") && esriXml.includes("<resTitle>a &amp; b</resTitle>") && esriXml.includes("<idPurp>s</idPurp>") && esriXml.includes("<idAbs>d</idAbs>"));
+
   /* shapefile: GeoJSON order goes in, outer ring counter-clockwise and hole clockwise */
   const ccw = [[0, 0], [4, 0], [4, 4], [0, 4], [0, 0]], cw = [[1, 1], [1, 2], [2, 2], [2, 1], [1, 1]];
   const fields = [{ name: "name", type: "C", size: 7 }, { name: "score", type: "N", size: 6, decimals: 1 }];
@@ -64,6 +95,9 @@ export function check() {
   const rows = text.slice(start).split("\n").slice(3, 8).map((r) => Number(r.slice(0, 10)));
   yes("pdf table points at every object", rows.every((o, i) => text.slice(o, o + 8).startsWith(`${i + 1} 0 obj`)));
   yes("pdf page is A4 landscape for a wide image", text.includes("/MediaBox [0 0 842 595]"));
+  const pi = Array.from(pdfFromJpeg(jpeg, 200, 100, { title: "Үер", subject: "a" }), (b) => String.fromCharCode(b)).join("");
+  yes("pdf title is utf-16", pi.includes("/Title <FEFF04AE04350440>"));
+  yes("pdf points at its properties", pi.includes("/Info 6 0 R"));
 
   /* world file */
   const lines = worldFile({ n: 10, s: 0, e: 20, w: 10 }, 100, 50).trim().split("\r\n").map(Number);
@@ -78,12 +112,28 @@ export function check() {
   yes("kml escapes text", k.includes("a &amp; b") && k.includes("&lt;x&gt;"));
   yes("kml colour is alpha blue green red", k.includes("<color>b31f23d4</color>"));
   yes("kml has the hole", k.includes("<innerBoundaryIs>"));
+  yes("kml line style comes before the polygon style", k.indexOf("<LineStyle>") < k.indexOf("<PolyStyle>"));
+  yes("kml document can hold the result", kmlPolygons("n", [], "mean 10").includes("<name>n</name><description>mean 10</description>"));
+  const fc = JSON.parse(featureCollection([], { U95: 4 }));
+  yes("geojson holds the result beside the features", fc.metadata.U95 === 4 && fc.type === "FeatureCollection");
+  yes("geojson without notes stays plain", !("metadata" in JSON.parse(featureCollection([]))));
   yes("kml overlay box", kmlGroundOverlay({ name: "n", description: "d", href: "r.png", box: { n: 2, s: 1, e: 4, w: 3 } }).includes("<north>2</north><south>1</south><east>4</east><west>3</west>"));
   return out;
+}
+
+/** Reads the first date and time of a ZIP back, as the format has them. */
+export async function zipStamp(now) {
+  const d = new DataView(await zip([{ name: "a", data: new Uint8Array(1) }], undefined, now).arrayBuffer());
+  return { time: d.getUint16(10, true), date: d.getUint16(12, true) };
 }
 
 if (typeof process !== "undefined" && process.versions?.node) {
   const { default: test } = await import("node:test");
   const { default: assert } = await import("node:assert/strict");
   test("file formats", () => assert.deepEqual(check().filter((r) => !r.ok), []));
+  test("zip keeps the time of the download", async () => {
+    const z = await zipStamp(new Date(2026, 10, 8, 13, 30, 10));
+    assert.equal(z.date, ((2026 - 1980) << 9) | (11 << 5) | 8);
+    assert.equal(z.time, (13 << 11) | (30 << 5) | 5);
+  });
 }
