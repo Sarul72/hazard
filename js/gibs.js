@@ -49,10 +49,12 @@ function tileLit(def, date, x, y) {
 }
 
 /** Newest day whose image already covers Mongolia. Today's passes arrive during the day and the service answers with black
- * until then, so the pixels decide. If the check is slow or fails, yesterday is the safe answer. */
-export function newestImageDate(def, now = new Date(), waitMs = 2500) {
+ * until then, so the pixels decide. A first request can fail for no lasting reason, so a miss is tried once more.
+ * If the check is slow or fails, yesterday is the safe answer. */
+export function newestImageDate(def, now = new Date(), waitMs = 4000) {
   const today = utcDate(0, now), yesterday = utcDate(-1, now);
-  const check = Promise.all([11, 12, 13].map((x) => tileLit(def, today, x, 5))).then((lit) => (lit.every((v) => v >= 0.9) ? today : yesterday), () => yesterday);
+  const covered = () => Promise.all([11, 12, 13].map((x) => tileLit(def, today, x, 5))).then((lit) => lit.every((v) => v >= 0.9), () => false);
+  const check = covered().then((yes) => yes || new Promise((ok) => setTimeout(ok, 500)).then(covered)).then((yes) => (yes ? today : yesterday));
   return Promise.race([check, new Promise((ok) => setTimeout(() => ok(yesterday), waitMs))]);
 }
 
@@ -62,5 +64,6 @@ export function makeLayer(L, def, date) {
   if (def.type === "wms") {
     return L.tileLayer.wms(GIBS.wms, { ...common, layers: def.id, format: "image/png", transparent: true, version: "1.1.1", styles: "", TIME: date });
   }
-  return L.tileLayer(tileTemplate(def, date), { ...common, maxNativeZoom: maxNativeZoom(def.tms) });
+  // Asked for with CORS, like the tiles the pixel check and the downloads read, so that the browser cache serves them all.
+  return L.tileLayer(tileTemplate(def, date), { ...common, crossOrigin: "anonymous", maxNativeZoom: maxNativeZoom(def.tms) });
 }
