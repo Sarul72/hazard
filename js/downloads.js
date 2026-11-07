@@ -5,6 +5,7 @@ import { decode } from "./dataset.js";
 import { boxCells } from "./stats.js";
 import { dayReport, toCsv } from "./area.js";
 import { el } from "./dom.js";
+import { versionAt } from "./gibs.js";
 import { cellRows, drawMap, save, toJpeg, toPng } from "./export.js";
 import { MERCATOR_WKT, MIME, csv, featureCollection, geoTiff, kmlGroundOverlay, kmlPolygons, pdfFromJpeg, pointFeature, shapefile, worldFile, zip } from "./formats.js";
 
@@ -20,7 +21,7 @@ const round = (v, d = 1) => (typeof v === "number" ? +v.toFixed(d) : null);
 
 export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, classLabel, soumsReady }) {
   const fill = (k, o) => Object.entries(o).reduce((a, [x, y]) => a.replace(`{${x}}`, y), t(k));
-  const baseLayer = () => GIBS.layers.find((l) => l.kind === "base" && state.sat[l.key].on);
+  const baseLayer = () => versionAt(GIBS.layers.find((l) => l.kind === "base" && state.sat[l.key].on), state.date);
   const fileBase = (c) => `mongolia_${c.day ? state.hazard : "image"}_${state.date}${c.s ? "_area" : ""}`;
 
   /** Everything the files are made from: the selection if there is one, otherwise the view. Without results, only the image. */

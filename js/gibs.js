@@ -14,8 +14,18 @@ export function maxNativeZoom(tms) {
   return m ? Number(m[1]) : 6;
 }
 
+/** The layer as it stands on a day: the satellite that serves it then, or null if its record has not begun. */
+export function versionAt(def, date) {
+  if (!def.versions) return !def.from || date >= def.from ? def : null;
+  const v = def.versions.find((x) => date >= x.from);
+  return v ? { ...def, ...v } : null;
+}
+
+export const firstDate = (def) => def.versions?.at(-1).from ?? def.from ?? null;
+
 export function tileTemplate(layer, date) {
-  return `${GIBS.base}/${layer.id}/default/${date}/${layer.tms}/{z}/{y}/{x}.${layer.ext}`;
+  const l = versionAt(layer, date) ?? layer;
+  return `${GIBS.base}/${l.id}/default/${date}/${l.tms}/{z}/{y}/{x}.${l.ext}`;
 }
 
 /** Share of a zoom 4 tile holding image, not the black of a place the satellite has not passed yet. */

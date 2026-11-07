@@ -111,15 +111,26 @@ export const API = {
  * WMTS GetCapabilities on 2026-11-03. `type: "wms"` is used for the thermal-anomaly (fire) layers, which GIBS
  * serves as vector tiles; its WMS endpoint renders them as images.
  * `kind`: "base" (one at a time) or "overlay".
+ * `versions` (newest first) is for a sensor flown on several satellites: each serves the days from its `from` on, because
+ * one satellite's record can stop while the sensor carries on. Suomi NPP stops at 2026-11-02 in GIBS, read on 2026-11-07.
+ * `from` is the first day of the record; days before it have nothing to show.
  */
 export const GIBS = {
   base: "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best",
   wms: "https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi",
   layers: [
     { key: "truecolor_terra", kind: "base", id: "MODIS_Terra_CorrectedReflectance_TrueColor", ext: "jpg", tms: "GoogleMapsCompatible_Level9", sensor: "MODIS Terra", res: "250 m" },
-    { key: "truecolor_aqua", kind: "base", id: "MODIS_Aqua_CorrectedReflectance_TrueColor", ext: "jpg", tms: "GoogleMapsCompatible_Level9", sensor: "MODIS Aqua", res: "250 m" },
-    { key: "truecolor_viirs", kind: "base", id: "VIIRS_SNPP_CorrectedReflectance_TrueColor", ext: "jpg", tms: "GoogleMapsCompatible_Level9", sensor: "VIIRS Suomi NPP", res: "250 m" },
-    { key: "fire_viirs", kind: "overlay", type: "wms", id: "VIIRS_SNPP_Thermal_Anomalies_375m_All", sensor: "VIIRS 375 m", res: "375 m" },
+    { key: "truecolor_aqua", kind: "base", id: "MODIS_Aqua_CorrectedReflectance_TrueColor", ext: "jpg", tms: "GoogleMapsCompatible_Level9", sensor: "MODIS Aqua", res: "250 m", from: "2002-07-03" },
+    { key: "truecolor_viirs", kind: "base", ext: "jpg", tms: "GoogleMapsCompatible_Level9", res: "250 m", versions: [
+      { from: "2024-02-29", id: "VIIRS_NOAA21_CorrectedReflectance_TrueColor", sensor: "VIIRS NOAA-21" },
+      { from: "2022-01-14", id: "VIIRS_NOAA20_CorrectedReflectance_TrueColor", sensor: "VIIRS NOAA-20" },
+      { from: "2015-11-24", id: "VIIRS_SNPP_CorrectedReflectance_TrueColor", sensor: "VIIRS Suomi NPP" },
+    ] },
+    { key: "fire_viirs", kind: "overlay", type: "wms", res: "375 m", versions: [
+      { from: "2024-01-17", id: "VIIRS_NOAA21_Thermal_Anomalies_375m_All", sensor: "VIIRS NOAA-21" },
+      { from: "2020-01-01", id: "VIIRS_NOAA20_Thermal_Anomalies_375m_All", sensor: "VIIRS NOAA-20" },
+      { from: "2012-01-20", id: "VIIRS_SNPP_Thermal_Anomalies_375m_All", sensor: "VIIRS Suomi NPP" },
+    ] },
     { key: "fire_modis", kind: "overlay", type: "wms", id: "MODIS_Combined_Thermal_Anomalies_All", sensor: "MODIS Terra+Aqua", res: "1 km" },
     { key: "aod_deepblue", kind: "overlay", id: "MODIS_Terra_AOD_Deep_Blue_Combined", ext: "png", tms: "GoogleMapsCompatible_Level6", sensor: "MODIS Terra Deep Blue AOD", res: "10 km" },
     { key: "aod_modis", kind: "overlay", id: "MODIS_Combined_Value_Added_AOD", ext: "png", tms: "GoogleMapsCompatible_Level6", sensor: "MODIS Terra+Aqua MAIAC AOD", res: "1 km" },

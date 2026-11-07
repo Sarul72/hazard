@@ -18,8 +18,8 @@ Layer ids, tile matrix sets and formats below were **read from GIBS's own WMTS G
 
 | Key | Layer id | Matrix set | Notes |
 |---|---|---|---|
-| truecolor_terra / aqua / viirs | `MODIS_Terra_…`, `MODIS_Aqua_…`, `VIIRS_SNPP_CorrectedReflectance_TrueColor` | Level9, JPEG | base images |
-| fire_viirs | `VIIRS_SNPP_Thermal_Anomalies_375m_All` | **vector tiles** | drawn through GIBS WMS (`wms.cgi`), which renders vector layers as images |
+| truecolor_terra / aqua / viirs | `MODIS_Terra_…`, `MODIS_Aqua_…`, `VIIRS_NOAA21_…` from 2024-02-29, `VIIRS_NOAA20_…` from 2022-01-14, `VIIRS_SNPP_CorrectedReflectance_TrueColor` from 2015-11-24 (Suomi NPP stops at 2026-11-02 in GIBS) | Level9, JPEG | base images |
+| fire_viirs | `VIIRS_NOAA21_…` from 2024-01-17, `VIIRS_NOAA20_…` from 2020-01-01, `VIIRS_SNPP_Thermal_Anomalies_375m_All` from 2012-01-20 | **vector tiles** | drawn through GIBS WMS (`wms.cgi`), which renders vector layers as images |
 | fire_modis | `MODIS_Combined_Thermal_Anomalies_All` | vector tiles | same, via WMS |
 | aod_deepblue | `MODIS_Terra_AOD_Deep_Blue_Combined` | Level6 | Deep Blue AOD works over bright arid land such as the Gobi |
 | aod_modis | `MODIS_Combined_Value_Added_AOD` | Level6 | MAIAC AOD |

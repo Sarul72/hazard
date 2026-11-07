@@ -4,7 +4,7 @@
 import { CLASSES, GIBS, MONGOLIA_BBOX } from "./config.js";
 import { T } from "./i18n.js";
 import { U } from "./ui_text.js";
-import { makeLayer, newestImageDate, utcDate } from "./gibs.js";
+import { firstDate, makeLayer, newestImageDate, utcDate, versionAt } from "./gibs.js";
 import { initTools } from "./tools.js";
 import { decode, loadCube, loadDaily, loadManifest } from "./dataset.js";
 import { campsCanvas, campsInside, campsReport, loadCamps } from "./camps.js";
@@ -126,8 +126,8 @@ function initSatState() {
 }
 
 function applySat(key) {
-  const def = GIBS.layers.find((l) => l.key === key), st = state.sat[key];
-  if (!st.on) { st.layer?.remove(); return; }
+  const def = versionAt(GIBS.layers.find((l) => l.key === key), state.date), st = state.sat[key];
+  if (!st.on || !def) { st.layer?.remove(); return; }
   if (!st.layer || st.date !== state.date) {
     st.layer?.remove();
     st.layer = makeLayer(window.L, def, state.date);
@@ -144,11 +144,20 @@ function setBase(key) {
   applySat(key);
 }
 
+/** A satellite that has not passed yet today answers with black, so the choice opens on its newest full day. */
+async function pickBase(key) {
+  setBase(key);
+  state.downloads?.refresh();
+  if (state.hazard || state.date !== utcDate(0)) return;
+  const d = await newestImageDate(GIBS.layers.find((l) => l.key === key));
+  if (d !== state.date && state.sat[key].on) { state.dateBar.setValue(d); await setDate(d); }
+}
+
 function renderSat() {
   const mk = (l) => {
-    const st = state.sat[l.key], base = l.kind === "base";
-    const input = el("input", { type: base ? "radio" : "checkbox", name: base ? "base" : null, checked: st.on, onchange: (e) => { if (base) setBase(l.key); else { st.on = e.target.checked; applySat(l.key); } } });
-    return el("label", { class: "check" }, input, el("span", {}, layerName("layer_" + l.key), el("small", { text: `${l.sensor} · ${l.res}` })));
+    const st = state.sat[l.key], base = l.kind === "base", now = versionAt(l, state.date);
+    const input = el("input", { type: base ? "radio" : "checkbox", name: base ? "base" : null, checked: st.on, disabled: !now, onchange: (e) => { if (base) pickBase(l.key); else { st.on = e.target.checked; applySat(l.key); } } });
+    return el("label", { class: "check" + (now ? "" : " off") }, input, el("span", {}, layerName("layer_" + l.key), el("small", { text: now ? `${now.sensor} · ${now.res}` : t("sat_from").replace("{d}", firstDate(l)) })));
   };
   $("sat-base").replaceChildren(...GIBS.layers.filter((l) => l.kind === "base").map(mk));
   $("sat-overlay").replaceChildren(...GIBS.layers.filter((l) => l.kind === "overlay").map(mk));
@@ -160,7 +169,12 @@ function requestSat({ key, on, date }) {
   if (date && date !== state.date) { state.dateBar.setValue(date); setDate(state.dateBar.value); }
   if (key && state.sat[key] && typeof on === "boolean" && state.sat[key].on !== on) { state.sat[key].on = on; applySat(key); renderSat(); }
 }
-const syncSat = () => { for (const l of GIBS.layers) if (state.sat[l.key].on) applySat(l.key); };
+function syncSat() {
+  const base = GIBS.layers.find((l) => l.kind === "base" && state.sat[l.key].on);
+  if (!versionAt(base, state.date)) setBase("truecolor_terra"); // that satellite was not flying yet on this day
+  for (const l of GIBS.layers) if (state.sat[l.key].on) applySat(l.key);
+  renderSat();
+}
 
 /* ------------------------------------------------------------ risk layer */
 const frameNow = () => state.day?.[state.hazard] ?? null;
