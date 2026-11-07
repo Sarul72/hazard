@@ -1,6 +1,6 @@
-/* Winter and spring camps inside the selected area. data/camps.bin.gz holds positions rounded to about 1 km and counts only:
- * no person, parcel or phone. Without the file the area window simply has no camp block. */
-import { bytes, decode } from "./dataset.js";
+/* Winter and spring camps for the mine dust tool. data/camps.bin.gz holds positions rounded to about 1 km and counts only:
+ * no person, parcel or phone. */
+import { bytes } from "./dataset.js";
 import { inFeature } from "./soums.js";
 
 const STEP = 0.01, LON0 = 87, LAT0 = 41;
@@ -21,30 +21,4 @@ export function campsInside(a, box, geom) {
     out.push({ lon, lat, herders: a[i + 2], parcels: a[i + 3] });
   }
   return out;
-}
-
-const cellOf = (p, grid) => {
-  const r = Math.floor((grid.north - p.lat) / grid.dy), c = Math.floor((p.lon - grid.west) / grid.dx);
-  return r >= 0 && r < grid.ny && c >= 0 && c < grid.nx ? r * grid.nx + c : -1;
-};
-
-/** Exposure: how many camps lie in each risk class on the day. `U` moves every score up and down by the possible error,
- * which turns the error of the map into a range for the number of exposed camps. */
-export function campsReport(points, frame, grid, classes, U) {
-  const blank = () => ({ total: 0, byClass: classes.map(() => 0), high: 0, highLow: 0, highHigh: 0, noData: 0 });
-  const rep = { herders: blank(), parcels: blank(), locations: points.length };
-  for (const p of points) {
-    const i = cellOf(p, grid), v = i < 0 || !frame ? null : decode(frame[i]);
-    p.score = v;
-    for (const [key, n] of [["herders", p.herders], ["parcels", p.parcels]]) {
-      const b = rep[key];
-      b.total += n;
-      if (v === null) { b.noData += n; continue; }
-      b.byClass[classes.findIndex((c) => v < c.max)] += n;
-      if (v >= 60) b.high += n;
-      if (v - U >= 60) b.highLow += n;
-      if (v + U >= 60) b.highHigh += n;
-    }
-  }
-  return rep;
 }

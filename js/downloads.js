@@ -49,8 +49,6 @@ export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, cla
     if (b.missing.length) lines.push({ text: t("x_missing"), warn: true });
     if (v?.auc) lines.push({ text: fill("x_verify", { a: v.auc.toFixed(2), p: v.period ?? "" }) });
     if (c.m.bridge_from && state.date >= c.m.bridge_from) lines.push({ text: t("x_bridge"), warn: true });
-    const camps = c.s?.campReport?.parcels;
-    if (camps) lines.push({ text: fill("x_camps", { n: camps.total.toLocaleString("en-US"), h: camps.high.toLocaleString("en-US") }) });
     if (c.plume) lines.push({ text: fill("x_plume", { m: c.plume.materialName, t: c.plume.time.replace("T", " ") }) });
     lines.push({ text: t("x_grid") }, { text: t("x_not_official"), warn: true });
     return lines;
@@ -70,7 +68,7 @@ export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, cla
       subtitle: risky ? [`${t(state.hazard)} · ${state.date}`, c.s ? c.s.label : t("x_view")] : [`${base.sensor} · ${state.date}`],
       risk: risky && state.mode === "zones" ? { canvas: state.risk.canvas, box: state.risk.box } : null,
       soums: risky && state.mode === "soums" && state.soums ? state.soums.features.map((f) => { const v = state.soumLayer.score(f); return { geometry: f.geometry, color: v === null || v === undefined ? "#555" : classOf(v).color }; }) : null,
-      borders: borders(), camps: risky ? state.campsImage : null, plume: c.plume, selection: c.s ? { box: c.s.box, geom: c.s.geom } : null,
+      borders: borders(), plume: c.plume, selection: c.s ? { box: c.s.box, geom: c.s.geom } : null,
       legend: risky ? classes().map((k) => ({ color: k.color, label: classLabel(k.key) })) : [], error: risky ? errorLines(c) : imageLines(c),
     });
   }
@@ -174,7 +172,6 @@ export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, cla
       result: { mean_score: +c.day.mean.toFixed(1), max_score: +c.day.max.toFixed(1), coverage: +c.day.coverage.toFixed(3), area_km2: Math.round(c.day.area), class_shares: Object.fromEntries(CLASSES.map((k, i) => [k.key, +c.day.share[i].toFixed(3)])) },
       uncertainty: { method: "JCGM 100 (GUM), quadrature, k = 2", u_input: b.parts.input ?? null, u_model: b.parts.model ?? null, u_sampling: b.parts.sampling ?? null, u_combined: +b.uc.toFixed(2), U_expanded: +b.U.toFixed(2), not_estimated: b.missing, is_lower_bound: b.missing.length > 0 },
       verification: v, score_classes: CLASSES.map((k) => ({ class: k.key, from: k.min, to: Math.min(k.max, 100) })), lineage: c.m.sources?.[state.hazard] ?? c.m.sources ?? null,
-      camps: c.s?.campReport ? { cadastre: c.s.campReport.parcels, herder_points: c.s.campReport.herders, note: "Positions rounded to 0.01 degree; the two registers may overlap and must not be added." } : null,
       plume: c.plume ? { material: c.plume.material, density_g_cm3: c.plume.density, source: [c.plume.lat, c.plume.lon], time: c.plume.time, wind_spread_deg: c.plume.spread, exposed_camps: c.plume.camps, reach_km: round(c.plume.stats?.reach), area_km2: round(c.plume.stats?.area, 0), reach_at_view_edge: c.plume.stats?.edge ?? null, range_with_wind_changed: c.plume.range, water_reached: c.plume.water, note: "Relative index, not a concentration. The range turns the wind by 20 degrees and scales it by 20 percent; it is not a statistical error." } : null,
       disclaimer: t("footer"),
     };
@@ -221,15 +218,6 @@ export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, cla
       }
       section("n_read");
       L.push(t("n_read1"), t("n_read2"), all.map((k) => `  ${k.min}–${Math.min(Math.round(k.max), 100)}: ${classLabel(k.key)}`).join("\r\n"));
-      const p = c.s?.campReport?.parcels, h = c.s?.campReport?.herders;
-      if (p) {
-        section("k_camps");
-        pair("camps_parcels", num(p.total));
-        pair("camps_herders", num(h.total));
-        pair("camps_high_p", `${num(p.high)} (${t("camps_range")}: ${num(p.highLow)}–${num(p.highHigh)})`);
-        pair("camps_high_h", num(h.high));
-        L.push(t("camps_note"));
-      }
     } else {
       const b = baseLayer();
       pair("n_date", state.date);

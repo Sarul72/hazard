@@ -7,8 +7,7 @@ import { U } from "./ui_text.js";
 import { firstDate, makeLayer, newestImageDate, utcDate, versionAt } from "./gibs.js";
 import { initTools } from "./tools.js";
 import { decode, loadCube, loadDaily, loadManifest } from "./dataset.js";
-import { campsInside, campsReport, loadCamps } from "./camps.js";
-import { createViewCanvas, paintCamps } from "./mapmarks.js";
+import { campsInside, loadCamps } from "./camps.js";
 import { initDownloads } from "./downloads.js";
 import { createRiskLayer } from "./riskmap.js";
 import { initRectDraw } from "./rectdraw.js";
@@ -81,17 +80,18 @@ function renderMenus() {
 }
 
 function renderLegend() {
-  const k = classesNow();
-  $("legend").style.background = `linear-gradient(90deg, ${k.map((c) => c.color).join(", ")})`;
-  $("legend").replaceChildren(...k.map((c) => el("span", { style: `color:${c.ink}`, text: classLabel(c.key) })));
+  $("legend").replaceChildren(...classesNow().map((c) => el("span", { style: `background:${c.color};color:${c.ink}`, text: classLabel(c.key) })));
 }
 
 /* ---------------------------------------------------------------- borders */
+/* Line styles follow the order of topographic map symbols (USGS): the higher the level, the heavier the line. The national border
+ * and the first level share one pattern, short-short-long, in two weights; the second level is long-short. A dark edge under
+ * each line keeps it readable on satellite imagery, where a plain black map line would be lost. */
 const BORDERS = {
   water: { file: "data/water.geojson", weight: 0.5, opacity: 0.9, color: "#9ad4ff", fill: "#2f8fe0", fillOpacity: 0.8 },
-  soum: { file: "data/soums.geojson", weight: 0.6, opacity: 0.55 },
-  aimag: { file: "data/aimags.geojson", weight: 1.1, opacity: 0.8 },
-  country: { file: "data/mongolia.geojson", weight: 1.8, opacity: 0.95 },
+  soum: { file: "data/soum_lines.geojson", weight: 1, opacity: 0.85, dash: [13, 4, 4, 4], edge: 2.2 },
+  aimag: { file: "data/aimag_lines.geojson", weight: 1.7, opacity: 0.95, dash: [6, 4, 6, 4, 20, 4], edge: 3.2 },
+  country: { file: "data/mongolia.geojson", weight: 2.8, opacity: 1, dash: [8, 5, 8, 5, 28, 5], edge: 4.8 },
 };
 
 async function applyBorders() {
@@ -100,19 +100,22 @@ async function applyBorders() {
     if (!state.borderLayers[key]) {
       state.borderData[key] ??= await fetch(def.file).then((r) => (r.ok ? r.json() : null)).catch(() => null);
       if (!state.borderData[key]) continue;
-      state.borderLayers[key] ??= window.L.geoJSON(state.borderData[key], { pane: "borderPane", interactive: false, style: { color: def.color ?? "#fff", weight: def.weight, opacity: def.opacity, fill: Boolean(def.fill), fillColor: def.fill, fillOpacity: def.fillOpacity } });
+      const line = (style) => window.L.geoJSON(state.borderData[key], { pane: "borderPane", interactive: false, style: { fill: false, lineCap: "butt", lineJoin: "round", ...style } });
+      state.borderLayers[key] ??= def.edge
+        ? window.L.layerGroup([line({ color: "#10151a", weight: def.edge, opacity: 0.55 }), line({ color: "#fff", weight: def.weight, opacity: def.opacity, dashArray: def.dash.join(" ") })])
+        : window.L.geoJSON(state.borderData[key], { pane: "borderPane", interactive: false, style: { color: def.color, weight: def.weight, opacity: def.opacity, fill: true, fillColor: def.fill, fillOpacity: def.fillOpacity } });
     }
     if (state.borders[key]) state.borderLayers[key].addTo(state.map);
   }
 }
 
 function renderBorders() {
-  $("borders").replaceChildren(...["country", "aimag", "soum", "water"].map((k) => el("label", { class: "check" },
+  $("borders").replaceChildren(...["country", "aimag", "soum"].map((k) => el("label", { class: "check" },
     el("input", { type: "checkbox", checked: state.borders[k], onchange: (e) => { state.borders[k] = e.target.checked; applyBorders(); } }), el("span", { text: t("b_" + k) }))));
 }
 
 /** What the image needs to draw the same lines as the screen, thinnest first. */
-const activeBorders = () => Object.entries(BORDERS).filter(([k]) => state.borders[k] && state.borderData[k]).map(([k, d]) => ({ data: state.borderData[k], weight: d.weight, opacity: d.opacity, color: d.color, fill: d.fill }));
+const activeBorders = () => Object.entries(BORDERS).filter(([k]) => state.borders[k] && state.borderData[k]).map(([k, d]) => ({ data: state.borderData[k], weight: d.weight, opacity: d.opacity, color: d.color, fill: d.fill, dash: d.dash, edge: d.edge }));
 
 /* ---------------------------------------------------------- computing screen */
 let working = 0;
@@ -173,6 +176,9 @@ function renderScreen() {
   const results = Boolean(state.hazard);
   document.body.classList.toggle("bare", !results);
   state.rect.setActive(results);
+  const dust = state.hazard === "dust"; // the mine tool belongs to dust
+  $("mine-box").hidden = !dust;
+  if (!dust) $("mine-box").open = false;
   applyBorders();
   renderBorders();
   $("t-hazards").textContent = t(results ? "hazards" : "pick_hazard");
@@ -403,14 +409,8 @@ function pickSoum(f, fly) {
 async function loadSelection() {
   const my = ++state.selToken, s = state.sel, m = state.manifest;
   s.long = null; s.months = null; s.high = null; s.longError = false;
-  s.campsOn ??= true;
   renderSelection();
   if (!m || !s.cells.length) return;
-  loadCamps().then((a) => {
-    if (!a || state.sel !== s) return;
-    s.campPoints = campsInside(a, s.box, s.geom);
-    renderSelection();
-  });
   try {
     const name = state.hazard;
     const [mc, hc] = await whileBusy(() => Promise.all([loadCube(m, "monthly_" + name), loadCube(m, "highdays_" + name)]));
@@ -431,20 +431,11 @@ function renderSelection() {
   if (!s) return;
   const m = state.manifest, fr = frameNow();
   const day = fr ? dayReport({ frame: fr, uframe: uFrameNow(), cells: s.cells, grid: m.grid, classes: CLASSES, uModel: m.uncertainty?.[state.hazard]?.u_model }) : null;
-  s.campReport = s.campPoints ? campsReport(s.campPoints, fr, m.grid, CLASSES, day?.budget?.U ?? 0) : null;
-  drawCamps(s);
   state.panel.render({
-    kind: s.kind, label: s.label, hazard: state.hazard, hazardLabel: t(state.hazard), date: state.date, camps: s.campReport, campsOn: s.campsOn,
+    kind: s.kind, label: s.label, hazard: state.hazard, hazardLabel: t(state.hazard), date: state.date,
     day, dayMissing: !fr, long: s.long, months: s.months, longError: s.longError || !m, verification: m?.verification?.[state.hazard],
   });
   state.downloads?.refresh();
-}
-
-/** Camps appear only inside the selected area and leave with the selection. */
-function drawCamps(s) {
-  const on = Boolean(s?.campPoints?.length && s.campsOn);
-  state.campMarks.show(on);
-  state.campsImage = on ? state.campMarks : null;
 }
 
 function onBox(box) {
@@ -457,7 +448,6 @@ function onBox(box) {
 function closeSelection() {
   state.sel = null;
   state.selToken++;
-  drawCamps(null);
   state.rect.clear();
   state.soumLayer?.pick(null);
   state.panel.close();
@@ -503,7 +493,6 @@ function initMap() {
   });
   state.map.createPane("borderPane").style.zIndex = 420;
   state.map.getPane("borderPane").style.pointerEvents = "none";
-  state.campMarks = createViewCanvas(state.map, "campMarks", 440, (ctx, v) => { if (state.sel?.campPoints) paintCamps(ctx, v, state.sel.campPoints); });
   let hintDone = false;
   state.map.on("mousedown zoomstart", () => { if (!hintDone && state.hazard) { hintDone = true; $("hint").classList.add("gone"); } });
 }
@@ -539,7 +528,7 @@ async function boot() {
   renderStatic();
   initMap();
   state.rect = initRectDraw(state.map, { onDone: onBox, isBlocked: () => $("dlg").open });
-  state.panel = createStatsPanel($("stats"), { t, classes: classesNow, classLabel, onClose: closeSelection, onMethods: showMethods, onCsv: () => state.downloads.seriesCsv(), onPlume: showPlume, onCamps: (on) => { if (state.sel) { state.sel.campsOn = on; renderSelection(); } } });
+  state.panel = createStatsPanel($("stats"), { t, classes: classesNow, classLabel, onClose: closeSelection, onMethods: showMethods, onCsv: () => state.downloads.seriesCsv(), onPlume: showPlume });
   state.tools = initTools({ map: state.map, getLang: () => state.lang, requestSat, containers: { poly: el("div"), mine: $("view-mine") }, onMethods: showMethods, busy,
     onWater: (on) => { if (state.borders.water !== on) { state.borders.water = on; applyBorders(); renderBorders(); } },
     campsFor: async (box) => { const a = await loadCamps(); return a ? campsInside(a, box) : null; } });

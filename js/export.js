@@ -51,11 +51,11 @@ export async function drawMap(o) {
     ctx.drawImage(src, x0, y0, x1 - x0, y1 - y0);
   };
   const trace = (geom) => {
-    const polys = geom.type === "Polygon" ? [geom.coordinates] : geom.coordinates;
+    const open = geom.type.endsWith("LineString"), lines = geom.type === "LineString" ? [geom.coordinates] : geom.type === "MultiLineString" ? geom.coordinates : (geom.type === "Polygon" ? [geom.coordinates] : geom.coordinates).flat();
     ctx.beginPath();
-    for (const p of polys) for (const ring of p) {
+    for (const ring of lines) {
       ring.forEach(([lon, lat], i) => { const [x, y] = P(lat, lon); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); });
-      ctx.closePath();
+      if (!open) ctx.closePath();
     }
   };
 
@@ -73,10 +73,16 @@ export async function drawMap(o) {
     }
   }
   for (const line of o.borders ?? []) {
-    ctx.strokeStyle = line.color ?? `rgba(255,255,255,${line.opacity})`;
-    ctx.fillStyle = line.fill ?? "transparent";
-    ctx.lineWidth = line.weight * S;
-    for (const f of line.data.features ?? [line.data]) { trace(f.geometry ?? f); if (line.fill) ctx.fill("evenodd"); ctx.stroke(); }
+    for (const f of line.data.features ?? [line.data]) {
+      trace(f.geometry ?? f);
+      if (line.fill) { ctx.fillStyle = line.fill; ctx.fill("evenodd"); }
+      if (line.edge) { ctx.setLineDash([]); ctx.strokeStyle = "rgba(16,21,26,.55)"; ctx.lineWidth = line.edge * S; ctx.stroke(); }
+      ctx.setLineDash((line.dash ?? []).map((v) => v * S));
+      ctx.strokeStyle = line.color ?? `rgba(255,255,255,${line.opacity})`;
+      ctx.lineWidth = line.weight * S;
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
   }
   if (o.plume?.image) image(o.plume.image, o.plume.box);
   if (o.plume?.homes) image(o.plume.homes.canvas, o.plume.homes.box);
@@ -84,7 +90,6 @@ export async function drawMap(o) {
     const [x, y] = P(a.lat, a.lon);
     drawArrow(ctx, x, y, a.angle, arrowLength(a.speed) * S, S);
   }
-  if (o.camps) image(o.camps.canvas, o.camps.box);
   if (o.selection) {
     ctx.strokeStyle = "#fff";
     ctx.lineWidth = 2 * S;
@@ -120,15 +125,10 @@ export async function drawMap(o) {
   const lw = o.legend.length * 66 * S;
   if (lw) panel(ctx, m, H - m - 42 * S, lw + 16 * S, 42 * S, S);
   ctx.font = sans(10.5, 600);
-  if (lw) {
-    const ramp = ctx.createLinearGradient(m + 8 * S, 0, m + 8 * S + lw, 0);
-    o.legend.forEach((c, i) => ramp.addColorStop((i + 0.5) / o.legend.length, c.color));
-    ctx.fillStyle = ramp;
-    ctx.fillRect(m + 8 * S, H - m - 35 * S, lw, 11 * S);
-  }
   o.legend.forEach((c, i) => {
-    ctx.fillStyle = "#e8e6df";
-    ctx.fillText(c.label, m + 8 * S + i * 66 * S, H - m - 21 * S);
+    const x = m + 8 * S + i * 66 * S;
+    ctx.fillStyle = c.color; ctx.fillRect(x, H - m - 35 * S, 64 * S, 11 * S);
+    ctx.fillStyle = "#e8e6df"; ctx.fillText(c.label, x, H - m - 21 * S);
   });
 
   // scale bar, true at the centre of the view

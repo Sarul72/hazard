@@ -234,7 +234,7 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
       sim: null, frames: null, ref: 0, extent: null, W: 150, H: 150, h: 0, playing: false, timer: null, speed: 500,
       cams: null, homes: null, exposure: null, homesAll: undefined, busy: false, picking: false,
       layers: { plume: L.layerGroup(), homes: L.layerGroup(), src: L.layerGroup() },
-      show: { plume: true, wind: true, homes: true, water: false, hls: false, aod: false },
+      show: { plume: true, wind: true, homes: true, water: false },
       overlay: null, water: undefined, error: null, active: false, met: null, stats: null, range: null, waterHit: null,
     };
     const root = containers.mine;
@@ -545,8 +545,6 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
       const d = st.date;
       requestSat({ date: d });
       onWater?.(st.show.water);
-      requestSat({ key: "hls_s30", on: st.show.hls });
-      requestSat({ key: "aod_deepblue", on: st.show.aod });
     }
 
     /* ---------- UI ---------- */
@@ -573,7 +571,7 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
       ui.toggles = el("div", { class: "toggles" });
       ui.labels = {};
       const mkToggle = (key, onchange) => { const input = el("input", { type: "checkbox", checked: !!st.show[key], onchange: (e) => { st.show[key] = e.target.checked; onchange(); } }); const span = el("span"); ui.labels[key] = span; return el("label", { class: "check" }, input, span); };
-      ui.toggles.append(mkToggle("plume", syncLayerVisibility), mkToggle("wind", syncLayerVisibility), mkToggle("homes", syncLayerVisibility), mkToggle("water", () => { syncLayerVisibility(); applySatToggles(); }), mkToggle("aod", applySatToggles), mkToggle("hls", applySatToggles));
+      ui.toggles.append(mkToggle("plume", syncLayerVisibility), mkToggle("wind", syncLayerVisibility), mkToggle("homes", syncLayerVisibility), mkToggle("water", () => { syncLayerVisibility(); applySatToggles(); }));
       ui.fields = el("div", { class: "fields" });
       const field = (labelKey, ...ctrl) => { const lab = el("span"); lab.dataset.k = labelKey; return el("label", { class: "inline" }, lab, ...ctrl); };
       ui.fields.append(field("mine_src", ui.mine), field("mine_material", ui.material), field("mine_lat", ui.lat), field("mine_lon", ui.lon, ui.pick), field("mine_date", ui.date), field("mine_hour", ui.hour), field("mine_dur", ui.dur), field("mine_radius", ui.rad), field("mine_spread", ui.spread));
@@ -591,7 +589,6 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
       ui.pick.textContent = st.picking ? t("mine_pick_on") : t("mine_pick");
       ui.run.textContent = t("mine_run"); ui.event.textContent = t("mine_event"); ui.play.textContent = st.playing ? t("pause") : t("play");
       ui.labels.plume.textContent = t("l_plume"); ui.labels.wind.textContent = t("l_wind"); ui.labels.homes.textContent = t("l_homes"); ui.labels.water.textContent = t("l_water");
-      ui.labels.aod.textContent = t("l_aod"); ui.labels.hls.textContent = t("l_hls");
       if (st.sim) { renderReadout(); renderResults(); }
     }
     build();

@@ -9,26 +9,26 @@ import { NODATA, SCALE } from "./dataset.js";
 const merc = (lat) => Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360));
 const unmerc = (m) => (2 * Math.atan(Math.exp(m)) - Math.PI / 2) * 180 / Math.PI;
 
-const CENTRES = [10, 30, 50, 70, 90]; // where each class colour sits on the 0-100 score
-const FADE = [[0, 0.1], [20, 0.3], [40, 0.55], [60, 0.72], [80, 0.82], [100, 0.88]]; // score, opacity
+const LIMITS = [20, 40, 60, 80]; // class limits on the 0-100 score
+const BAND = 2.5; // points on each side of a limit where two classes meet softly
+const OPACITY = [0.3, 0.55, 0.7, 0.8, 0.88];
 
-function between(points, x) {
-  if (x <= points[0][0]) return points[0][1];
-  for (let i = 1; i < points.length; i++) {
-    if (x <= points[i][0]) { const [a, va] = points[i - 1], [b, vb] = points[i]; return va + (vb - va) * (x - a) / (b - a); }
-  }
-  return points[points.length - 1][1];
+/** The value of the class of score s, with a short soft step at each limit: classes stay clearly apart without a jagged edge. */
+function byClass(values, s) {
+  let k = 0;
+  while (k < LIMITS.length && s >= LIMITS[k] + BAND) k++;
+  if (k < LIMITS.length && s > LIMITS[k] - BAND) return values[k] + (values[k + 1] - values[k]) * ((s - LIMITS[k] + BAND) / (2 * BAND));
+  return values[k];
 }
 
-/** RGBA of every stored value. The colours flow into each other, and low scores melt into the image below,
- * which draws the same numbers as before without hard edges at the class limits. */
+/** RGBA of every stored value. */
 export function rampLut(colors) {
   const rgb = colors.map((h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)));
   const lut = new Uint8ClampedArray(251 * 4);
   for (let v = 0; v <= 250; v++) {
     const s = v * SCALE;
-    for (let c = 0; c < 3; c++) lut[v * 4 + c] = between(CENTRES.map((x, i) => [x, rgb[i][c]]), s);
-    lut[v * 4 + 3] = between(FADE, s) * 255;
+    for (let c = 0; c < 3; c++) lut[v * 4 + c] = byClass(rgb.map((x) => x[c]), s);
+    lut[v * 4 + 3] = byClass(OPACITY, s) * 255;
   }
   return lut;
 }

@@ -311,17 +311,17 @@ export const PLUME_CLASSES = [
 ];
 export function plumeClass(index) { return PLUME_CLASSES.find((c) => index >= c.min && index < c.max) || PLUME_CLASSES[0]; }
 
-/** RGBA of an index 0..100 on a logarithmic scale, as the index falls by orders of magnitude: colours flow into each other
- * and the edge of the plume melts away below the first class. */
+/** RGBA of an index 0..100. Classes stay clearly apart, with a short soft step at each limit on the logarithmic scale the index
+ * falls along, and only the outer edge of the plume fades out. */
 export function plumeColor(index) {
-  if (!(index > 0.5)) return null;
+  if (!(index > 1)) return null;
   const stops = PLUME_CLASSES.slice(1).map((c) => [1, 3, 5].map((i) => parseInt(c.color.slice(i, i + 2), 16)));
-  const at = [Math.log10(2), Math.log10(10), Math.log10(35), 2], x = Math.log10(Math.min(index, 100));
+  const limits = [1, Math.log10(35), Math.log10(70)], opacity = [0.5, 0.66, 0.78, 0.88], band = 0.04, x = Math.log10(Math.min(index, 100));
   let k = 0;
-  while (k < 2 && x > at[k + 1]) k++;
-  const f = Math.min(Math.max((x - at[k]) / (at[k + 1] - at[k]), 0), 1);
-  const alpha = Math.min(0.86, Math.max(0, 0.35 + 0.28 * x - (x < at[0] ? (at[0] - x) * 1.1 : 0)));
-  return [...stops[k].map((a, i) => a + (stops[k + 1][i] - a) * f), alpha * 255];
+  while (k < 3 && x >= limits[k] + band) k++;
+  const f = k < 3 && x > limits[k] - band ? (x - limits[k] + band) / (2 * band) : 0, j = Math.min(k + 1, 3);
+  const mix = (a, b) => a + (b - a) * f;
+  return [...stops[k].map((a, i) => mix(a, stops[j][i])), mix(opacity[k], opacity[j]) * Math.min(1, index - 1) * 255];
 }
 
 /** What the run comes to: how far and over how much land the index reached `limit`, in which direction, and at what hour. */

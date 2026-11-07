@@ -19,7 +19,9 @@ export function check() {
     yes(`${hazard} ramp blends between classes`, at(40).slice(0, 3).every((v, j) => Math.abs(v - (hex(colors[1])[j] + hex(colors[2])[j]) / 2) <= 1));
     const alpha = Array.from({ length: 251 }, (_, v) => lut[v * 4 + 3]);
     yes(`${hazard} opacity grows with the score`, alpha.every((a, i) => !i || a >= alpha[i - 1]));
-    yes(`${hazard} low scores stay faint`, alpha[0] < 40 && alpha[250] > 210);
+    yes(`${hazard} low scores stay light`, alpha[0] < 100 && alpha[250] > 210);
+    yes(`${hazard} a class holds one colour away from its limits`, [at(23), at(30), at(37)].every((c) => c.slice(0, 3).every((v, j) => v === hex(colors[1])[j])));
+    yes(`${hazard} classes differ clearly in opacity too`, at(90)[3] - at(10)[3] > 120);
   }
   yes("the classes keep their limits in every colour", Object.keys(PALETTES).every((h) => classesFor(h).every((k, i) => k.min === CLASSES[i].min && k.max === CLASSES[i].max)));
   yes("the opening screen falls back to the combined colours", classesFor(null)[0].color === PALETTES.all[0]);

@@ -85,8 +85,9 @@ export function check() {
   same("nothing reaches the edge", s.edge, false);
 
   /* colours */
-  same("below the visible limit nothing is drawn", plumeColor(0.3), null);
-  yes("the edge fades out", plumeColor(1)[3] < plumeColor(10)[3] && plumeColor(10)[3] <= plumeColor(100)[3]);
+  same("below the visible limit nothing is drawn", plumeColor(0.9), null);
+  yes("the edge fades out", plumeColor(1.3)[3] < plumeColor(5)[3] && plumeColor(5)[3] <= plumeColor(100)[3]);
+  same("a class holds one colour", plumeColor(4).slice(0, 3).join(), plumeColor(7).slice(0, 3).join());
   yes("high index is darker", plumeColor(100)[0] < plumeColor(5)[0]);
   return out;
 }

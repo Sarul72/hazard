@@ -27,7 +27,6 @@ Layer ids, tile matrix sets and formats below were **read from GIBS's own WMTS G
 | precip_imerg | `IMERG_Precipitation_Rate` | Level6 | |
 | flood_modis / flood_viirs | `MODIS_Combined_Flood_2-Day`, `VIIRS_Combined_Flood_2-Day` | Level9 | NASA LANCE NRT flood products; layer is mostly opaque, shown at 55 % |
 | lakes and rivers | JRC Global Surface Water v1.4 on Earth Engine, occurrence >= 50%, traced to `data/water.geojson` by `scripts/build_water.py` | static | replaced OPERA DSWx, whose single-day tiles paint 'not water', cloud and snow classes |
-| snow_modis | `MODIS_Terra_NDSI_Snow_Cover` | Level8 | |
 | hls_s30 / hls_l30 | `HLS_S30_…`, `HLS_L30_Nadir_BRDF_Adjusted_Reflectance` | Level12 | 30 m Sentinel-2 / Landsat |
 
 Layers publish with different delays; the page uses the selected UTC date (default: yesterday). Sparse layers answer 404 for tiles without data, which shows as empty tiles, not an error.
