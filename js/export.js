@@ -1,6 +1,7 @@
 /* Redraws what is on screen as an image with legend, scale and the possible error in a corner, and reads the numbers behind it.
  * All of it is built in the browser from the files the page already reads. The file formats are in formats.js. */
 import { maxNativeZoom, tileTemplate } from "./gibs.js";
+import { arrowLength, drawArrow } from "./mapmarks.js";
 
 const loadImage = (url) => new Promise((ok) => {
   const img = new Image();
@@ -78,20 +79,10 @@ export async function drawMap(o) {
     for (const f of line.data.features ?? [line.data]) { trace(f.geometry ?? f); if (line.fill) ctx.fill("evenodd"); ctx.stroke(); }
   }
   if (o.plume?.image) image(o.plume.image, o.plume.box);
-  if (o.plume?.homes) image(o.plume.homes, o.plume.box);
+  if (o.plume?.homes) image(o.plume.homes.canvas, o.plume.homes.box);
   for (const a of o.plume?.arrows ?? []) {
-    const [x, y] = P(a.lat, a.lon), len = (10 + Math.min(a.speed, 16) * 0.8) * S, head = len * 0.22;
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(a.angle * Math.PI / 180);
-    ctx.strokeStyle = "rgba(255,255,255,.88)";
-    ctx.lineWidth = 1.1 * S;
-    ctx.lineCap = ctx.lineJoin = "round";
-    ctx.beginPath();
-    ctx.moveTo(0, len / 2); ctx.lineTo(0, -len / 2);
-    ctx.moveTo(-head * 0.75, -len / 2 + head); ctx.lineTo(0, -len / 2); ctx.lineTo(head * 0.75, -len / 2 + head);
-    ctx.stroke();
-    ctx.restore();
+    const [x, y] = P(a.lat, a.lon);
+    drawArrow(ctx, x, y, a.angle, arrowLength(a.speed) * S, S);
   }
   if (o.camps) image(o.camps.canvas, o.camps.box);
   if (o.selection) {

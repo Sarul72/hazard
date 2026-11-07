@@ -7,9 +7,9 @@ import { MINES, API, TZ, CLASSES } from "./config.js";
 import { fetchAll, nowLocalString } from "./openmeteo.js";
 import { computePoint, classOf } from "./risk.js";
 import { makeGrid, rasterize, summarize, polygonAreaKm2, kmPerDegLon, KM_PER_DEG_LAT } from "./geo.js";
-import { buildField, buildMet, shiftField, simulate, concGrid, referenceMax, exposure, plumeClass, plumeColor, plumeStats, PLUME_CLASSES, peakFromFrames, halfDepositionKm, airborneShare } from "./plume.js";
+import { buildField, buildMet, shiftField, windAt, simulate, concGrid, referenceMax, exposure, plumeClass, plumeColor, plumeStats, PLUME_CLASSES, peakFromFrames, halfDepositionKm, airborneShare } from "./plume.js";
 import { MATERIALS, materialById } from "./materials.js";
-import { campsCanvas } from "./camps.js";
+import { arrowLength, createViewCanvas, drawArrow, paintCamps } from "./mapmarks.js";
 
 const TT = {
   mn: {
@@ -233,12 +233,28 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
       mineId: MINES[0].id, lat: MINES[0].lat, lon: MINES[0].lon, date: addDaysIso(today, -1), hour: 0, dur: 48, radius: 100, spread: 10, materialId: MINES[0].material,
       sim: null, frames: null, ref: 0, extent: null, W: 150, H: 150, h: 0, playing: false, timer: null, speed: 500,
       cams: null, homes: null, exposure: null, homesAll: undefined, busy: false, picking: false,
-      layers: { plume: L.layerGroup(), wind: L.layerGroup(), homes: L.layerGroup(), src: L.layerGroup() },
+      layers: { plume: L.layerGroup(), homes: L.layerGroup(), src: L.layerGroup() },
       show: { plume: true, wind: true, homes: true, water: false, hls: false, aod: false },
-      overlay: null, arrows: [], srcArrow: null, water: undefined, error: null, active: false, met: null, stats: null, range: null, waterHit: null, campCanvas: null, campOverlay: null,
+      overlay: null, water: undefined, error: null, active: false, met: null, stats: null, range: null, waterHit: null,
     };
     const root = containers.mine;
     const ui = {};
+    const hits = () => (st.camps ?? []).filter((c) => c.index >= 2);
+    const campMarks = createViewCanvas(map, "plumeCamps", 445, (ctx, v) => paintCamps(ctx, v, hits(), (p) => plumeClass(p.index).color));
+    const windMarks = createViewCanvas(map, "plumeWind", 455, (ctx, v) => { for (const a of windArrows(v)) drawArrow(ctx, a.x, a.y, a.angle, arrowLength(a.speed)); });
+
+    /** The wind of the hour on an even lattice of the screen, read from the field, so that arrows stay at every zoom. */
+    function windArrows(v) {
+      const f = st.sim?.field, out = [];
+      if (!f) return out;
+      const padY = (f.lats[1] - f.lats[0]) / 2, padX = (f.lons[1] - f.lons[0]) / 2;
+      for (const p of v.lattice(120)) {
+        if (p.lat < f.lats[0] - padY || p.lat > f.lats[f.ny - 1] + padY || p.lon < f.lons[0] - padX || p.lon > f.lons[f.nx - 1] + padX) continue;
+        const w = windAt(f, st.h, p.lat, p.lon);
+        if (w) out.push({ ...p, speed: Math.hypot(w[0], w[1]), angle: (Math.atan2(w[0], w[1]) * 180) / Math.PI });
+      }
+      return out;
+    }
 
     function setMaterial(id) { st.materialId = id; if (ui.material) ui.material.value = id; }
     function setSource(lat, lon, id) { st.lat = lat; st.lon = lon; if (id) st.mineId = id; ui.lat.value = lat.toFixed(4); ui.lon.value = lon.toFixed(4); drawSource(); }
@@ -389,12 +405,6 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
 
     /* ---------- map layers ---------- */
     function buildStaticLayers() {
-      st.layers.wind.clearLayers(); st.arrows = [];
-      const f = st.sim.field;
-      for (let iy = 0; iy < f.ny; iy++) for (let ix = 0; ix < f.nx; ix++) {
-        const m = L.marker([f.lats[iy], f.lons[ix]], { interactive: false, icon: L.divIcon({ className: "windicon", html: '<svg viewBox="-12 -12 24 24"><path d="M0 10V-10M-3.4-5.2 0-10 3.4-5.2"/></svg>', iconSize: [24, 24], iconAnchor: [12, 12] }) });
-        m.addTo(st.layers.wind); st.arrows.push({ m, k: iy * f.nx + ix });
-      }
       st.layers.homes.clearLayers();
       if (st.homes) {
         st.homes.forEach((h, i) => {
@@ -404,31 +414,19 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
           mk.addTo(st.layers.homes);
         });
       }
-      st.campOverlay = null;
-      drawCampMarks();
       syncLayerVisibility();
-    }
-
-    /** The camps the dust reached, as tiny gers drawn for the zoom of the moment and tinted by how much dust reached them. */
-    function drawCampMarks() {
-      if (st.campOverlay) st.layers.homes.removeLayer(st.campOverlay);
-      st.campOverlay = null; st.campCanvas = null;
-      const hit = (st.camps ?? []).filter((c) => c.index >= 2), e = st.extent;
-      if (!hit.length) return;
-      const left = map.latLngToContainerPoint([e.n, e.w]).x, right = map.latLngToContainerPoint([e.n, e.e]).x;
-      const onScreen = Math.max(right - left, 1), width = Math.max(200, Math.min(4096, Math.round(onScreen * 3)));
-      st.campCanvas = campsCanvas(hit, e, width, width / onScreen, (p) => plumeClass(p.index).color);
-      st.campOverlay = L.imageOverlay(st.campCanvas.toDataURL(), [[e.s, e.w], [e.n, e.e]], { interactive: false, zIndex: 8 }).addTo(st.layers.homes);
     }
 
     function syncLayerVisibility() {
       const on = st.active;
-      st.layers.src.addTo(map); if (!on) { for (const g of Object.values(st.layers)) g.remove(); return; }
+      st.layers.src.addTo(map);
+      windMarks.show(on && st.show.wind && Boolean(st.sim));
+      campMarks.show(on && st.show.homes && Boolean(st.sim));
+      if (!on) { for (const g of Object.values(st.layers)) g.remove(); return; }
       for (const [k, g] of Object.entries(st.layers)) {
         if (k === "src") continue;
         if (st.show[k] && st.sim) g.addTo(map); else g.remove();
       }
-      if (st.sim && st.show.wind) updateArrows(st.h);
     }
 
     function setFrame(h) {
@@ -447,23 +445,8 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
       if (st.overlay) st.layers.plume.removeLayer(st.overlay);
       st.overlay = L.imageOverlay(cv.toDataURL(), [[e.s, e.w], [e.n, e.e]], { interactive: false, zIndex: 7, opacity: 1 });
       st.overlay.addTo(st.layers.plume);
-      updateArrows(h);
+      windMarks.redraw();
       renderReadout();
-    }
-
-    function updateArrows(h) {
-      if (!st.sim) return;
-      const fld = st.sim.field;
-      for (const a of st.arrows) {
-        const u = fld.u[h * 49 + a.k], v = fld.v[h * 49 + a.k], elx = a.m.getElement(); if (!elx) continue;
-        const svg = elx.firstChild;
-        if (!fin(u) || !fin(v)) { svg.style.opacity = "0"; continue; }
-        const sp = Math.hypot(u, v), ang = (Math.atan2(u, v) * 180) / Math.PI; // clockwise from north, toward
-        const size = Math.round(11 + Math.min(sp, 16) * 0.8); // only the length speaks of the speed
-        svg.style.opacity = "0.85"; svg.style.width = svg.style.height = size + "px"; svg.style.transform = `rotate(${ang}deg)`;
-        svg.style.margin = `${(24 - size) / 2}px`;
-        a.m.bindTooltip(`${fmt(sp)} m/s ← ${Math.round((ang + 180) % 360)}°`);
-      }
     }
 
     function renderReadout() {
@@ -594,7 +577,6 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
       ui.fields.append(field("mine_src", ui.mine), field("mine_material", ui.material), field("mine_lat", ui.lat), field("mine_lon", ui.lon, ui.pick), field("mine_date", ui.date), field("mine_hour", ui.hour), field("mine_dur", ui.dur), field("mine_radius", ui.rad), field("mine_spread", ui.spread));
       ui.transport = el("div", { class: "transport" }, ui.play, ui.slider, ui.speed);
       root.replaceChildren(ui.title, ui.help, ui.fields, el("div", { class: "btnrow" }, ui.run, ui.event, ui.method), ui.status, ui.transport, ui.readout, ui.toggles, ui.results);
-      map.on("zoomend", () => { if (st.sim && st.active) drawCampMarks(); });
       map.on("click", (e) => { if (st.picking && st.active) { st.picking = false; map.getContainer().style.cursor = ""; ui.pick.textContent = t("mine_pick"); ui.mine.value = ""; setSource(e.latlng.lat, e.latlng.lng, null); } });
       ui.hour.value = String(st.hour); ui.lat.value = st.lat.toFixed(4); ui.lon.value = st.lon.toFixed(4);
       relabel(); drawSource();
@@ -626,20 +608,15 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
     /** What the image and the report need from the current plume, or null. */
     function snapshotForExport() {
       if (!st.active || !st.sim || !st.overlay) return null;
-      const f = st.sim.field, h = st.h, e = st.extent, arrows = [];
-      if (st.show.wind) for (const a of st.arrows) {
-        const u = f.u[h * 49 + a.k], v = f.v[h * 49 + a.k];
-        if (!fin(u) || !fin(v)) continue;
-        arrows.push({ lat: f.lats[Math.floor(a.k / f.nx)], lon: f.lons[a.k % f.nx], speed: Math.hypot(u, v), angle: (Math.atan2(u, v) * 180) / Math.PI });
-      }
-      const m = materialById(st.materialId), hit = (st.camps ?? []).filter((c) => c.index >= 2);
+      const f = st.sim.field, h = st.h, e = st.extent, arrows = st.show.wind ? windArrows(windMarks.view()) : [];
+      const m = materialById(st.materialId), hit = hits();
       const wind = [];
       f.lats.forEach((lat, r) => f.lons.forEach((lon, c) => {
         const k = r * f.nx + c, u = f.u[h * 49 + k], v = f.v[h * 49 + k];
         if (fin(u) && fin(v)) wind.push({ lat, lon, u, v, speed: Math.hypot(u, v), from: ((Math.atan2(u, v) * 180) / Math.PI + 540) % 360 });
       }));
       const index = Float32Array.from(st.frames[h], (x) => (st.ref > 0 ? Math.min(100, (100 * x) / st.ref) : 0));
-      return { image: st.show.plume ? st.overlay.getElement() : null, homes: st.show.homes ? st.campCanvas : null, stats: st.stats, range: st.range, direction: st.stats?.area ? t("dirs")[Math.round(st.stats.bearing / 45) % 8] : null, water: st.waterHit, box: { n: e.n, s: e.s, w: e.w, e: e.e }, arrows, wind, index, w: st.W, h: st.H, material: m.id, materialName: getLang() === "mn" ? m.mn : m.en, density: m.rho, time: f.time[h], lat: st.lat, lon: st.lon, spread: st.spread,
+      return { image: st.show.plume ? st.overlay.getElement() : null, homes: st.show.homes && hit.length ? { canvas: campMarks.canvas, box: campMarks.box } : null, stats: st.stats, range: st.range, direction: st.stats?.area ? t("dirs")[Math.round(st.stats.bearing / 45) % 8] : null, water: st.waterHit, box: { n: e.n, s: e.s, w: e.w, e: e.e }, arrows, wind, index, w: st.W, h: st.H, material: m.id, materialName: getLang() === "mn" ? m.mn : m.en, density: m.rho, time: f.time[h], lat: st.lat, lon: st.lon, spread: st.spread,
         camps: st.camps ? { parcels: hit.reduce((a, c) => a + c.parcels, 0), herders: hit.reduce((a, c) => a + c.herders, 0) } : null };
     }
     return { st, relabel, runAt, snapshotForExport, show(on, keepView) { st.active = on; if (!on) stopPlay(); syncLayerVisibility(); if (on && !st.sim && !keepView) { map.setView([st.lat, st.lon], 8); } } };

@@ -7,7 +7,8 @@ import { U } from "./ui_text.js";
 import { firstDate, makeLayer, newestImageDate, utcDate, versionAt } from "./gibs.js";
 import { initTools } from "./tools.js";
 import { decode, loadCube, loadDaily, loadManifest } from "./dataset.js";
-import { campsCanvas, campsInside, campsReport, loadCamps } from "./camps.js";
+import { campsInside, campsReport, loadCamps } from "./camps.js";
+import { createViewCanvas, paintCamps } from "./mapmarks.js";
 import { initDownloads } from "./downloads.js";
 import { createRiskLayer } from "./riskmap.js";
 import { initRectDraw } from "./rectdraw.js";
@@ -439,18 +440,11 @@ function renderSelection() {
   state.downloads?.refresh();
 }
 
-/** Camps appear only inside the selected area, as one image, and leave with the selection. */
+/** Camps appear only inside the selected area and leave with the selection. */
 function drawCamps(s) {
-  state.campsLayer?.remove();
-  state.campsLayer = null;
-  state.campsImage = null;
-  if (!s?.campPoints?.length || !s.campsOn) return;
-  // Drawn for the zoom of the moment, so that a dot keeps its small size instead of growing with the map.
-  const left = state.map.latLngToContainerPoint([s.box.n, s.box.w]).x, right = state.map.latLngToContainerPoint([s.box.n, s.box.e]).x;
-  const onScreen = Math.max(right - left, 1), width = Math.max(200, Math.min(4096, Math.round(onScreen * 3)));
-  const cv = campsCanvas(s.campPoints, s.box, width, width / onScreen);
-  state.campsImage = { canvas: cv, box: s.box };
-  state.campsLayer = window.L.imageOverlay(cv.toDataURL(), [[s.box.s, s.box.w], [s.box.n, s.box.e]], { interactive: false }).addTo(state.map);
+  const on = Boolean(s?.campPoints?.length && s.campsOn);
+  state.campMarks.show(on);
+  state.campsImage = on ? state.campMarks : null;
 }
 
 function onBox(box) {
@@ -509,7 +503,7 @@ function initMap() {
   });
   state.map.createPane("borderPane").style.zIndex = 420;
   state.map.getPane("borderPane").style.pointerEvents = "none";
-  state.map.on("zoomend", () => { if (state.sel) drawCamps(state.sel); });
+  state.campMarks = createViewCanvas(state.map, "campMarks", 440, (ctx, v) => { if (state.sel?.campPoints) paintCamps(ctx, v, state.sel.campPoints); });
   let hintDone = false;
   state.map.on("mousedown zoomstart", () => { if (!hintDone && state.hazard) { hintDone = true; $("hint").classList.add("gone"); } });
 }
