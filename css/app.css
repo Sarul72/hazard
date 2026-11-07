@@ -155,12 +155,19 @@ button { cursor: pointer; }
 .dlg-warn { color: var(--warn); font-size: 12.5px; margin: 4px 0; }
 
 .st-check { display: flex; gap: 6px; align-items: center; margin-top: 6px; font-size: 12px; }
-.dl-menu { position: fixed; z-index: 1100; right: 66px; top: 196px; width: 236px; border-radius: 12px; padding: 6px; background: var(--glass-strong); }
+.dl-menu { position: fixed; z-index: 1100; right: 66px; top: 14px; width: 318px; max-height: calc(100vh - 28px); overflow: auto; border-radius: 12px; padding: 8px 10px; background: var(--glass-strong); scrollbar-width: thin; }
 .stats-open .dl-menu { right: calc(var(--panel-w) + 78px); }
-.dl-menu button { display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 8px; padding: 7px 9px; }
-.dl-menu button:hover { background: rgba(255, 255, 255, .12); }
-.dl-menu small { display: block; color: var(--muted); font-size: 11px; }
-.dl-menu p { margin: 6px 9px; font-size: 12px; color: var(--ink2); }
+.dl-scope { margin: 2px 0 6px; font-size: 11.5px; color: var(--ink2); }
+.dl-row { display: grid; gap: 5px; padding: 7px 0; border-top: 1px solid var(--line); }
+.dl-row b { display: block; font-size: 12.5px; font-weight: 600; }
+.dl-row small { display: block; color: var(--muted); font-size: 11px; }
+.dl-fmt { display: flex; flex-wrap: wrap; gap: 5px; }
+.dl-fmt button { min-width: 44px; padding: 4px 9px; border-radius: 7px; border: 1px solid var(--line); background: rgba(255, 255, 255, .07); font-size: 11.5px; font-weight: 600; }
+.dl-fmt button:hover { background: rgba(255, 255, 255, .18); }
+.dl-fmt button:disabled { opacity: .55; }
+.dl-msg { margin: 4px 0 2px; font-size: 12px; color: #f5c04a; }
+.dl-msg:empty { display: none; }
+body.bare #legend, body.bare #t-view, body.bare #modes, body.bare #soum-box, body.bare #t-footer, body.bare #hint, body.bare #coords { display: none; }
 table.mat th { text-align: left; color: var(--muted); font-weight: 600; padding-right: 6px; }
 table.mat td:not(:first-child) { text-align: right; white-space: nowrap; }
 table.mat tr.on td { font-weight: 700; color: #fff; }
@@ -216,6 +223,7 @@ table.kv tr.clk:hover { background: rgba(255, 255, 255, .08); }
   .stats { left: 0; right: 0; top: auto; bottom: 0; width: auto; height: 52vh; border-width: 1px 0 0; }
   .stats-open .rail { right: 14px; }
   .stats-open .bottom { right: 0; bottom: calc(52vh + 8px); }
+  .dl-menu { left: 14px; width: auto; }
   .spin-val { font-size: 16px; }
   .round { width: 36px; height: 36px; }
   .coords { display: none; }

@@ -1,5 +1,5 @@
-/* Download what is on screen: a JPEG with legend, scale and the possible error in a corner, and, if wanted, the numbers behind
- * it as CSV, GeoTIFF and a report. All of it is built in the browser from the files the page already reads. */
+/* Redraws what is on screen as an image with legend, scale and the possible error in a corner, and reads the numbers behind it.
+ * All of it is built in the browser from the files the page already reads. The file formats are in formats.js. */
 import { maxNativeZoom, tileTemplate } from "./gibs.js";
 
 const loadImage = (url) => new Promise((ok) => {
@@ -99,6 +99,9 @@ export async function drawMap(o) {
     }
   }
 
+  const result = { canvas: cv, tilesLoaded: tiles.filter(Boolean).length, tilesAsked: tiles.length, bounds: { n: b.getNorth(), s: b.getSouth(), e: b.getEast(), w: b.getWest() } };
+  if (o.clean) return result;
+
   /* map furniture */
   const m = 10 * S, sans = (px, w = 400) => `${w} ${px * S}px system-ui, "Segoe UI", sans-serif`;
   ctx.textBaseline = "top";
@@ -120,7 +123,7 @@ export async function drawMap(o) {
 
   // legend
   const lw = o.legend.length * 66 * S;
-  panel(ctx, m, H - m - 42 * S, lw + 16 * S, 42 * S, S);
+  if (lw) panel(ctx, m, H - m - 42 * S, lw + 16 * S, 42 * S, S);
   ctx.font = sans(10.5, 600);
   o.legend.forEach((c, i) => {
     const x = m + 8 * S + i * 66 * S;
@@ -130,7 +133,7 @@ export async function drawMap(o) {
 
   // scale bar, true at the centre of the view
   const lat = map.getCenter().lat, perPx = (40075016.7 * Math.cos(lat * Math.PI / 180)) / (256 * n) / k;
-  const len = niceLength(perPx * W * 0.22), barW = len / perPx, sx = m, sy = H - m - 70 * S;
+  const len = niceLength(perPx * W * 0.22), barW = len / perPx, sx = m, sy = H - m - (lw ? 70 : 24) * S;
   panel(ctx, sx, sy - 5 * S, barW + 20 * S, 22 * S, S);
   ctx.fillStyle = "#fff"; ctx.fillRect(sx + 10 * S, sy + 10 * S, barW, 3 * S);
   ctx.font = sans(10); ctx.fillText(`${len >= 1000 ? len / 1000 : len} ${len >= 1000 ? "km" : "m"}`, sx + 10 * S, sy - 2 * S);
@@ -146,89 +149,24 @@ export async function drawMap(o) {
     ctx.fillText(l.text, ex + 10 * S, ey + (6 + i * 16) * S);
   });
 
-  return { canvas: cv, tilesLoaded: tiles.filter(Boolean).length, tilesAsked: tiles.length };
+  return result;
 }
 
 export const toJpeg = (cv) => new Promise((ok) => cv.toBlob(ok, "image/jpeg", 0.92));
+export const toPng = (cv) => new Promise((ok) => cv.toBlob(ok, "image/png"));
 
-/** One row per grid cell with data. */
-export function cellsCsv({ grid, cells, frame, uframe, uModel, decode, classOf, label }) {
-  const rows = ["lat,lon,score,class,u_input,u_model,U95"];
+/** One record per grid cell with data. U95 holds input and model error; without a model error it is a lower bound. */
+export function cellRows({ grid, cells, frame, uframe, uModel, decode, classOf, label }) {
+  const rows = [];
   for (const { r, c, i } of cells) {
     const v = decode(frame[i]);
     if (v === null) continue;
     const u = uframe ? decode(uframe[i]) : null;
     const parts = [u, uModel].filter((x) => x !== null && x !== undefined);
-    const U = parts.length ? 2 * Math.hypot(...parts) : null;
-    rows.push([(grid.north - (r + 0.5) * grid.dy).toFixed(2), (grid.west + (c + 0.5) * grid.dx).toFixed(2), v.toFixed(1), label(classOf(v).key), u === null ? "" : u.toFixed(1), uModel ?? "", U === null ? "" : U.toFixed(1)].join(","));
+    rows.push({ r, c, lat: +(grid.north - (r + 0.5) * grid.dy).toFixed(2), lon: +(grid.west + (c + 0.5) * grid.dx).toFixed(2), score: +v.toFixed(1), label: label(classOf(v).key),
+      u_input: u === null ? null : +u.toFixed(1), u_model: uModel ?? null, U95: parts.length ? +(2 * Math.hypot(...parts)).toFixed(1) : null, U95_min: parts.length < 2 });
   }
-  return "﻿" + rows.join("\r\n");
-}
-
-/** Two-band float GeoTIFF (score, expanded uncertainty) of the rows and columns the cells cover, EPSG:4326, -9999 = no data. */
-export function geoTiff({ grid, cells, frame, uframe, uModel, decode }) {
-  const r0 = Math.min(...cells.map((c) => c.r)), r1 = Math.max(...cells.map((c) => c.r));
-  const c0 = Math.min(...cells.map((c) => c.c)), c1 = Math.max(...cells.map((c) => c.c));
-  const w = c1 - c0 + 1, h = r1 - r0 + 1, NO = -9999;
-  const px = new Float32Array(w * h * 2).fill(NO);
-  for (const { r, c, i } of cells) {
-    const v = decode(frame[i]);
-    if (v === null) continue;
-    const o = ((r - r0) * w + (c - c0)) * 2, u = uframe ? decode(uframe[i]) : null;
-    const parts = [u, uModel].filter((x) => x !== null && x !== undefined);
-    px[o] = v;
-    if (parts.length) px[o + 1] = 2 * Math.hypot(...parts);
-  }
-  const noData = new TextEncoder().encode("-9999\0");
-  const geoKeys = [1, 1, 0, 3, 1024, 0, 1, 2, 1025, 0, 1, 1, 2048, 0, 1, 4326];
-  const SHORT = 3, LONG = 4, ASCII = 2, DOUBLE = 12;
-  const tags = [
-    [256, LONG, [w]], [257, LONG, [h]], [258, SHORT, [32, 32]], [259, SHORT, [1]], [262, SHORT, [1]], [273, LONG, ["data"]],
-    [277, SHORT, [2]], [278, LONG, [h]], [279, LONG, [px.byteLength]], [284, SHORT, [1]], [338, SHORT, [0]], [339, SHORT, [3, 3]],
-    [33550, DOUBLE, [grid.dx, grid.dy, 0]], [33922, DOUBLE, [0, 0, 0, grid.west + c0 * grid.dx, grid.north - r0 * grid.dy, 0]],
-    [34735, SHORT, geoKeys], [42113, ASCII, noData],
-  ];
-  const size = { [SHORT]: 2, [LONG]: 4, [DOUBLE]: 8, [ASCII]: 1 };
-  const ifdEnd = 8 + 2 + tags.length * 12 + 4;
-  let extra = ifdEnd;
-  const place = tags.map(([, type, v]) => { const n = v.length * size[type]; if (n <= 4) return null; const at = extra; extra += n + (n % 2); return at; });
-  const dataAt = extra, out = new ArrayBuffer(dataAt + px.byteLength), d = new DataView(out);
-  d.setUint16(0, 0x4949, true); d.setUint16(2, 42, true); d.setUint32(4, 8, true); d.setUint16(8, tags.length, true);
-  const put = (at, type, v) => v.forEach((x, i) => {
-    const o = at + i * size[type], value = x === "data" ? dataAt : x;
-    if (type === SHORT) d.setUint16(o, value, true); else if (type === LONG) d.setUint32(o, value, true);
-    else if (type === DOUBLE) d.setFloat64(o, value, true); else d.setUint8(o, value);
-  });
-  tags.forEach(([tag, type, v], i) => {
-    const at = 10 + i * 12;
-    d.setUint16(at, tag, true); d.setUint16(at + 2, type, true); d.setUint32(at + 4, v.length, true);
-    if (place[i] === null) put(at + 8, type, [...v]); else { d.setUint32(at + 8, place[i], true); put(place[i], type, [...v]); }
-  });
-  new Float32Array(out, dataAt).set(px);
-  return new Uint8Array(out);
-}
-
-const crcTable = Uint32Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
-function crc32(b) { let c = -1; for (let i = 0; i < b.length; i++) c = crcTable[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ -1) >>> 0; }
-
-/** A plain ZIP with stored (uncompressed) files: [{ name, data: Uint8Array }]. */
-export function zip(files) {
-  const enc = new TextEncoder(), parts = [], central = [];
-  let offset = 0;
-  for (const f of files) {
-    const name = enc.encode(f.name), crc = crc32(f.data), head = new DataView(new ArrayBuffer(30));
-    [[0, 0x04034b50, 4], [4, 20, 2], [6, 0x0800, 2], [8, 0, 2], [10, 0, 2], [12, 0x21, 2], [14, crc, 4], [18, f.data.length, 4], [22, f.data.length, 4], [26, name.length, 2], [28, 0, 2]]
-      .forEach(([o, v, n]) => (n === 4 ? head.setUint32(o, v, true) : head.setUint16(o, v, true)));
-    parts.push(new Uint8Array(head.buffer), name, f.data);
-    const c = new DataView(new ArrayBuffer(46));
-    [[0, 0x02014b50, 4], [4, 20, 2], [6, 20, 2], [8, 0x0800, 2], [10, 0, 2], [12, 0, 2], [14, 0x21, 2], [16, crc, 4], [20, f.data.length, 4], [24, f.data.length, 4], [28, name.length, 2], [42, offset, 4]]
-      .forEach(([o, v, n]) => (n === 4 ? c.setUint32(o, v, true) : c.setUint16(o, v, true)));
-    central.push(new Uint8Array(c.buffer), name);
-    offset += 30 + name.length + f.data.length;
-  }
-  const size = central.reduce((s, p) => s + p.length, 0), end = new DataView(new ArrayBuffer(22));
-  [[0, 0x06054b50, 4], [8, files.length, 2], [10, files.length, 2], [12, size, 4], [16, offset, 4]].forEach(([o, v, n]) => (n === 4 ? end.setUint32(o, v, true) : end.setUint16(o, v, true)));
-  return new Blob([...parts, ...central, new Uint8Array(end.buffer)], { type: "application/zip" });
+  return rows;
 }
 
 export function save(blob, name) {

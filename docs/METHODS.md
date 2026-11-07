@@ -98,8 +98,22 @@ An element does not move dust by itself. The tool follows AERMOD deposition Meth
 ### Winter and spring camps (added 2026-11)
 `pipeline/build_camps.py` reads only position and layer from the user's two shapefiles, drops 498 cancelled parcels, rounds to 0.01 degree and merges into counts (`data/camps.bin.gz`). The sources hold phone numbers, clan names, contract numbers and person ids and must never enter this repository. Camps appear for a selected area and in the plume. The count in the score >= 60 class is also given with every score moved by the expanded uncertainty U. The two registers may overlap and are not added. The meaning of `pasture_ty` in `points` is not known; all points are treated alike.
 
-### Downloads (added 2026-11)
-`js/export.js` redraws the view at twice the screen size with legend, scale, north arrow and the possible error, and can add a CSV of the cells, a two-band GeoTIFF (score, U95; checked with GDAL) and a JSON report whose field names follow ISO 19115 loosely. WMS fire overlays are not drawn into the image.
+### Opening screen and downloads (added 2026-11)
+The page opens on the newest true-colour image and nothing else: no risk data is read until a hazard is chosen. `newestImageDate` in `js/gibs.js` takes today if the image already covers Mongolia, otherwise yesterday, because the tile service answers with black until the satellite has passed. Results end on the last computed day, so choosing a hazard moves the picker to that day and says so.
+
+`js/downloads.js` offers each kind of data in the formats that suit it, and lists only what exists at that moment:
+
+| Data | Formats | For |
+|---|---|---|
+| Map or satellite image | JPG, PNG, PDF (A4), JPG with JGW and PRJ | reports, print, GIS placement in Web Mercator |
+| Risk raster | GeoTIFF (score, U95, EPSG:4326), KMZ | ArcGIS, QGIS, Google Earth |
+| Cell data | CSV, GeoJSON points | Excel, GIS |
+| Soum risk | Shapefile, GeoJSON, KML, CSV | vector GIS, Google Earth, Excel |
+| Long-term series of a selection | CSV, JSON | statistics |
+| Dust plume | GeoTIFF of the index, CSV of the wind | GIS, tables |
+| Report | JSON | method, error, sources |
+
+`js/formats.js` writes these by hand, as the site has no libraries. `tests/formats.test.mjs` checks them, and the real downloads were read with GDAL/OGR, pyshp and pypdf: 448 sampled raster cells equal the CSV, and all 339 soums agree between Shapefile and GeoJSON. U95 in cell and soum files is a lower bound where a part of the error is not estimated, and the files say so.
 
 ### Mine location conflict
 The coordinates in the user's own Earth Engine script (43.6668 N, 105.5181 E) are the **Ukhaa Khudag** mine in Tsogttsetsii soum, **Ömnögovi** province (Wikipedia gives 43.6754 N, 105.5211 E, about 0.9 km away). They are not in Dornogovi. Mines that are in Dornogovi (Bayanshand/Dovtsog Khudag, Mandakh; Eldev, Dalanjargalan) are also offered. Which Dornogovi mine is the largest was not established from the sources found; the Mineral Resources and Petroleum Authority of Mongolia is the body that holds production figures.

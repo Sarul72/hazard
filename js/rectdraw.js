@@ -8,13 +8,14 @@ const MIN_DRAG_PX = 8;
 export function initRectDraw(map, { onDone, onClear, isBlocked = () => false }) {
   const L = window.L, box = map.getContainer();
   const style = { color: "#ffffff", weight: 2, fillColor: "#ffffff", fillOpacity: 0.06, interactive: false };
-  let mode = "draw", rect = null, drag = null, pan = null;
+  let mode = "draw", active = true, rect = null, drag = null, pan = null;
 
-  const setMode = (m) => {
-    mode = m;
-    if (m === "draw") map.dragging.disable(); else map.dragging.enable();
-    box.classList.toggle("is-draw", m === "draw");
+  const apply = () => {
+    const draw = active && mode === "draw";
+    if (draw) map.dragging.disable(); else map.dragging.enable();
+    box.classList.toggle("is-draw", draw);
   };
+  const setMode = (m) => { mode = m; apply(); };
 
   const latlng = (e) => {
     const r = box.getBoundingClientRect();
@@ -38,7 +39,7 @@ export function initRectDraw(map, { onDone, onClear, isBlocked = () => false }) 
       return;
     }
     if (drag) { cancel(); return; } // a second finger means pinch, not a box
-    if (mode !== "draw" || e.button !== 0 || isBlocked()) return;
+    if (!active || mode !== "draw" || e.button !== 0 || isBlocked()) return;
     if (e.target.closest?.(".leaflet-control")) return;
     drag = { id: e.pointerId, x: e.clientX, y: e.clientY, a: latlng(e), moved: false, prev: rect };
   });
@@ -82,6 +83,8 @@ export function initRectDraw(map, { onDone, onClear, isBlocked = () => false }) 
   return {
     get mode() { return mode; },
     toggle() { setMode(mode === "draw" ? "move" : "draw"); return mode; },
+    /** With nothing to compute there is nothing to select, and the left button moves the map as on any other map. */
+    setActive(on) { active = on; apply(); },
     clear() { if (rect) rect.remove(); rect = null; drag = null; onClear?.(); },
   };
 }

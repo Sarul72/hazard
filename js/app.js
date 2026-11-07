@@ -4,16 +4,16 @@
 import { CLASSES, GIBS, MONGOLIA_BBOX } from "./config.js";
 import { T } from "./i18n.js";
 import { U } from "./ui_text.js";
-import { makeLayer, utcDate } from "./gibs.js";
+import { makeLayer, newestImageDate, utcDate } from "./gibs.js";
 import { initTools } from "./tools.js";
 import { decode, loadCube, loadDaily, loadManifest } from "./dataset.js";
 import { campsCanvas, campsInside, campsReport, loadCamps } from "./camps.js";
-import { cellsCsv, drawMap, geoTiff, save, toJpeg, zip } from "./export.js";
+import { initDownloads } from "./downloads.js";
 import { createRiskLayer } from "./riskmap.js";
 import { initRectDraw } from "./rectdraw.js";
 import { initDateBar } from "./datebar.js";
 import { boxCells, cellsMean } from "./stats.js";
-import { dayReport, highDaySeries, longReport, monthSeries, toCsv } from "./area.js";
+import { dayReport, highDaySeries, longReport, monthSeries } from "./area.js";
 import { createStatsPanel } from "./statspanel.js";
 import { openMethods } from "./methods.js";
 import { createSoumLayer, loadSoums } from "./soums.js";
@@ -28,8 +28,9 @@ const store = {
 const HAZARDS = ["all", "flood", "fire", "dust"];
 const FIRST_IMAGERY = "2000-02-24"; // first MODIS Terra day
 
+// hazard null is the opening screen: the satellite image alone, with nothing computed or loaded until a hazard is chosen.
 const state = {
-  lang: store.get("hw.lang") || "mn", hazard: "all", mode: "zones",
+  lang: store.get("hw.lang") || "mn", hazard: null, mode: "zones",
   manifest: null, date: utcDate(-1), day: null, dayMissing: false,
   sel: null, selToken: 0, dayToken: 0, soums: null, soumQuery: "", sat: {},
 };
@@ -47,7 +48,7 @@ function renderStatic() {
   document.documentElement.lang = state.lang;
   $("t-title").textContent = t("title");
   $("t-subtitle").textContent = t("subtitle");
-  $("t-hazards").textContent = t("hazards");
+  $("t-hazards").textContent = t(state.hazard ? "hazards" : "pick_hazard");
   $("t-view").textContent = t("view");
   $("t-sat").textContent = t("satellites");
   $("t-sat-base").textContent = t("base");
@@ -60,7 +61,9 @@ function renderStatic() {
 }
 
 function renderMenus() {
-  $("hazards").replaceChildren(...HAZARDS.map((h) => el("div", { class: "item" + (state.hazard === h ? " on" : "") },
+  const image = el("div", { class: "item" + (state.hazard ? "" : " on") },
+    el("button", { class: "pick", type: "button", "aria-pressed": String(!state.hazard), text: t("imagery_only"), onclick: () => setHazard(null) }));
+  $("hazards").replaceChildren(image, ...HAZARDS.map((h) => el("div", { class: "item" + (state.hazard === h ? " on" : "") },
     el("button", { class: "pick", type: "button", "aria-pressed": String(state.hazard === h), text: t(h), onclick: () => setHazard(h) }),
     el("button", { class: "info", type: "button", title: `${t(h)}: ${t("method_of")}`, "aria-label": `${t(h)}: ${t("method_of")}`, text: "i", onclick: () => showMethods(h) }))));
   $("modes").replaceChildren(...["zones", "soums"].map((m) => el("div", { class: "item" + (state.mode === m ? " on" : "") },
@@ -85,14 +88,26 @@ function renderRail() {
     b.innerHTML = html;
     return b;
   };
-  const draw = state.rect.mode === "draw";
-  $("rail").replaceChildren(
+  const draw = state.rect.mode === "draw", results = Boolean(state.hazard);
+  $("rail").replaceChildren(...[
     button(ICON.menu, t("rail_menu"), () => $("side").classList.toggle("open"), "side-toggle"),
-    button(draw ? ICON.draw : ICON.move, t(draw ? "rail_draw" : "rail_move"), () => { state.rect.toggle(); renderRail(); }, draw ? "on" : ""),
-    button("i", t("rail_method"), () => showMethods(state.hazard)),
-    button(ICON.download, t("rail_download"), toggleDownloads),
+    results && button(draw ? ICON.draw : ICON.move, t(draw ? "rail_draw" : "rail_move"), () => { state.rect.toggle(); renderRail(); }, draw ? "on" : ""),
+    results && button("i", t("rail_method"), () => showMethods(state.hazard)),
+    button(ICON.download, t("rail_download"), () => state.downloads.toggle()),
     button(ICON.home, t("rail_home"), fitMongolia),
-    button(t("lang"), t("lang"), () => { state.lang = state.lang === "mn" ? "en" : "mn"; store.set("hw.lang", state.lang); renderAllText(); }));
+    button(t("lang"), t("lang"), () => { state.lang = state.lang === "mn" ? "en" : "mn"; store.set("hw.lang", state.lang); renderAllText(); }),
+  ].filter(Boolean));
+}
+
+/** The screen follows the choice: nothing but the image until a hazard is chosen. */
+function renderScreen() {
+  const results = Boolean(state.hazard);
+  document.body.classList.toggle("bare", !results);
+  state.rect.setActive(results);
+  if (state.outlineLayer) { if (results) state.outlineLayer.addTo(state.map); else state.outlineLayer.remove(); }
+  $("t-hazards").textContent = t(results ? "hazards" : "pick_hazard");
+  renderMenus();
+  renderRail();
 }
 
 function renderAllText() {
@@ -159,16 +174,19 @@ function paint() {
 }
 
 function updateNotice() {
+  if (!state.hazard) return notice(null);
   if (!state.manifest) return notice(t("no_manifest"));
   if (state.dayMissing) return notice(t("no_day").replace("{d}", state.date));
   if (state.loadError) return notice(t("load_error") + state.loadError);
-  notice(null);
+  notice(state.movedDay ? t("moved_day").replace("{d}", state.date) : null);
 }
 
 async function setDate(d) {
   state.date = d;
+  state.movedDay = false;
   syncSat();
-  if (!state.manifest) return;
+  state.downloads?.refresh();
+  if (!state.manifest || !state.hazard) return;
   const my = ++state.dayToken;
   let day = null;
   state.loadError = null;
@@ -180,23 +198,79 @@ async function setDate(d) {
   updateNotice();
   paint();
   renderSelection();
+  state.downloads?.refresh();
 }
 
-function setHazard(h) {
-  state.hazard = h;
-  renderMenus();
+/** Results run only as far as the computed data, the image up to today, so the picker follows what is on screen. */
+async function enterResults() {
+  const m = state.manifest;
+  if (!m) return;
+  state.risk ??= createRiskLayer(state.map, m.grid, CLASSES, state.outline);
+  state.dateBar.setRange(m.first_date, m.last_date);
+  const moved = state.dateBar.value !== state.date;
+  await setDate(state.dateBar.value);
+  state.movedDay = moved;
+  updateNotice();
+  showSoums();
+}
+
+function leaveResults() {
+  closeSelection();
+  $("mine-box").open = false; // the plume leaves with the rest: this view promises the image alone
+  state.dayToken++; // a day still loading must not paint over the plain image
+  state.day = null;
+  state.dayMissing = false;
+  state.movedDay = false;
   paint();
-  if (state.sel) loadSelection();
-  state.tools?.setHazard(h === "all" ? "all" : h);
+  state.soumLayer?.show(false);
+  $("soum-box").hidden = true;
+  state.dateBar.setRange(FIRST_IMAGERY, utcDate(0));
+  updateNotice();
+}
+
+async function setHazard(h) {
+  const entering = !state.hazard && h;
+  state.hazard = h;
+  renderScreen();
+  state.downloads.refresh();
+  if (!h) { leaveResults(); return; }
+  await state.ready;
+  if (state.hazard !== h) return;
+  if (entering) await enterResults();
+  else { paint(); if (state.sel) loadSelection(); }
+  state.tools?.setHazard(h);
+  state.downloads.refresh();
+}
+
+/** Soum boundaries load once, when they are first needed. */
+function soumsReady() {
+  const m = state.manifest;
+  if (!m) return Promise.resolve(null);
+  state.soumsLoad ??= loadSoums(m.grid).then((gj) => {
+    state.soums = gj;
+    if (gj) state.soumLayer = createSoumLayer(state.map, gj, {
+      color: (s) => (s === null || s === undefined ? "#555" : classOf(s).color),
+      tip: (f, s) => `${soumLabel(f)}: ${s === null || s === undefined ? t("no_data") : `${Math.round(s)} · ${classLabel(classOf(s).key)}`}`,
+      onPick: (f) => pickSoum(f, false),
+    });
+    return gj;
+  }).catch((e) => { console.error(e); return null; });
+  return state.soumsLoad;
+}
+
+async function showSoums() {
+  const on = state.mode === "soums" && Boolean(state.hazard);
+  $("soum-box").hidden = !on;
+  if (on) await soumsReady();
+  state.soumLayer?.show(state.mode === "soums" && Boolean(state.hazard));
+  paintSoums();
 }
 
 function setMode(m) {
   state.mode = m;
-  $("soum-box").hidden = m !== "soums";
   renderMenus();
-  state.soumLayer?.show(m === "soums");
   paint();
-  renderSoumList();
+  showSoums();
 }
 
 /* ----------------------------------------------------------------- soums */
@@ -277,6 +351,7 @@ function renderSelection() {
     kind: s.kind, label: s.label, hazard: state.hazard, hazardLabel: t(state.hazard), date: state.date, camps: s.campReport, campsOn: s.campsOn,
     day, dayMissing: !fr, long: s.long, months: s.months, longError: s.longError || !m, verification: m?.verification?.[state.hazard],
   });
+  state.downloads?.refresh();
 }
 
 /** Camps appear only inside the selected area, as one image, and leave with the selection. */
@@ -305,6 +380,7 @@ function closeSelection() {
   state.soumLayer?.pick(null);
   state.panel.close();
   renderSoumList();
+  state.downloads?.refresh();
 }
 
 /** Wind arrows and the dust plume for the selected area, released from its centre on the selected day. */
@@ -320,99 +396,7 @@ function showPlume() {
   return state.tools.plumeAt({
     lat, lon, date: state.date, radius: [50, 100, 200].find((r) => r >= halfKm) ?? 200, material: "quartz",
     fit: { paddingTopLeft: [window.innerWidth > 1000 ? 360 : 10, 10], paddingBottomRight: [window.innerWidth > 720 ? 420 : 10, 110] },
-  });
-}
-
-/* -------------------------------------------------------------- download */
-function toggleDownloads() {
-  const box = $("dl-menu");
-  box.hidden = !box.hidden;
-  if (box.hidden) return;
-  const item = (key, on) => el("button", { type: "button", onclick: on }, t(key), el("small", { text: t(key + "_sub") }));
-  box.replaceChildren(item("dl_jpeg", () => download(false)), item("dl_zip", () => download(true)));
-}
-
-/** Everything the image and the files are made from, for the selection if there is one, otherwise for the view. */
-function exportContext() {
-  const m = state.manifest, fr = frameNow(), s = state.sel;
-  if (!m || !fr) return null;
-  const b = state.map.getBounds(), view = { s: b.getSouth(), n: b.getNorth(), w: b.getWest(), e: b.getEast() };
-  const cells = s?.cells?.length ? s.cells : boxCells(m.grid, view);
-  const uModel = m.uncertainty?.[state.hazard]?.u_model ?? null;
-  const day = dayReport({ frame: fr, uframe: uFrameNow(), cells, grid: m.grid, classes: CLASSES, uModel });
-  return day && { m, fr, s, cells, uModel, day, view, plume: state.tools.plumeSnapshot() };
-}
-
-function errorLines(c) {
-  const f = (v) => (typeof v === "number" ? `±${v.toFixed(1)}` : t("u_none")), b = c.day.budget, v = c.m.verification?.[state.hazard];
-  const fill = (k, o) => Object.entries(o).reduce((a, [x, y]) => a.replace(`{${x}}`, y), t(k));
-  const at = b.missing.length ? "≥" : "";
-  const lines = [{ text: t("x_error"), strong: true },
-    { text: `${c.s ? t("x_sel") : t("x_view")}: ${c.day.mean.toFixed(0)} ± ${at}${b.U.toFixed(0)} ${t("points")} (k=2, ≈95%)`, strong: true },
-    { text: fill("x_parts", { i: f(b.parts.input), m: f(b.parts.model), s: f(b.parts.sampling) }) }];
-  if (b.missing.length) lines.push({ text: t("x_missing"), warn: true });
-  if (v?.auc) lines.push({ text: fill("x_verify", { a: v.auc.toFixed(2), p: v.period ?? "" }) });
-  if (c.m.bridge_from && state.date >= c.m.bridge_from) lines.push({ text: t("x_bridge"), warn: true });
-  const camps = c.s?.campReport?.parcels;
-  if (camps) lines.push({ text: fill("x_camps", { n: camps.total.toLocaleString("en-US"), h: camps.high.toLocaleString("en-US") }) });
-  if (c.plume) lines.push({ text: fill("x_plume", { m: c.plume.materialName, t: c.plume.time.replace("T", " ") }) });
-  lines.push({ text: t("x_grid") }, { text: t("x_not_official"), warn: true });
-  return lines;
-}
-
-function reportOf(c) {
-  const b = c.day.budget, v = c.m.verification?.[state.hazard] ?? null;
-  return {
-    title: `${t("title")}: ${t(state.hazard)}`, date: state.date, hazard: state.hazard, generated: new Date().toISOString(),
-    area: c.s ? { label: c.s.label, kind: c.s.kind, bbox: c.s.box } : { label: t("x_view"), bbox: c.view },
-    reference_system: "EPSG:4326 (WGS 84)", spatial_resolution_deg: c.m.grid.dx, data_version: c.m.generated_at, weather_from_gfs: Boolean(c.m.bridge_from && state.date >= c.m.bridge_from),
-    result: { mean_score: +c.day.mean.toFixed(1), max_score: +c.day.max.toFixed(1), coverage: +c.day.coverage.toFixed(3), area_km2: Math.round(c.day.area), class_shares: Object.fromEntries(CLASSES.map((k, i) => [k.key, +c.day.share[i].toFixed(3)])) },
-    uncertainty: { method: "JCGM 100 (GUM), quadrature, k = 2", u_input: b.parts.input ?? null, u_model: b.parts.model ?? null, u_sampling: b.parts.sampling ?? null, u_combined: +b.uc.toFixed(2), U_expanded: +b.U.toFixed(2), not_estimated: b.missing, is_lower_bound: b.missing.length > 0 },
-    verification: v, score_classes: CLASSES.map((k) => ({ class: k.key, from: k.min, to: Math.min(k.max, 100) })), lineage: c.m.sources?.[state.hazard] ?? c.m.sources ?? null,
-    camps: c.s?.campReport ? { cadastre: c.s.campReport.parcels, herder_points: c.s.campReport.herders, note: "Positions rounded to 0.01 degree; the two registers may overlap and must not be added." } : null,
-    plume: c.plume ? { material: c.plume.material, density_g_cm3: c.plume.density, source: [c.plume.lat, c.plume.lon], time: c.plume.time, wind_spread_deg: c.plume.spread, exposed_camps: c.plume.camps, note: "Relative index, not a concentration." } : null,
-    disclaimer: t("footer"),
-  };
-}
-
-async function download(all) {
-  const box = $("dl-menu"), c = exportContext();
-  if (!c) { box.replaceChildren(el("p", { text: t("dl_none") })); return; }
-  box.replaceChildren(el("p", { text: t("dl_busy") }));
-  try {
-    const base = GIBS.layers.find((l) => l.kind === "base" && state.sat[l.key].on);
-    const name = `mongolia_${state.hazard}_${state.date}`;
-    const { canvas } = await drawMap({
-      map: state.map, base, date: state.date, title: t("title"), subtitle: [`${t(state.hazard)} · ${state.date}`, c.s ? c.s.label : t("x_view")],
-      risk: state.mode === "zones" ? { canvas: state.risk.canvas, box: state.risk.box } : null,
-      soums: state.mode === "soums" && state.soums ? state.soums.features.map((f) => { const v = state.soumLayer.score(f); return { geometry: f.geometry, color: v === null || v === undefined ? "#555" : classOf(v).color }; }) : null,
-      outline: state.outline, camps: state.campsImage, plume: c.plume, selection: c.s ? { box: c.s.box, geom: c.s.geom } : null,
-      legend: CLASSES.map((k) => ({ color: k.color, label: classLabel(k.key) })), error: errorLines(c),
-    });
-    const jpeg = await toJpeg(canvas);
-    if (!all) { save(jpeg, `${name}.jpg`); box.hidden = true; return; }
-    const args = { grid: c.m.grid, cells: c.cells, frame: c.fr, uframe: uFrameNow(), uModel: c.uModel, decode };
-    const text = new TextEncoder();
-    save(zip([
-      { name: `${name}.jpg`, data: new Uint8Array(await jpeg.arrayBuffer()) },
-      { name: `${name}.csv`, data: text.encode(cellsCsv({ ...args, classOf, label: classLabel })) },
-      { name: `${name}.tif`, data: geoTiff(args) },
-      { name: `${name}_report.json`, data: text.encode(JSON.stringify(reportOf(c), null, 1)) },
-    ]), `${name}.zip`);
-    box.hidden = true;
-  } catch (e) {
-    console.error(e);
-    box.replaceChildren(el("p", { text: t("dl_fail") + e.message }));
-  }
-}
-
-function downloadCsv() {
-  const s = state.sel;
-  if (!s?.long) return;
-  const blob = new Blob(["﻿" + toCsv({ label: s.label, hazard: state.hazard, months: s.months, years: s.long.years, high: s.long.high })], { type: "text/csv;charset=utf-8" });
-  const a = el("a", { href: URL.createObjectURL(blob), download: `risk_${state.hazard}.csv` });
-  a.click();
-  URL.revokeObjectURL(a.href);
+  }).then(() => state.downloads.refresh());
 }
 
 /* ------------------------------------------------------------------ boot */
@@ -436,7 +420,7 @@ function initMap() {
     $("coords").textContent = p ? `${pos} · ${t("score_at")} ${Math.round(p.score)}${p.u === null ? "" : ` ±${Math.round(2 * p.u)}`}` : pos;
   });
   let hintDone = false;
-  state.map.on("mousedown zoomstart", () => { if (!hintDone) { hintDone = true; $("hint").classList.add("gone"); } });
+  state.map.on("mousedown zoomstart", () => { if (!hintDone && state.hazard) { hintDone = true; $("hint").classList.add("gone"); } });
 }
 
 async function loadOutline() {
@@ -444,7 +428,7 @@ async function loadOutline() {
     const res = await fetch("data/mongolia.geojson");
     if (!res.ok) return null;
     const gj = await res.json();
-    window.L.geoJSON(gj, { style: { color: "#ffffff", weight: 1.4, opacity: 0.8, fill: false }, interactive: false }).addTo(state.map);
+    state.outlineLayer = window.L.geoJSON(gj, { style: { color: "#ffffff", weight: 1.4, opacity: 0.8, fill: false }, interactive: false });
     return gj;
   } catch { return null; }
 }
@@ -454,42 +438,33 @@ function wire() {
   $("mine-box").addEventListener("toggle", (e) => state.tools?.setView(e.target.open ? "mine" : "aimag"));
 }
 
+/** What the results need. The opening image does not wait for any of it. */
+async function loadBasics() {
+  state.outline = await loadOutline();
+  try { state.manifest = await loadManifest(); }
+  catch (e) { console.error(e); state.loadError = e.message; }
+  renderStatic();
+  if (state.hazard) renderScreen();
+}
+
 async function boot() {
   initSatState();
   renderStatic();
   initMap();
   state.rect = initRectDraw(state.map, { onDone: onBox, isBlocked: () => $("dlg").open });
-  state.panel = createStatsPanel($("stats"), { t, classes: CLASSES, classLabel, onClose: closeSelection, onMethods: showMethods, onCsv: downloadCsv, onPlume: showPlume, onCamps: (on) => { if (state.sel) { state.sel.campsOn = on; renderSelection(); } } });
+  state.panel = createStatsPanel($("stats"), { t, classes: CLASSES, classLabel, onClose: closeSelection, onMethods: showMethods, onCsv: () => state.downloads.seriesCsv(), onPlume: showPlume, onCamps: (on) => { if (state.sel) { state.sel.campsOn = on; renderSelection(); } } });
   state.tools = initTools({ map: state.map, getLang: () => state.lang, requestSat, containers: { poly: el("div"), mine: $("view-mine") }, onMethods: showMethods,
     campsFor: async (box) => { const a = await loadCamps(); return a ? campsInside(a, box) : null; } });
   state.dateBar = initDateBar($("datebar"), { onChange: setDate, text: t, monthName: (m) => t("months")[m - 1] });
-  renderMenus(); renderLegend(); renderRail(); renderSat();
+  state.downloads = initDownloads({ box: $("dl-menu"), state, t, frameNow, uFrameNow, classOf, classLabel, soumsReady });
+  renderLegend(); renderSat();
+  renderScreen();
   wire();
-  syncSat();
-  const outline = await loadOutline();
-  state.outline = outline;
-
-  try { state.manifest = await loadManifest(); }
-  catch (e) { console.error(e); state.loadError = e.message; }
-  renderStatic();
-
-  const m = state.manifest;
-  state.dateBar.setRange(m ? m.first_date : FIRST_IMAGERY, m ? m.last_date : utcDate(0));
-  state.dateBar.setValue(m ? m.last_date : state.date);
-  state.date = state.dateBar.value;
-  if (m) {
-    state.risk = createRiskLayer(state.map, m.grid, CLASSES, outline);
-    try {
-      state.soums = await loadSoums(m.grid);
-      if (state.soums) state.soumLayer = createSoumLayer(state.map, state.soums, {
-        color: (s) => (s === null || s === undefined ? "#555" : classOf(s).color),
-        tip: (f, s) => `${soumLabel(f)}: ${s === null || s === undefined ? t("no_data") : `${Math.round(s)} · ${classLabel(classOf(s).key)}`}`,
-        onPick: (f) => pickSoum(f, false),
-      });
-    } catch (e) { console.error(e); }
-  }
-  updateNotice();
-  await setDate(state.date);
+  state.ready = loadBasics();
+  state.dateBar.setRange(FIRST_IMAGERY, utcDate(0));
+  const newest = await newestImageDate(GIBS.layers.find((l) => l.key === "truecolor_terra"));
+  if (!state.hazard) { state.dateBar.setValue(newest); await setDate(state.dateBar.value); }
+  await state.ready;
 }
 
 boot();

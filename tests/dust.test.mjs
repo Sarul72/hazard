@@ -1,4 +1,4 @@
-/* Dust settling in js/plume.js against values worked out separately (tests/dust_reference.json), and the exports in js/export.js.
+/* Dust settling in js/plume.js against values worked out separately (tests/dust_reference.json).
  * check() is plain JavaScript so it also runs in a browser where Node is not installed. */
 import * as P from "../js/plume.js";
 import { MATERIALS } from "../js/materials.js";

@@ -18,6 +18,34 @@ export function tileTemplate(layer, date) {
   return `${GIBS.base}/${layer.id}/default/${date}/${layer.tms}/{z}/{y}/{x}.${layer.ext}`;
 }
 
+/** Share of a zoom 4 tile holding image, not the black of a place the satellite has not passed yet. */
+function tileLit(def, date, x, y) {
+  return new Promise((ok) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onerror = () => ok(0);
+    img.onload = () => {
+      const cv = document.createElement("canvas");
+      cv.width = cv.height = 256;
+      const ctx = cv.getContext("2d", { willReadFrequently: true });
+      ctx.drawImage(img, 0, 0);
+      const px = ctx.getImageData(0, 0, 256, 256).data;
+      let lit = 0;
+      for (let k = 0; k < px.length; k += 4) if (px[k] + px[k + 1] + px[k + 2] > 12) lit++;
+      ok(lit / 65536);
+    };
+    img.src = tileTemplate(def, date).replace("{z}", 4).replace("{y}", y).replace("{x}", x);
+  });
+}
+
+/** Newest day whose image already covers Mongolia. Today's passes arrive during the day and the service answers with black
+ * until then, so the pixels decide. If the check is slow or fails, yesterday is the safe answer. */
+export function newestImageDate(def, now = new Date(), waitMs = 2500) {
+  const today = utcDate(0, now), yesterday = utcDate(-1, now);
+  const check = Promise.all([11, 12, 13].map((x) => tileLit(def, today, x, 5))).then((lit) => (lit.every((v) => v >= 0.9) ? today : yesterday), () => yesterday);
+  return Promise.race([check, new Promise((ok) => setTimeout(() => ok(yesterday), waitMs))]);
+}
+
 /** Leaflet layer for a GIBS definition and a UTC date. Needs the global `L`. */
 export function makeLayer(L, def, date) {
   const common = { opacity: def.opacity ?? (def.kind === "base" ? 1 : 0.8), zIndex: def.kind === "base" ? 1 : 5, maxZoom: 12, attribution: "Imagery: NASA GIBS/ESDIS" };

@@ -575,7 +575,13 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
         arrows.push({ lat: f.lats[Math.floor(a.k / f.nx)], lon: f.lons[a.k % f.nx], speed, angle: (Math.atan2(u, v) * 180) / Math.PI, color: speed < 4 ? "#7fc8ff" : speed < 8 ? "#ffe66b" : speed < 12 ? "#ff9a3c" : "#ff4d4d" });
       }
       const m = materialById(st.materialId), hit = (st.camps ?? []).filter((c) => c.index >= 2);
-      return { image: st.show.plume ? st.overlay.getElement() : null, box: { n: e.n, s: e.s, w: e.w, e: e.e }, arrows, material: m.id, materialName: getLang() === "mn" ? m.mn : m.en, density: m.rho, time: f.time[h], lat: st.lat, lon: st.lon, spread: st.spread,
+      const wind = [];
+      f.lats.forEach((lat, r) => f.lons.forEach((lon, c) => {
+        const k = r * f.nx + c, u = f.u[h * 49 + k], v = f.v[h * 49 + k];
+        if (fin(u) && fin(v)) wind.push({ lat, lon, u, v, speed: Math.hypot(u, v), from: ((Math.atan2(u, v) * 180) / Math.PI + 540) % 360 });
+      }));
+      const index = Float32Array.from(st.frames[h], (x) => (st.ref > 0 ? Math.min(100, (100 * x) / st.ref) : 0));
+      return { image: st.show.plume ? st.overlay.getElement() : null, box: { n: e.n, s: e.s, w: e.w, e: e.e }, arrows, wind, index, w: st.W, h: st.H, material: m.id, materialName: getLang() === "mn" ? m.mn : m.en, density: m.rho, time: f.time[h], lat: st.lat, lon: st.lon, spread: st.spread,
         camps: st.camps ? { parcels: hit.reduce((a, c) => a + c.parcels, 0), herders: hit.reduce((a, c) => a + c.herders, 0) } : null };
     }
     return { st, relabel, runAt, snapshotForExport, show(on, keepView) { st.active = on; if (!on) stopPlay(); syncLayerVisibility(); if (on && !st.sim && !keepView) { map.setView([st.lat, st.lon], 8); } } };
