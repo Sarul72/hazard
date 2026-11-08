@@ -164,7 +164,16 @@ function plainError(err) {
   return 'Тооцоолж чадсангүй. Техникийн тайлбар: ' + s;
 }
 
-var DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+var DATE_RE = /^\s*(\d{4})\s*[-./]\s*(\d{1,2})\s*[-./]\s*(\d{1,2})\s*$/;
+
+/** '2021-8-5' or '2021.08.05' becomes '2021-08-05'; anything else gives null. */
+function normalDate(text) {
+  var m = DATE_RE.exec(text || '');
+  if (!m) return null;
+  var mo = Number(m[2]), d = Number(m[3]);
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+  return m[1] + '-' + (mo < 10 ? '0' : '') + mo + '-' + (d < 10 ? '0' : '') + d;
+}
 function fmt(x, d) { return x === null || x === undefined ? '—' : Number(x).toFixed(d); }
 function pct(a, b) { return b > 0 ? Math.round(100 * a / b) + '%' : '—'; }
 
@@ -193,6 +202,7 @@ panel.add(heading('1. Талбай'));
 panel.add(note('Газрын зургийн зүүн дээд буланд байгаа тэгш өнцөгт эсвэл олон өнцөгтийн хэрэгслээр талбайгаа зурна. 500 км² хүртэл 10 м-ээр, түүнээс том бол бүдүүн нарийвчлалаар тооцоолно.'));
 var drawButton = ui.Button({ label: 'Шинэ талбай зурах', onClick: function () {
   tools.layers().reset();
+  map.layers().reset();
   tools.setShape('rectangle');
   tools.draw();
 } });
@@ -205,12 +215,13 @@ var exampleButton = ui.Button({ label: 'Жишээ: Сэлэнгэ, 2021 оны 
 } });
 panel.add(ui.Panel([drawButton, exampleButton], ui.Panel.Layout.flow('horizontal')));
 
-panel.add(heading('2. Огноо (ЖЖЖЖ-СС-ӨӨ)'));
-function dateBox(value) { return ui.Textbox({ value: value, style: { width: '110px' } }); }
+panel.add(heading('2. Огноо (ЖЖЖЖ-СС-ӨӨ, жишээ нь 2021-09-13)'));
+function dateBox(value) { return ui.Textbox({ value: value, style: { width: '96px', margin: '2px 3px' } }); }
 var beforeStart = dateBox(EXAMPLE.before[0]), beforeEnd = dateBox(EXAMPLE.before[1]);
 var afterStart = dateBox(EXAMPLE.after[0]), afterEnd = dateBox(EXAMPLE.after[1]);
-panel.add(ui.Panel([ui.Label('Үерийн өмнө:', { width: '95px' }), beforeStart, beforeEnd], ui.Panel.Layout.flow('horizontal')));
-panel.add(ui.Panel([ui.Label('Үерийн дараа:', { width: '95px' }), afterStart, afterEnd], ui.Panel.Layout.flow('horizontal')));
+var DATE_LABEL = { width: '82px', fontSize: '12.5px', margin: '8px 2px 0 4px' };
+panel.add(ui.Panel([ui.Label('Үерийн өмнө:', DATE_LABEL), beforeStart, beforeEnd], ui.Panel.Layout.flow('horizontal')));
+panel.add(ui.Panel([ui.Label('Үерийн дараа:', DATE_LABEL), afterStart, afterEnd], ui.Panel.Layout.flow('horizontal')));
 panel.add(note('Өмнөх хугацааны хамгийн сүүлийн, дараах хугацааны хамгийн эхний радарын зургийг нэг тойрог замаас авна. Sentinel-1 Монголын ихэнх нутагт 6–12 хоногт нэг удаа дайрдаг. 2022–2024 онд олон газарт зураг байхгүй.'));
 
 panel.add(heading('3. Тохиргоо'));
@@ -249,8 +260,13 @@ function legendRow(color, text) {
 
 // ------------------------------------------------------------------------------------------------ run
 function readDates() {
-  var v = [beforeStart.getValue(), beforeEnd.getValue(), afterStart.getValue(), afterEnd.getValue()];
-  for (var i = 0; i < v.length; i++) if (!DATE_RE.test(v[i])) return null;
+  var boxes = [beforeStart, beforeEnd, afterStart, afterEnd], v = [];
+  for (var i = 0; i < boxes.length; i++) {
+    var d = normalDate(boxes[i].getValue());
+    if (!d) return null;
+    boxes[i].setValue(d);
+    v.push(d);
+  }
   if (!(v[0] <= v[1] && v[1] < v[2] && v[2] <= v[3])) return null;
   return { before: [v[0], v[1]], after: [v[2], v[3]] };
 }
@@ -303,11 +319,14 @@ function compute(region, dates, orbit, scale, km2, depthOn, notes) {
   var candidates = opticalCandidates(region, pair.afterDate);
 
   map.layers().reset();
+  // the drawn shape hides the result under its fill: show only a thin outline from here on
+  tools.layers().get(0).setShown(false);
   map.addLayer(pair.before, { min: -25, max: -5 }, 'Радар, өмнө', false);
   map.addLayer(pair.after, { min: -25, max: -5 }, 'Радар, дараа', false);
   map.addLayer(PERMANENT.selfMask().clip(region), { palette: ['1f3b8a'] }, 'Байнгын ус (JRC)');
   map.addLayer(floodRural, { palette: ['00e5ff'] }, 'Радарын үер');
   map.addLayer(floodCity, { palette: ['ff9900'] }, 'Хот дахь радарын үер (магадлалын)');
+  map.addLayer(ee.Image().byte().paint(ee.FeatureCollection([ee.Feature(region)]), 1, 2), { palette: ['ffffff'] }, 'Талбайн хүрээ');
   map.centerObject(region);
 
   var area = ee.Image.pixelArea().divide(1e6);
