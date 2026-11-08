@@ -194,7 +194,8 @@ function readDates() {
     before = [y + '-09-15', y + '-10-31'];
     spring = true;
   }
-  return { before: before, after: [v[2], v[3]], spring: spring };
+  // MODIS and FIRMS are compared from the end of the period the user typed, also when the image comes from autumn
+  return { before: before, after: [v[2], v[3]], spring: spring, compareFrom: v[1] };
 }
 
 function busy(on) {
@@ -246,8 +247,8 @@ function computeWith(region, dates, scale, km2, notes, pre, post) {
   var dnbr = pre.image.subtract(post.image).rename('dnbr');
   var severity = classify(dnbr);
   var burned = dnbr.gte(APP.burned);
-  var modis = modisBurned(region, dates.before[1], dayAfter(dates.after[1]));
-  var fire = firms(region, dates.before[1], dayAfter(dates.after[1]));
+  var modis = modisBurned(region, dates.compareFrom, dayAfter(dates.after[1]));
+  var fire = firms(region, dates.compareFrom, dayAfter(dates.after[1]));
 
   map.layers().reset();
   tools.layers().get(0).setShown(false);
