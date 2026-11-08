@@ -88,7 +88,8 @@ function radarPair(region, before, after, orbit) {
 }
 
 /** UN-SPIDER Recommended Practice. The ratio is taken on the dB values, as in the original script.
- * The ratio means "darker" only for negative dB; where the smoothed before image is 0 dB or more it is left out. */
+ * The ratio means "darker" only for negative dB; where the smoothed before image is 0 dB or more it is left out.
+ * focal_mean on dB averages logarithms, so in linear power it is the geometric mean, not the arithmetic mean. */
 function radarFlood(region, pair, threshold, scale) {
   var before = pair.before.focal_mean(APP.smoothing, 'circle', 'meters');
   var ratio = pair.after.focal_mean(APP.smoothing, 'circle', 'meters').divide(before);
