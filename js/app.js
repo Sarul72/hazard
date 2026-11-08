@@ -1,7 +1,7 @@
 /* Mongolia hazard watch: the map screen. No framework, no build step.
  * Risk zones come from data/gee (written by the Earth Engine pipeline). When a date or the whole dataset is missing,
  * the screen says so and shows no colour: this page never fills a gap with a made-up value. */
-import { CLASSES, FIRE_APP_URL, FLOOD_APP_URL, GIBS, MONGOLIA_BBOX, classesFor } from "./config.js";
+import { CLASSES, DUST_APP_URL, FIRE_APP_URL, FLOOD_APP_URL, GIBS, MONGOLIA_BBOX, classesFor } from "./config.js";
 import { SOURCES } from "./sources.js";
 import { T } from "./i18n.js";
 import { U } from "./ui_text.js";
@@ -65,6 +65,7 @@ function renderStatic() {
   $("t-footer").textContent = t("footer");
   renderAppBox("flood");
   renderAppBox("fire");
+  renderAppBox("dust");
   renderSources();
   $("soum-q").placeholder = t("soum_search");
   $("hint").textContent = t("hint");
@@ -189,6 +190,8 @@ function renderScreen() {
   const fire = state.hazard === "fire"; // and the burned area app to wildfire
   $("fire-box").hidden = !fire;
   if (!fire) $("fire-box").open = false;
+  $("dust-box").hidden = !dust; // the dust check sits beside the mine tool
+  if (!dust) $("dust-box").open = false;
   applyBorders();
   renderBorders();
   $("t-hazards").textContent = t(results ? "hazards" : "pick_hazard");
@@ -199,7 +202,7 @@ function renderScreen() {
 
 /* -------------------------------------------------- detailed flood app and sources */
 /** Detailed mapping at 10-30 m runs in Google Earth Engine Apps, opened here in a window; the site itself holds no login. */
-const APPS = { flood: FLOOD_APP_URL, fire: FIRE_APP_URL };
+const APPS = { flood: FLOOD_APP_URL, fire: FIRE_APP_URL, dust: DUST_APP_URL };
 
 function openApp(kind) {
   const dlg = $("dlg"), url = APPS[kind];

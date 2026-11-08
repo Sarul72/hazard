@@ -36,6 +36,9 @@ export const FLOOD_APP_URL = "https://temp-support-478105.projects.earthengine.a
 /** The Earth Engine App that maps burned area and burn severity inside a drawn area (gee_app/fire_aoi.js). */
 export const FIRE_APP_URL = "https://temp-support-478105.projects.earthengine.app/view/fire-aoi";
 
+/** The Earth Engine App that checks dust over a drawn area with TROPOMI, CAMS and MODIS (gee_app/dust_aoi.js). */
+export const DUST_APP_URL = "https://temp-support-478105.projects.earthengine.app/view/dust-aoi";
+
 /** Local clock used for all daily aggregation (Ulaanbaatar, UTC+8). */
 export const TZ = "Asia/Ulaanbaatar";
 export const TZ_OFFSET_HOURS = 8;

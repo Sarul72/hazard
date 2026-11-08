@@ -169,6 +169,27 @@ A second Earth Engine App (`gee_app/fire_aoi.js`, published as `fire-aoi` under 
 
 March pre-fire images still held snow and melt water, which made 140 km² of unburned steppe look burned; masking snow by NDSI and subtracting the dNBR of an unburned ring did not cure it, and higher thresholds lost the fires (F1 0.15–0.54 at 0.15–0.20). The autumn baseline cut the false burn to 1–2 % of the area while keeping the agreement with MODIS. MODIS is not ground truth: at 500 m it misses small fires and smooths edges, so the F1 measures agreement, not accuracy. Steppe fires came out almost entirely as low severity (dNBR medians 0.13–0.18).
 
+### Satellite check of dust over a drawn area (added 2026-11)
+A third Earth Engine App (`gee_app/dust_aoi.js`, published as `dust-aoi` under temp-support-478105) sits beside the mine tool in the dust menu. All three sources are coarse, so it works on areas up to 300,000 km² and does not map at 10–30 m.
+
+* **TROPOMI**: Sentinel-5P absorbing aerosol index of the day (OFFL, NRTI while OFFL is not out); above 1 marks absorbing aerosol, dust or smoke.
+* **CAMS**: global near-real-time dust aerosol optical depth at 550 nm, mean of 03–10 UTC from the 00 UTC run. The dust band exists only from 2021-06-24; earlier days show the total aerosol optical depth and do not count as a dust vote.
+* **MODIS**: Aqua MYD09CMG brightness temperature difference BT31 − BT32 (0.05°), pixels colder than 250 K left out as cloud tops; below −0.5 K marks possible dust (Ackerman 1997).
+* A source counts as seeing dust when at least 30 % of the area passes its level (CAMS: maximum ≥ 0.1). The App reports how many agree, never lets the BTD decide alone, and shows FIRMS fires because the aerosol index cannot tell smoke from dust. It also draws a time series of up to 60 days of area means of the AAI and CAMS AOD.
+
+**Tests (2026-11-08)** over the southern Gobi (103.5–105.5 E, 42.8–44.2 N) and central Mongolia (105–107.5 E, 46.5–48.2 N):
+
+| Day | Area | AAI > 1 | BTD < −0.5 K | CAMS AOD |
+|---|---|---|---|---|
+| 2023-03-21, dust storm | Gobi | 100 % (mean 3.3) | 100 % | 0.07 (dust) |
+| 2023-04-10, dust storm | Gobi | 100 % (mean 3.1) | 97 % | 0.18 (dust) |
+| 2023-04-11 | Gobi | 32 % | 100 % | 0.02 (dust) |
+| 2021-03-14 and 15, dust storm | Gobi | 0 % | 0 % (14th: 1 % of the area clear of cold cloud) and 24 % | 0.29 and 0.09 (total AOD) |
+| 2021-03-10, calm | Gobi | 0 % | **96 %** | 0.18 (total AOD) |
+| 2021-07-20, calm | Gobi | 0 % | 0 % | 0.09 (dust) |
+
+On the two 2023 storms the aerosol index and the BTD agreed fully. The great storm of 14–15 March 2021 was not seen at the early-afternoon overpass: on the 14th the whole area was under cold cloud tops, and the aerosol index stayed negative. On a calm, clear spring day the BTD was below −0.5 K over 96 % of the Gobi, because bare desert emits less in band 31 than in band 32; this is why it never decides alone. CAMS dust AOD stayed below 0.2 on storm days, far under what such storms usually reach, so its values are kept as a model hint.
+
 ### Mine location conflict
 The coordinates in the user's own Earth Engine script (43.6668 N, 105.5181 E) are the **Ukhaa Khudag** mine in Tsogttsetsii soum, **Ömnögovi** province (Wikipedia gives 43.6754 N, 105.5211 E, about 0.9 km away). They are not in Dornogovi. Mines that are in Dornogovi (Bayanshand/Dovtsog Khudag, Mandakh; Eldev, Dalanjargalan) are also offered. Which Dornogovi mine is the largest was not established from the sources found; the Mineral Resources and Petroleum Authority of Mongolia is the body that holds production figures.
 * Wind-direction uncertainty: hourly model winds are often 10 to 30 degrees off the true local direction, and a single steady direction gives a plume far narrower than reality. The tool therefore adds an angular spread (default 10 degrees, selectable 0/10/20) to the Briggs width in quadrature, x tan(angle). This is a worst-case style envelope, not a fitted value; 0 degrees reproduces the pure Briggs plume.
