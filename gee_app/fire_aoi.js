@@ -278,6 +278,8 @@ function computeWith(region, dates, scale, km2, notes, pre, post) {
   });
   numbers.evaluate(function (n, err) {
     if (err) return fail(plainError(err));
+    // the image counts are taken before the cloud mask: every pixel can still be masked
+    if (!n.seen) return fail('Сонгосон талбайд үүлгүй пиксел олдсонгүй. Хугацааг уртасгана уу.');
     var lines = [
       'Sentinel-2 зураг: галын өмнө ' + n.preCount + ' (' + dates.before[0] + ' – ' + dates.before[1] + '), дараа ' + n.postCount + ' (' + dates.after[0] + ' – ' + dates.after[1] + ')',
       'Шатсан (dNBR ≥ ' + APP.burned + '): ' + fmt(n.burned, 2) + ' км²; үүлгүй харагдсан хэсэг ' + fmt(n.seen, 0) + ' км² / ' + fmt(km2, 0) + ' км²',
