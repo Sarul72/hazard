@@ -150,6 +150,25 @@ Over thresholds from 1.10 to 1.50 the agreement (F1) peaked at 1.25–1.30 for t
 
 A negative test matters as much: after rain on 2018-09-01 near Ulaanbaatar the radar marked 132 km² as new water, of which 94 % was grassland, while a cloud-free Sentinel-2 image two days later showed 2.3 km² of new water and almost no overlap. Haymaking and drying grass lower the radar return the way water does. A darkness rule did not help (those areas were darker than open water). This is why radar flood is shown as confirmed only where Sentinel-2 sees water.
 
+### Burned area and burn severity in a drawn area (added 2026-11)
+A second Earth Engine App (`gee_app/fire_aoi.js`, published as `fire-aoi` under temp-support-478105) maps a fire inside an area the user draws, opened from the wildfire menu.
+
+* **Severity**: Sentinel-2 L2A NBR = (B8 − B12)/(B8 + B12), median of cloud-free pixels (SCL cloud, shadow, snow removed; scenes over 70 % cloud left out) before and after the fire. dNBR = NBR before − NBR after, classed by Key and Benson (2006): regrowth below −0.10, unburned −0.10 to 0.10, low 0.10–0.27, moderate-low 0.27–0.44, moderate-high 0.44–0.66, high above 0.66. Burned means dNBR ≥ 0.10. 20 m up to 500 km², 40 m up to 2,000 km², 60 m up to 5,000 km².
+* **Comparison**: MODIS MCD64A1 burned area (500 m, monthly) is drawn as an outline and FIRMS active fire as red cells; the App gives the share of Sentinel-2 burned land inside MODIS burned area and the share of MODIS burned area that Sentinel-2 found.
+* **Spring fires**: for a fire in March to May the pre-fire image comes from the previous autumn (15 September to 31 October).
+
+**Tests (2026-11-08)**, on the largest MODIS burned patches in Mongolia since 2019, all in Dornod, with areas of about 360–380 km², and on two areas without fire:
+
+| Area | Sentinel-2 burned, pre-fire in March–April | MODIS | F1 | Sentinel-2 burned, pre-fire in previous autumn | F1 |
+|---|---|---|---|---|---|
+| Fire, April 2023 (117.5–117.8 E) | 277 km² | 356 km² | 0.86 | 244 km² | 0.80 |
+| Fire, May 2023 (115.9–116.2 E) | 162 km² | 249–265 km² | 0.59 | 160 km² | 0.64 |
+| Fire, April 2019 (115.6–115.9 E) | 345 km² | 227 km² | 0.79 | 359 km² | 0.77 |
+| No fire, April 2023 (113.5–113.8 E) | **140 km²** | 0 | — | 3 km² | — |
+| No fire, April 2019 (112.0–112.3 E) | 0 km² | 0 | — | 8 km² | — |
+
+March pre-fire images still held snow and melt water, which made 140 km² of unburned steppe look burned; masking snow by NDSI and subtracting the dNBR of an unburned ring did not cure it, and higher thresholds lost the fires (F1 0.15–0.54 at 0.15–0.20). The autumn baseline cut the false burn to 1–2 % of the area while keeping the agreement with MODIS. MODIS is not ground truth: at 500 m it misses small fires and smooths edges, so the F1 measures agreement, not accuracy. Steppe fires came out almost entirely as low severity (dNBR medians 0.13–0.18).
+
 ### Mine location conflict
 The coordinates in the user's own Earth Engine script (43.6668 N, 105.5181 E) are the **Ukhaa Khudag** mine in Tsogttsetsii soum, **Ömnögovi** province (Wikipedia gives 43.6754 N, 105.5211 E, about 0.9 km away). They are not in Dornogovi. Mines that are in Dornogovi (Bayanshand/Dovtsog Khudag, Mandakh; Eldev, Dalanjargalan) are also offered. Which Dornogovi mine is the largest was not established from the sources found; the Mineral Resources and Petroleum Authority of Mongolia is the body that holds production figures.
 * Wind-direction uncertainty: hourly model winds are often 10 to 30 degrees off the true local direction, and a single steady direction gives a plume far narrower than reality. The tool therefore adds an angular spread (default 10 degrees, selectable 0/10/20) to the Briggs width in quadrature, x tan(angle). This is a worst-case style envelope, not a fitted value; 0 degrees reproduces the pure Briggs plume.

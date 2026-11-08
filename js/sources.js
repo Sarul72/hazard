@@ -13,6 +13,8 @@ export const SOURCES = [
   { text: "Zanaga, D., et al. (2022). ESA WorldCover 10 m 2021 v200 (CC BY 4.0).", url: "https://doi.org/10.5281/zenodo.7254221" },
   { text: "Yamazaki, D., et al. (2019). MERIT Hydro. Water Resources Research 55; Tellman, B., et al. (2021). Global Flood Database. Nature 596.", url: "https://doi.org/10.1038/s41586-021-03695-w" },
   { text: "Runfola, D., et al. (2020). geoBoundaries (NSO Mongolia, OCHA ROAP), CC BY 3.0 IGO.", url: "https://www.geoboundaries.org/" },
+  { text: "Key, C.H., Benson, N.C. (2006). Landscape Assessment: Ground measure of severity, the Composite Burn Index; and remote sensing of severity, the Normalized Burn Ratio. FIREMON, USDA Forest Service RMRS-GTR-164-CD.", url: "https://research.fs.usda.gov/treesearch/24066" },
+  { text: "Giglio, L., et al. (2018). The Collection 6 MODIS burned area mapping algorithm and product (MCD64A1). Remote Sensing of Environment 217, 72–85.", url: "https://doi.org/10.1016/j.rse.2018.08.005" },
   { text: "UN-SPIDER Recommended Practice: Flood mapping and damage assessment using Sentinel-1 SAR data in Google Earth Engine.", url: "https://www.un-spider.org/advisory-support/recommended-practices/recommended-practice-google-earth-engine-flood-mapping" },
   { text: "Peter, B.G., Cohen, S., et al. (2020). Google Earth Engine implementation of the Floodwater Depth Estimation Tool (FwDET-GEE). IEEE GRSL; Cohen, S., et al. (2022). Remote Sensing 14, 5313.", url: "https://doi.org/10.1109/LGRS.2020.3031190" },
   {

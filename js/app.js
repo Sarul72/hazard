@@ -1,7 +1,7 @@
 /* Mongolia hazard watch: the map screen. No framework, no build step.
  * Risk zones come from data/gee (written by the Earth Engine pipeline). When a date or the whole dataset is missing,
  * the screen says so and shows no colour: this page never fills a gap with a made-up value. */
-import { CLASSES, FLOOD_APP_URL, GIBS, MONGOLIA_BBOX, classesFor } from "./config.js";
+import { CLASSES, FIRE_APP_URL, FLOOD_APP_URL, GIBS, MONGOLIA_BBOX, classesFor } from "./config.js";
 import { SOURCES } from "./sources.js";
 import { T } from "./i18n.js";
 import { U } from "./ui_text.js";
@@ -63,7 +63,8 @@ function renderStatic() {
   $("t-sat-overlay").textContent = t("overlays");
   $("t-mine").textContent = t("mine");
   $("t-footer").textContent = t("footer");
-  renderFloodBox();
+  renderAppBox("flood");
+  renderAppBox("fire");
   renderSources();
   $("soum-q").placeholder = t("soum_search");
   $("hint").textContent = t("hint");
@@ -185,6 +186,9 @@ function renderScreen() {
   const flood = state.hazard === "flood"; // the detailed flood app belongs to flood
   $("flood-box").hidden = !flood;
   if (!flood) $("flood-box").open = false;
+  const fire = state.hazard === "fire"; // and the burned area app to wildfire
+  $("fire-box").hidden = !fire;
+  if (!fire) $("fire-box").open = false;
   applyBorders();
   renderBorders();
   $("t-hazards").textContent = t(results ? "hazards" : "pick_hazard");
@@ -194,28 +198,30 @@ function renderScreen() {
 }
 
 /* -------------------------------------------------- detailed flood app and sources */
-/** The 10-30 m flood mapping runs in a Google Earth Engine App, opened here in a window; the site itself holds no login. */
-function openFloodApp() {
-  const dlg = $("dlg");
+/** Detailed mapping at 10-30 m runs in Google Earth Engine Apps, opened here in a window; the site itself holds no login. */
+const APPS = { flood: FLOOD_APP_URL, fire: FIRE_APP_URL };
+
+function openApp(kind) {
+  const dlg = $("dlg"), url = APPS[kind];
   dlg.classList.add("dlg-app");
   dlg.replaceChildren(
     el("button", { class: "dlg-x", type: "button", "aria-label": t("close"), text: "✕", onclick: () => dlg.close() }),
-    el("h2", { text: t("flood_app") }),
-    el("p", { class: "dlg-warn", text: t("flood_app_warn") }),
-    el("iframe", { class: "app-frame", src: FLOOD_APP_URL, title: t("flood_app"), allow: "fullscreen" }),
-    el("p", { class: "lead" }, el("a", { href: FLOOD_APP_URL, target: "_blank", rel: "noopener", text: t("flood_app_tab") })),
+    el("h2", { text: t(kind + "_app") }),
+    el("p", { class: "dlg-warn", text: t(kind + "_app_warn") }),
+    el("iframe", { class: "app-frame", src: url, title: t(kind + "_app"), allow: "fullscreen" }),
+    el("p", { class: "lead" }, el("a", { href: url, target: "_blank", rel: "noopener", text: t("flood_app_tab") })),
   );
   dlg.addEventListener("close", () => { dlg.classList.remove("dlg-app"); dlg.replaceChildren(); }, { once: true });
   dlg.showModal();
 }
 
-function renderFloodBox() {
-  $("t-flood-app").textContent = t("flood_app");
-  $("flood-app").replaceChildren(
-    el("p", { class: "note", text: t("flood_app_note") }),
+function renderAppBox(kind) {
+  $(`t-${kind}-app`).textContent = t(kind + "_app");
+  $(`${kind}-app`).replaceChildren(
+    el("p", { class: "note", text: t(kind + "_app_note") }),
     el("div", { class: "btnrow" },
-      el("button", { class: "btn", type: "button", text: t("flood_app_open"), onclick: openFloodApp }),
-      el("a", { class: "btn", href: FLOOD_APP_URL, target: "_blank", rel: "noopener", text: t("flood_app_tab") })),
+      el("button", { class: "btn", type: "button", text: t("flood_app_open"), onclick: () => openApp(kind) }),
+      el("a", { class: "btn", href: APPS[kind], target: "_blank", rel: "noopener", text: t("flood_app_tab") })),
   );
 }
 

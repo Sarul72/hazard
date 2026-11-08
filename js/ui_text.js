@@ -54,7 +54,9 @@ export const U = {
     m_col_data: "Өгөгдөл", m_col_res: "Нарийвчлал", m_col_role: "Үүрэг",
     footer: "Өгөгдөл: Google Earth Engine, NASA GIBS. Энэ бол албан ёсны сэрэмжлүүлэг биш: шийдвэр гаргахдаа ЦУОШГ, ОБЕГ-ын мэдээг баримтална.",
     flood_app: "Нарийвчилсан үерийн тооцоо (10–30 м)", flood_app_note: "Өөрийн талбайг зурж, үерийн өмнөх, дараах огноог сонгоход Sentinel-1 радараар шинээр усанд автсан газрыг олж, Sentinel-2-оор шалгаж, усны гүнийг тооцно. Google Earth Engine App тусдаа цонхонд нээгдэнэ, тооцоо 1–3 минут үргэлжилнэ.",
-    flood_app_open: "Тооцооны цонх нээх", flood_app_tab: "Шинэ цонхонд нээх", flood_app_warn: "Хот доторх үр дүн магадлалын тооцоо. Радарын үерээс Sentinel-2-оор батлагдсан хэсгийг тусад нь харуулна. Цонх хоосон бол App хараахан нийтлэгдээгүй байна.",
+    flood_app_open: "Тооцооны цонх нээх", flood_app_tab: "Шинэ цонхонд нээх", flood_app_warn: "Хот доторх үр дүн магадлалын тооцоо. Радарын үерээс Sentinel-2-оор батлагдсан хэсгийг тусад нь харуулна. Цонх ачаалахад хэдэн секунд болно.",
+    fire_app: "Шатсан талбай, гэмтлийн зэрэг (20 м)", fire_app_note: "Өөрийн талбайг зурж, галын өмнөх, дараах огноог сонгоход Sentinel-2-ийн dNBR-ээр шатсан газар, гэмтлийн зэргийг гаргаж, MODIS-ийн шатсан талбай, FIRMS-ийн галын цэгтэй харьцуулна. Google Earth Engine App тусдаа цонхонд нээгдэнэ.",
+    fire_app_warn: "Хаврын галд өмнөх зургийг өмнөх намраас авдаг: хаврын цас, чийг шатаагүй газрыг шатсан мэт харуулдаг. Гэмтлийн ангиллыг ойд тогтоосон тул хээрийн гал ихэвчлэн «бага зэрэг» гэж гарна.",
     sources: "Эх сурвалж",
   },
   en: {
@@ -111,7 +113,9 @@ export const U = {
     m_col_data: "Data", m_col_res: "Resolution", m_col_role: "Role",
     footer: "Data: Google Earth Engine, NASA GIBS. Not an official warning: follow NAMEM and NEMA for decisions.",
     flood_app: "Detailed flood mapping (10–30 m)", flood_app_note: "Draw your area and pick dates before and after the flood: Sentinel-1 radar finds newly flooded land, Sentinel-2 checks it, and the water depth is estimated. The Google Earth Engine App opens in a window; a run takes 1–3 minutes.",
-    flood_app_open: "Open the mapping window", flood_app_tab: "Open in a new tab", flood_app_warn: "Results inside a city are probabilistic. Radar flood confirmed by Sentinel-2 is shown apart. If the window is empty, the App has not been published yet.",
+    flood_app_open: "Open the mapping window", flood_app_tab: "Open in a new tab", flood_app_warn: "Results inside a city are probabilistic. Radar flood confirmed by Sentinel-2 is shown apart. The window takes a few seconds to load.",
+    fire_app: "Burned area and burn severity (20 m)", fire_app_note: "Draw your area and pick dates before and after the fire: Sentinel-2 dNBR gives the burned land and its severity, compared with MODIS burned area and FIRMS active fire. The Google Earth Engine App opens in a window.",
+    fire_app_warn: "For spring fires the pre-fire image comes from the previous autumn: spring snow and wet ground make unburned land look burned. The severity classes were set for forests, so steppe fires mostly show as low severity.",
     sources: "Sources",
   },
 };
