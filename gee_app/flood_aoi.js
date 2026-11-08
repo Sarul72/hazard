@@ -87,11 +87,12 @@ function radarPair(region, before, after, orbit) {
   };
 }
 
-/** UN-SPIDER Recommended Practice. The ratio is taken on the dB values, as in the original script. */
+/** UN-SPIDER Recommended Practice. The ratio is taken on the dB values, as in the original script.
+ * The ratio means "darker" only for negative dB; where the smoothed before image is 0 dB or more it is left out. */
 function radarFlood(region, pair, threshold) {
-  var ratio = pair.after.focal_mean(APP.smoothing, 'circle', 'meters')
-    .divide(pair.before.focal_mean(APP.smoothing, 'circle', 'meters'));
-  var water = ratio.gt(threshold).where(PERMANENT, 0);
+  var before = pair.before.focal_mean(APP.smoothing, 'circle', 'meters');
+  var ratio = pair.after.focal_mean(APP.smoothing, 'circle', 'meters').divide(before);
+  var water = ratio.gt(threshold).and(before.lt(0)).where(PERMANENT, 0);
   water = water.updateMask(water);
   water = water.updateMask(water.connectedPixelCount(25).gte(APP.minPixels));
   water = water.updateMask(ee.Terrain.slope(demFor(region)).lt(APP.slopeMax));
