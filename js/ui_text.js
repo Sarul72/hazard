@@ -53,6 +53,9 @@ export const U = {
     m_method: "Арга зүй", m_material: "Материал", m_error: "Алдаа ба шалгалт", m_limits: "Хязгаарлалт", m_refs: "Эх сурвалж", m_planned: "Earth Engine-ийн тооцоо хараахан ажиллаагүй тул доорх нь төлөвлөсөн өгөгдөл юм.",
     m_col_data: "Өгөгдөл", m_col_res: "Нарийвчлал", m_col_role: "Үүрэг",
     footer: "Өгөгдөл: Google Earth Engine, NASA GIBS. Энэ бол албан ёсны сэрэмжлүүлэг биш: шийдвэр гаргахдаа ЦУОШГ, ОБЕГ-ын мэдээг баримтална.",
+    flood_app: "Нарийвчилсан үерийн тооцоо (10–30 м)", flood_app_note: "Өөрийн талбайг зурж, үерийн өмнөх, дараах огноог сонгоход Sentinel-1 радараар шинээр усанд автсан газрыг олж, Sentinel-2-оор шалгаж, усны гүнийг тооцно. Google Earth Engine App тусдаа цонхонд нээгдэнэ, тооцоо 1–3 минут үргэлжилнэ.",
+    flood_app_open: "Тооцооны цонх нээх", flood_app_tab: "Шинэ цонхонд нээх", flood_app_warn: "Хот доторх үр дүн магадлалын тооцоо. Радарын үерээс Sentinel-2-оор батлагдсан хэсгийг тусад нь харуулна. Цонх хоосон бол App хараахан нийтлэгдээгүй байна.",
+    sources: "Эх сурвалж",
   },
   en: {
     title: "Mongolia hazard watch", subtitle: "Satellite · Google Earth Engine",
@@ -107,5 +110,8 @@ export const U = {
     m_method: "Method", m_material: "Materials", m_error: "Error and verification", m_limits: "Limits", m_refs: "Sources", m_planned: "The Earth Engine computation has not run yet, so the data below are planned, not yet in use.",
     m_col_data: "Data", m_col_res: "Resolution", m_col_role: "Role",
     footer: "Data: Google Earth Engine, NASA GIBS. Not an official warning: follow NAMEM and NEMA for decisions.",
+    flood_app: "Detailed flood mapping (10–30 m)", flood_app_note: "Draw your area and pick dates before and after the flood: Sentinel-1 radar finds newly flooded land, Sentinel-2 checks it, and the water depth is estimated. The Google Earth Engine App opens in a window; a run takes 1–3 minutes.",
+    flood_app_open: "Open the mapping window", flood_app_tab: "Open in a new tab", flood_app_warn: "Results inside a city are probabilistic. Radar flood confirmed by Sentinel-2 is shown apart. If the window is empty, the App has not been published yet.",
+    sources: "Sources",
   },
 };

@@ -30,6 +30,9 @@ export const POINTS = [
 /** Mongolia bounding box [south, west, north, east] used for the map and FIRMS queries. */
 export const MONGOLIA_BBOX = [41.5, 87.5, 52.3, 120.0];
 
+/** The Earth Engine App that maps a flood inside a drawn area at 10-30 m (gee_app/flood_aoi.js, published from the Code Editor). */
+export const FLOOD_APP_URL = "https://sigma-513109.projects.earthengine.app/view/flood-aoi";
+
 /** Local clock used for all daily aggregation (Ulaanbaatar, UTC+8). */
 export const TZ = "Asia/Ulaanbaatar";
 export const TZ_OFFSET_HOURS = 8;

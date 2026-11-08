@@ -1,7 +1,8 @@
 /* Mongolia hazard watch: the map screen. No framework, no build step.
  * Risk zones come from data/gee (written by the Earth Engine pipeline). When a date or the whole dataset is missing,
  * the screen says so and shows no colour: this page never fills a gap with a made-up value. */
-import { CLASSES, GIBS, MONGOLIA_BBOX, classesFor } from "./config.js";
+import { CLASSES, FLOOD_APP_URL, GIBS, MONGOLIA_BBOX, classesFor } from "./config.js";
+import { SOURCES } from "./sources.js";
 import { T } from "./i18n.js";
 import { U } from "./ui_text.js";
 import { firstDate, makeLayer, newestImageDate, utcDate, versionAt } from "./gibs.js";
@@ -62,6 +63,8 @@ function renderStatic() {
   $("t-sat-overlay").textContent = t("overlays");
   $("t-mine").textContent = t("mine");
   $("t-footer").textContent = t("footer");
+  renderFloodBox();
+  renderSources();
   $("soum-q").placeholder = t("soum_search");
   $("hint").textContent = t("hint");
   if (state.manifest?.synthetic) { $("test-flag").hidden = false; $("test-flag").textContent = t("synthetic"); }
@@ -84,14 +87,13 @@ function renderLegend() {
 }
 
 /* ---------------------------------------------------------------- borders */
-/* Line styles follow the order of topographic map symbols (USGS): the higher the level, the heavier the line. The first level is
- * short-short-long, the second long-short, with a dark edge under each line so that it reads on satellite imagery, where a plain
- * black map line would be lost. The national border stands apart by colour: a thin solid bright red, which is easier to follow
- * than a pattern, with a pale edge so that it holds on the red of the fire map. */
+/* All borders are red, as the user asked, and keep the order of topographic map symbols: the higher the level, the heavier the
+ * line. The national border is a solid line, the aimag border a thinner solid line, the soum border the thinnest and dashed, so
+ * the two lower levels stay apart where they meet. A pale edge keeps the two upper levels readable on the red of the fire map. */
 const BORDERS = {
   water: { file: "data/water.geojson", weight: 0.5, opacity: 0.9, color: "#9ad4ff", fill: "#2f8fe0", fillOpacity: 0.8 },
-  soum: { file: "data/soum_lines.geojson", weight: 1, opacity: 0.85, dash: [13, 4, 4, 4], edge: 2.2 },
-  aimag: { file: "data/aimag_lines.geojson", weight: 1.7, opacity: 0.95, dash: [6, 4, 6, 4, 20, 4], edge: 3.2 },
+  soum: { file: "data/soum_lines.geojson", weight: 1, opacity: 0.95, color: "#ff2b2b", dash: [6, 3] },
+  aimag: { file: "data/aimag_lines.geojson", weight: 1.35, opacity: 1, color: "#ff1f1f", edge: 2.6, edgeColor: "rgba(255,255,255,.35)" },
   country: { file: "data/mongolia.geojson", weight: 1.8, opacity: 1, color: "#ff1f1f", edge: 3.4, edgeColor: "rgba(255,255,255,.5)" },
 };
 
@@ -102,8 +104,8 @@ async function applyBorders() {
       state.borderData[key] ??= await fetch(def.file).then((r) => (r.ok ? r.json() : null)).catch(() => null);
       if (!state.borderData[key]) continue;
       const line = (style) => window.L.geoJSON(state.borderData[key], { pane: "borderPane", interactive: false, style: { fill: false, lineCap: "butt", lineJoin: "round", ...style } });
-      state.borderLayers[key] ??= def.edge
-        ? window.L.layerGroup([line({ color: def.edgeColor ?? "#10151a", weight: def.edge, opacity: def.edgeColor ? 1 : 0.55 }), line({ color: def.color ?? "#fff", weight: def.weight, opacity: def.opacity, dashArray: def.dash?.join(" ") })])
+      state.borderLayers[key] ??= !def.fill
+        ? window.L.layerGroup([def.edge && line({ color: def.edgeColor ?? "#10151a", weight: def.edge, opacity: def.edgeColor ? 1 : 0.55 }), line({ color: def.color ?? "#fff", weight: def.weight, opacity: def.opacity, dashArray: def.dash?.join(" ") })].filter(Boolean))
         : window.L.geoJSON(state.borderData[key], { pane: "borderPane", interactive: false, style: { color: def.color, weight: def.weight, opacity: def.opacity, fill: true, fillColor: def.fill, fillOpacity: def.fillOpacity } });
     }
     if (state.borders[key]) state.borderLayers[key].addTo(state.map);
@@ -180,12 +182,46 @@ function renderScreen() {
   const dust = state.hazard === "dust"; // the mine tool belongs to dust
   $("mine-box").hidden = !dust;
   if (!dust) $("mine-box").open = false;
+  const flood = state.hazard === "flood"; // the detailed flood app belongs to flood
+  $("flood-box").hidden = !flood;
+  if (!flood) $("flood-box").open = false;
   applyBorders();
   renderBorders();
   $("t-hazards").textContent = t(results ? "hazards" : "pick_hazard");
   renderMenus();
   renderLegend();
   renderRail();
+}
+
+/* -------------------------------------------------- detailed flood app and sources */
+/** The 10-30 m flood mapping runs in a Google Earth Engine App, opened here in a window; the site itself holds no login. */
+function openFloodApp() {
+  const dlg = $("dlg");
+  dlg.classList.add("dlg-app");
+  dlg.replaceChildren(
+    el("button", { class: "dlg-x", type: "button", "aria-label": t("close"), text: "✕", onclick: () => dlg.close() }),
+    el("h2", { text: t("flood_app") }),
+    el("p", { class: "dlg-warn", text: t("flood_app_warn") }),
+    el("iframe", { class: "app-frame", src: FLOOD_APP_URL, title: t("flood_app"), allow: "fullscreen" }),
+    el("p", { class: "lead" }, el("a", { href: FLOOD_APP_URL, target: "_blank", rel: "noopener", text: t("flood_app_tab") })),
+  );
+  dlg.addEventListener("close", () => { dlg.classList.remove("dlg-app"); dlg.replaceChildren(); }, { once: true });
+  dlg.showModal();
+}
+
+function renderFloodBox() {
+  $("t-flood-app").textContent = t("flood_app");
+  $("flood-app").replaceChildren(
+    el("p", { class: "note", text: t("flood_app_note") }),
+    el("div", { class: "btnrow" },
+      el("button", { class: "btn", type: "button", text: t("flood_app_open"), onclick: openFloodApp }),
+      el("a", { class: "btn", href: FLOOD_APP_URL, target: "_blank", rel: "noopener", text: t("flood_app_tab") })),
+  );
+}
+
+function renderSources() {
+  $("t-sources").textContent = t("sources");
+  $("sources").replaceChildren(...SOURCES.map((s) => el("li", {}, el("a", { href: s.url, target: "_blank", rel: "noopener", text: s[state.lang] ?? s.text ?? s.mn }))));
 }
 
 function renderAllText() {
