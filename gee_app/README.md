@@ -6,22 +6,24 @@
 
 ## Нийтлэх алхам (нэг удаа, зөвхөн та хийнэ)
 
-1. https://code.earthengine.google.com/ хаягаар `sigma-513109` төсөлтэй Google бүртгэлээрээ нэвтэрнэ.
+1. https://code.earthengine.google.com/ хаягаар Google бүртгэлээрээ нэвтэрнэ.
 2. Зүүн талын **Scripts** → **NEW** → **File**. Нэрийг `flood_aoi` гэж өгнө.
 3. `flood_aoi.js` файлын бүх агуулгыг хуулж, засварлагч руу буулгаад **Save** дарна.
 4. **Run** дарна. Баруун талд цэс гарч ирнэ. "Жишээ: Сэлэнгэ, 2021 оны 9 сар" → "Тооцоолох" дарж ажиллаж байгааг шалгана. Эхний удаа 1–3 минут болно.
 5. Дээд талын **Apps** → **NEW APP**:
    * **App name:** `flood-aoi` (яг ингэж бичнэ: сайт энэ нэрээр хайна)
-   * **Google Cloud Project:** `sigma-513109`
+   * **Google Cloud Project:** `temp-support-478105` (sigma-513109 энэ цонхонд гарч ирээгүй. Хоёулаа арилжааны бус, үнэгүй)
    * **Source code:** *Current contents of editor*
    * Хандалтыг хязгаарлахгүй (бүх хүн нээж болно)
-6. **PUBLISH** дарна. Хэдэн минутын дараа https://sigma-513109.projects.earthengine.app/view/flood-aoi хаягаар нээгдэнэ.
+6. **PUBLISH** дарна. Хэдэн минутын дараа https://temp-support-478105.projects.earthengine.app/view/flood-aoi хаягаар нээгдэнэ.
+
+2026-11-08-нд Code Editor-ийн `flood_aoi_v2` скриптээс (Repository script path) ингэж нийтэлсэн.
 
 Кодыг дараа нь өөрчилбөл засварлагч дээр шинэ кодоо буулгаад Apps → `flood-aoi` → **PUBLISH** дахин дарна.
 
 ## Зардал
 
-App нь `sigma-513109` төслийн арилжааны бус үнэгүй хязгаараас (Community tier: сард 150 EECU-цаг) хэрэглэнэ. Өдөр бүрийн автомат шинэчлэлт ч үүнийг хэрэглэдэг. Хязгаарт хүрвэл App зогсохгүй, зөвхөн удааширна ([Earth Engine Noncommercial Tiers](https://developers.google.com/earth-engine/guides/noncommercial_tiers)).
+App нь `temp-support-478105` төслийн арилжааны бус үнэгүй хязгаараас (Community tier: сард 150 EECU-цаг) хэрэглэнэ. Өдөр бүрийн автомат шинэчлэлт `sigma-513109`-ийн хязгаарыг хэрэглэдэг тул хоёр нь бие биендээ нөлөөлөхгүй. Хязгаарт хүрвэл App зогсохгүй, зөвхөн удааширна ([Earth Engine Noncommercial Tiers](https://developers.google.com/earth-engine/guides/noncommercial_tiers)).
 
 ## Арга
 
