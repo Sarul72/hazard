@@ -89,12 +89,17 @@ function radarPair(region, before, after, orbit) {
 
 /** UN-SPIDER Recommended Practice. The ratio is taken on the dB values, as in the original script.
  * The ratio means "darker" only for negative dB; where the smoothed before image is 0 dB or more it is left out. */
-function radarFlood(region, pair, threshold) {
+function radarFlood(region, pair, threshold, scale) {
   var before = pair.before.focal_mean(APP.smoothing, 'circle', 'meters');
   var ratio = pair.after.focal_mean(APP.smoothing, 'circle', 'meters').divide(before);
   var water = ratio.gt(threshold).and(before.lt(0)).where(PERMANENT, 0);
   water = water.updateMask(water);
-  water = water.updateMask(water.connectedPixelCount(25).gte(APP.minPixels));
+  // connectedPixelCount runs at the scale of the request, so the count is set for that scale: the smallest patch
+  // stays 8 pixels of 10 m (800 m2) at 10 m, 2 pixels (800 m2) at 20 m and 1 pixel (900 m2) at 30 m. A reproject
+  // to 10 m would hold it exactly but makes large areas and zoomed-out map tiles fail. The map layer still follows
+  // the zoom of the screen; the numbers and downloads use this scale.
+  var minCount = Math.max(1, Math.ceil(APP.minPixels * 100 / (scale * scale)));
+  water = water.updateMask(water.connectedPixelCount(25).gte(minCount));
   water = water.updateMask(ee.Terrain.slope(demFor(region)).lt(APP.slopeMax));
   return water.rename('flood');
 }
@@ -314,7 +319,7 @@ runButton.onClick(function () {
 function compute(region, dates, orbit, scale, km2, depthOn, notes) {
   status.setValue('Тооцоолж байна… (үерийн талбай)');
   var pair = radarPair(region, dates.before, dates.after, orbit);
-  var flood = radarFlood(region, pair, threshold.getValue());
+  var flood = radarFlood(region, pair, threshold.getValue(), scale);
   var floodRural = flood.updateMask(BUILT.not());
   var floodCity = flood.updateMask(BUILT);
   var candidates = opticalCandidates(region, pair.afterDate);
