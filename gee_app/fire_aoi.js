@@ -67,12 +67,20 @@ function classify(dnbr) {
   return out.rename('severity').updateMask(dnbr.mask()).toByte();
 }
 
-/** MODIS MCD64A1: land with a burn date in any month from start to end. */
+/** MODIS MCD64A1: land with a burn date from start (counted) to end (not counted).
+ * BurnDate is the day of the year of the image's own month, so start and end are turned into days of that year
+ * image by image: for a December image a January end becomes day 366 or more, for a January image a December start
+ * becomes 0 or less, and a period across the new year is counted right. */
 function modisBurned(region, start, end) {
-  var first = ee.Date.fromYMD(ee.Date(start).get('year'), ee.Date(start).get('month'), 1);
+  var s = ee.Date(start), e = ee.Date(end);
+  var first = ee.Date.fromYMD(s.get('year'), s.get('month'), 1);
   var none = ee.ImageCollection([ee.Image.constant(0).rename('BurnDate').toInt16().updateMask(0)]);  // months not out yet
-  return ee.ImageCollection('MODIS/061/MCD64A1').filterDate(first, end).select('BurnDate').merge(none)
-    .max().gt(0).unmask(0).clip(region).rename('modis');
+  var burns = ee.ImageCollection('MODIS/061/MCD64A1').filterDate(first, e).select('BurnDate').map(function (img) {
+    var jan1 = ee.Date.fromYMD(img.date().get('year'), 1, 1);
+    var from = s.difference(jan1, 'day').add(1), to = e.difference(jan1, 'day').add(1);
+    return img.updateMask(img.gte(from).and(img.lt(to)));
+  });
+  return burns.merge(none).max().gt(0).unmask(0).clip(region).rename('modis');
 }
 
 function firms(region, start, end) {
