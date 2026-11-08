@@ -97,6 +97,8 @@ function normalDate(text) {
   if (!m) return null;
   var mo = Number(m[2]), d = Number(m[3]);
   if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+  var dt = new Date(Date.UTC(+m[1], mo - 1, d));  // 2021-02-31 is not a day: Date moves it to March
+  if (dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return null;
   return m[1] + '-' + (mo < 10 ? '0' : '') + mo + '-' + (d < 10 ? '0' : '') + d;
 }
 function fmt(x, d) { return x === null || x === undefined ? '—' : Number(x).toFixed(d); }
