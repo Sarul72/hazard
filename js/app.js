@@ -19,6 +19,7 @@ import { createStatsPanel } from "./statspanel.js";
 import { openMethods } from "./methods.js";
 import { createSoumLayer, loadSoums } from "./soums.js";
 import { el } from "./dom.js";
+import { initFloodBox } from "./aoi/floodbox.js";
 
 const $ = (id) => document.getElementById(id);
 const store = {
@@ -63,7 +64,8 @@ function renderStatic() {
   $("t-sat-overlay").textContent = t("overlays");
   $("t-mine").textContent = t("mine");
   $("t-footer").textContent = t("footer");
-  renderAppBox("flood");
+  $("t-flood-app").textContent = t("flood_app"); // flood is computed on this page (js/aoi), not in a GEE window
+  state.floodBox?.render();
   renderAppBox("fire");
   renderAppBox("dust");
   renderSources();
@@ -187,6 +189,7 @@ function renderScreen() {
   const flood = state.hazard === "flood"; // the detailed flood app belongs to flood
   $("flood-box").hidden = !flood;
   if (!flood) $("flood-box").open = false;
+  state.floodBox?.show(flood);
   const fire = state.hazard === "fire"; // and the burned area app to wildfire
   $("fire-box").hidden = !fire;
   if (!fire) $("fire-box").open = false;
@@ -445,6 +448,7 @@ function pickSoum(f, fly) {
   state.rect.clear();
   const b = state.soumLayer.bounds(f);
   state.sel = { kind: t("mode_soums"), label: soumLabel(f), cells: f.cells, soum: f.id, geom: f.geometry, box: { s: b.getSouth(), n: b.getNorth(), w: b.getWest(), e: b.getEast() } };
+  setAoi(state.sel.box);
   state.soumLayer.pick(f.id);
   if (fly) state.map.fitBounds(state.soumLayer.bounds(f), { maxZoom: 9, paddingBottomRight: [420, 100] });
   renderSoumList();
@@ -484,8 +488,12 @@ function renderSelection() {
   state.downloads?.refresh();
 }
 
+/** The area of the detailed checks: the last box drawn or soum picked. */
+function setAoi(box) { state.aoi = box; state.floodBox?.refresh(); }
+
 function onBox(box) {
   state.soumLayer?.pick(null);
+  setAoi(box);
   if (!state.manifest) return;
   state.sel = { kind: t("box_label"), label: `${box.s.toFixed(2)}–${box.n.toFixed(2)}°N · ${box.w.toFixed(2)}–${box.e.toFixed(2)}°E`, cells: boxCells(state.manifest.grid, box), box };
   loadSelection();
@@ -495,6 +503,7 @@ function closeSelection() {
   state.sel = null;
   state.selToken++;
   state.rect.clear();
+  setAoi(null);
   state.soumLayer?.pick(null);
   state.panel.close();
   renderSoumList();
@@ -574,6 +583,9 @@ async function boot() {
   renderStatic();
   initMap();
   state.rect = initRectDraw(state.map, { onDone: onBox, isBlocked: () => $("dlg").open });
+  state.floodBox = initFloodBox({ box: $("flood-app"), map: state.map, t, getBox: () => state.aoi ?? null, geeUrl: FLOOD_APP_URL,
+    selectBox: (b) => { state.rect.set(b); state.map.fitBounds([[b.s, b.w], [b.n, b.e]], { paddingTopLeft: [window.innerWidth > 1000 ? 360 : 10, 10], paddingBottomRight: [window.innerWidth > 720 ? 420 : 10, 110] }); } });
+  state.floodBox.render();
   state.panel = createStatsPanel($("stats"), { t, classes: classesNow, classLabel, onClose: closeSelection, onMethods: showMethods, onCsv: () => state.downloads.seriesCsv(), onPlume: showPlume });
   state.tools = initTools({ map: state.map, getLang: () => state.lang, requestSat, containers: { poly: el("div"), mine: $("view-mine") }, onMethods: showMethods, busy,
     onWater: (on) => { if (state.borders.water !== on) { state.borders.water = on; applyBorders(); renderBorders(); } },

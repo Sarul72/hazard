@@ -17,6 +17,7 @@ export const SOURCES = [
   { text: "Giglio, L., et al. (2018). The Collection 6 MODIS burned area mapping algorithm and product (MCD64A1). Remote Sensing of Environment 217, 72–85.", url: "https://doi.org/10.1016/j.rse.2018.08.005" },
   { text: "Ackerman, S.A. (1997). Remote sensing aerosols using satellite infrared observations. Journal of Geophysical Research 102, 17069–17079 (split-window dust test).", url: "https://doi.org/10.1029/96JD03066" },
   { text: "Vermote, E. (2021). MODIS/Aqua Surface Reflectance Daily L3 Global 0.05Deg CMG (MYD09CMG v061), NASA LP DAAC.", url: "https://doi.org/10.5067/MODIS/MYD09CMG.061" },
+  { text: "Microsoft Planetary Computer: Sentinel-1 RTC, Sentinel-2 L2A, JRC Global Surface Water, ESA WorldCover, Copernicus DEM GLO-30 (open data, read through its STAC and data API).", url: "https://planetarycomputer.microsoft.com/" },
   { text: "UN-SPIDER Recommended Practice: Flood mapping and damage assessment using Sentinel-1 SAR data in Google Earth Engine.", url: "https://www.un-spider.org/advisory-support/recommended-practices/recommended-practice-google-earth-engine-flood-mapping" },
   { text: "Peter, B.G., Cohen, S., et al. (2020). Google Earth Engine implementation of the Floodwater Depth Estimation Tool (FwDET-GEE). IEEE GRSL; Cohen, S., et al. (2022). Remote Sensing 14, 5313.", url: "https://doi.org/10.1109/LGRS.2020.3031190" },
   {

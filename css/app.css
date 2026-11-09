@@ -178,6 +178,22 @@ button { cursor: pointer; }
 .app-frame { flex: 1; width: 100%; min-height: 60vh; border: 0; border-radius: 8px; background: #fff; }
 .src-list { margin: 6px 0 0; padding-left: 18px; font-size: 11px; color: var(--ink2); }
 .src-list li { margin: 3px 0; }
+/* detailed flood check computed on the page (js/aoi) */
+.aoi-area { margin: 6px 0; font-weight: 600; font-size: 12px; }
+.aoi-dates { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 4px; align-items: center; margin: 4px 0; font-size: 12px; }
+.aoi-dates span { grid-column: 1 / -1; color: var(--ink2); }
+.aoi-dates .field { padding: 4px 5px; font-size: 12px; color-scheme: dark; min-width: 0; }
+.aoi-th { display: grid; gap: 2px; margin-top: 8px; font-size: 12px; }
+.aoi-th input { width: 100%; accent-color: var(--accent); }
+.aoi-run { width: 100%; margin: 6px 0; padding: 7px 9px; font-weight: 600; background: var(--accent); border-color: var(--accent); }
+.aoi-run[disabled] { opacity: .55; cursor: progress; }
+.aoi-status { margin: 4px 0; font-size: 12px; color: #9fd3a6; }
+.aoi-status.err { color: var(--warn); }
+.aoi-lines { margin: 6px 0; padding-left: 16px; font-size: 12px; }
+.aoi-lines li { margin: 2px 0; }
+.aoi-legend .check i { flex: none; width: 12px; height: 12px; margin-top: 2px; border-radius: 2px; }
+.tool .note.small { font-size: 10.5px; color: var(--muted); }
+.aoi-img { image-rendering: pixelated; }
 .src-list a { color: #8fbdf2; text-decoration: none; }
 .src-list a:hover { text-decoration: underline; }
 

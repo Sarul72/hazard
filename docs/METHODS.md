@@ -148,6 +148,19 @@ The national grid stays at 0.1°. Mapping at 10–30 m runs only for an area the
 
 Over thresholds from 1.10 to 1.50 the agreement (F1) peaked at 1.25–1.30 for the Selenge (0.39) and at 1.20 for the Kherlen (0.41, 0.36 at 1.25), so the UN-SPIDER default was kept and the App lets the user change it. FwDET depths on the Selenge flood: median 0.12 m, 90th percentile 0.40 m, 99th 0.79 m, plausible for water 5–65 cm above the danger level but not checked against any measurement.
 
+**Computed on the page (added 2026-11-09).** The flood menu now runs the same steps in the browser for the box the user drew or the soum picked (`js/aoi/`), with no Earth Engine and no login; the GEE App stays as a link for water depth. The scenes come from the Microsoft Planetary Computer (free, no account): STAC search finds them, and its data API cuts each one onto the result grid (EPSG:4326, square pixels at the box centre) and sends it as an 8-bit PNG, elevation as 32-bit numbers. Reading the 32-bit radar files directly took over four minutes on the user's line; this takes about 16 s for 355 km² at 10 m and 36 s for 1,900 km² at 20 m. Differences from the App, all from the archives: Sentinel-1 is radiometrically terrain-corrected gamma0 (RTC) instead of sigma0; radar dB arrive in steps of 0.2 dB (−40 to +10 dB); JRC Global Surface Water is version 1.3; the slope is taken on the DEM at 30 m; the clearest Sentinel-2 pass is judged over the whole box instead of the part each image covers; no water depth.
+
+RTC dB were about 2 dB higher than sigma0 over the Selenge box (before −18.3 against −20.3 dB, after −19.7 against −22.1 dB) and changed less, so the ratio rule found less water at 1.25. Thresholds from 1.05 to 1.30 were tried on the three floods against the clearest Sentinel-2 pass (F1 in the clear part, built-up and permanent water left out):
+
+| Threshold | Selenge: radar km² / F1 | Kherlen: radar km² / F1 | Orkhon: radar km² / F1 |
+|---|---|---|---|
+| 1.15 | 42.8 / 0.32 | 2.90 / 0.43 | 4.71 / 0.21 |
+| **1.20** | **26.2 / 0.38** | **1.37 / 0.35** | **1.98 / 0.21** |
+| 1.25 | 19.1 / 0.38 | 0.74 / 0.25 | 0.95 / 0.14 |
+| GEE App at 1.25 | 24.5 / 0.39 | 1.4 / 0.36 | 2.6 / – |
+
+The page uses 1.20: its radar areas are closest to the App's and its agreement with Sentinel-2 is as good. On the Selenge example the page gives 25.97 km² of radar flood outside towns (App 24.54), 0.08 km² in towns (0.06), 17.23 km² of new water on Sentinel-2 (16.85), 31 % of radar flood confirmed (33 %) and 47 % of the optical water found (47 %), in 16 s. Larger boxes are computed at 20 m (up to 2,000 km²) and 30 m (up to 5,000 km²), with the smallest kept group set to about 800 m² at each scale.
+
 A negative test matters as much: after rain on 2018-09-01 near Ulaanbaatar the radar marked 132 km² as new water, of which 94 % was grassland, while a cloud-free Sentinel-2 image two days later showed 2.3 km² of new water and almost no overlap. Haymaking and drying grass lower the radar return the way water does. A darkness rule did not help (those areas were darker than open water). This is why radar flood is shown as confirmed only where Sentinel-2 sees water.
 
 ### Burned area and burn severity in a drawn area (added 2026-11)
