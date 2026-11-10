@@ -42,6 +42,7 @@ jobs:
         run: |
           mkdir _site
           cp -r index.html css js vendor data docs _site/
+          cp sitemap.xml google692f6804d2dc0f57.html _site/
           touch _site/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

@@ -5,11 +5,28 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0b0f13">
 <title>Монгол орны гамшгийн эрсдэлийн хяналт · Mongolia hazard watch</title>
-<meta name="description" content="Mongolia flood, wildfire and dust-storm risk zones from satellite data on Google Earth Engine.">
+<meta name="description" content="Монгол орны үер, ой хээрийн түймэр, шороон шуурганы эрсдэлийг хиймэл дагуулын бодит өгөгдлөөр харуулах газрын зураг. Өөрийн сонгосон талбайн эрсдэлийг нарийвчлан тооцож, ГМС-ийн форматаар татна. Mongolia flood, wildfire and dust storm risk map from satellite data: pick an area to compute its risk in detail and download the result for GIS.">
+<meta name="keywords" content="Монгол, үер, түймэр, ой хээрийн түймэр, шороон шуурга, гамшиг, эрсдэл, хиймэл дагуул, газрын зураг, ГМС, Mongolia, flood, wildfire, dust storm, hazard, risk, satellite, GIS">
+<meta name="google-site-verification" content="m0HaPkGrRl5xU5IEwifvn5NtgmgwDu80F_r1VsAepa0">
+<link rel="canonical" href="https://sigma0sanaa.github.io/hazard/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://sigma0sanaa.github.io/hazard/">
+<meta property="og:title" content="Монгол орны гамшгийн эрсдэлийн хяналт · Mongolia hazard watch">
+<meta property="og:description" content="Монгол орны үер, ой хээрийн түймэр, шороон шуурганы эрсдэлийг хиймэл дагуулын бодит өгөгдлөөр харуулах газрын зураг. Өөрийн сонгосон талбайн эрсдэлийг нарийвчлан тооцож, ГМС-ийн форматаар татна.">
+<meta property="og:locale" content="mn_MN">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary">
 <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
 <link rel="stylesheet" href="css/app.css">
 </head>
 <body class="bare">
+<!-- what the site is, in words: read by screen readers and search engines before the map loads; not shown on screen -->
+<section class="sr-only" aria-label="Сайтын тухай">
+  <h1>Монгол орны гамшгийн эрсдэлийн хяналт</h1>
+  <p>Энэ сайт Монгол орны үер, ой хээрийн түймэр, шороон шуурганы эрсдэлийг хиймэл дагуулын бодит өгөгдлөөр (Google Earth Engine, Sentinel-1, Sentinel-2, MODIS, NASA GIBS) газрын зураг дээр харуулна. Өдөр сонгож, бүс болон сумаар эрсдэлийн түвшин, боломжит алдааг харна.</p>
+  <p>Газрын зураг дээр өөрийн талбайг зурж сонгоход тухайн талбайн үер (Sentinel-1 радар), түймрийн шатсан талбай (Sentinel-2 dNBR) болон шороон шуурга босох нөхцөлийг хөтөч дээр шууд нарийвчлан тооцоолно. Үр дүнг GeoTIFF, Shapefile, GeoJSON, KML, KMZ форматаар ArcGIS, QGIS, Google Earth-д татаж авна.</p>
+  <p>Mongolia hazard watch: flood, wildfire and dust storm risk for Mongolia from open satellite data. Draw an area on the map to compute its flood, burned area and dust conditions in detail, and download the result as GeoTIFF, Shapefile, GeoJSON, KML or KMZ.</p>
+</section>
 <div id="map" role="application" aria-label="Газрын зураг"></div>
 
 <nav id="hazbar" class="hazbar glass" aria-labelledby="t-hazards">

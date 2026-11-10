@@ -43,6 +43,8 @@ button { cursor: pointer; }
 .hz-sep { flex: none; width: 1px; height: 22px; margin: 0 4px; background: var(--line); }
 
 /* left menu */
+/* text for screen readers and search engines only */
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .side { position: fixed; z-index: 1000; left: 14px; top: 14px; width: 244px; max-height: calc(100vh - 28px); overflow: auto; border-radius: 16px; padding: 12px; background: var(--glass-strong); scrollbar-width: thin; }
 .side.collapsed { display: none; }
 .side-top { display: flex; align-items: flex-start; gap: 6px; }
