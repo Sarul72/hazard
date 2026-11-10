@@ -5,7 +5,6 @@ import { DUST, LAND, computeDust, scaleFor } from "./dust.js";
 import { boxAreaKm2 } from "./raster.js";
 import { U } from "../ui_text.js";
 
-const EXAMPLE = { box: { s: 43.0, n: 44.0, w: 104.0, e: 105.0 }, day: "2023-04-10" };
 const COLORS = { bare: [214, 140, 52], sparse: [236, 214, 140], veg: [70, 150, 80], snow: [232, 244, 255], water: [40, 110, 210], cloud: [120, 120, 120] };
 const LAYERS = ["bare", "sparse", "veg", "snow", "water", "cloud"];
 
@@ -16,7 +15,7 @@ const hm = (s) => (s ? s.replace("T", " ") : "—");
 
 /** The day is the site's one day (the day picker): changing it here moves the whole screen, so the area window and this
  * check never speak of different days. */
-export function initDustBox({ box, map, t, getBox, getDay, setDay, selectBox, geeUrl, onResult = () => {} }) {
+export function initDustBox({ box, map, t, getBox, getDay, setDay, geeUrl, onResult = () => {} }) {
   const pane = map.getPane("aoiPane") ?? map.createPane("aoiPane");
   pane.style.zIndex = 415;
   pane.style.pointerEvents = "none";
@@ -124,7 +123,6 @@ export function initDustBox({ box, map, t, getBox, getDay, setDay, selectBox, ge
     box.replaceChildren(...[
       el("p", { class: "note", text: t("da_note") }),
       el("p", { class: "aoi-area", text: areaLine() }),
-      el("div", { class: "btnrow" }, el("button", { class: "btn", type: "button", text: t("da_example"), onclick: async () => { await setDay(EXAMPLE.day); selectBox(EXAMPLE.box); render(); } })),
       el("div", { class: "aoi-dates one" }, el("span", { text: t("da_day") }),
         el("input", { class: "field", type: "date", value: day, min: "2016-01-01", max: new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10), onchange: (e) => { if (e.target.value) setDay(e.target.value); } })),
       el("button", { class: "btn aoi-run", type: "button", text: t("fa_run"), disabled: st.running, onclick: run }),

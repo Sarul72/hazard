@@ -7,7 +7,6 @@ import { geoTiff } from "../formats.js";
 import { save } from "../export.js";
 import { U } from "../ui_text.js";
 
-const EXAMPLE = { box: { s: 48.95, n: 49.10, w: 115.60, e: 115.90 }, before: ["2019-04-01", "2019-04-27"], after: ["2019-05-02", "2019-05-30"] };
 const MODIS = [0, 80, 255], FIRE_PX = [255, 0, 0];
 
 const fill = (s, v) => s.replace(/\{(\w+)\}/g, (_, k) => v[k] ?? "");
@@ -16,7 +15,7 @@ const pct = (a, b) => (b > 0 ? Math.round(100 * a / b) + "%" : "—");
 const iso = (d) => d.toISOString().slice(0, 10);
 const ago = (n) => iso(new Date(Date.now() - n * 86400000));
 
-export function initFireBox({ box, map, t, getBox, selectBox, geeUrl, onResult = () => {} }) {
+export function initFireBox({ box, map, t, getBox, geeUrl, onResult = () => {} }) {
   const pane = map.getPane("aoiPane") ?? map.createPane("aoiPane");
   pane.style.zIndex = 415;
   pane.style.pointerEvents = "none";
@@ -137,11 +136,6 @@ export function initFireBox({ box, map, t, getBox, selectBox, geeUrl, onResult =
     box.replaceChildren(...[
       el("p", { class: "note", text: t("fire_app_note") }),
       el("p", { class: "aoi-area", text: areaLine() }),
-      el("div", { class: "btnrow" }, el("button", { class: "btn", type: "button", text: t("fi_example"), onclick: () => {
-        st.before = [...EXAMPLE.before]; st.after = [...EXAMPLE.after]; st.autumn = true;
-        selectBox(EXAMPLE.box);
-        render();
-      } })),
       dateRow(t("fi_before"), st.before),
       dateRow(t("fi_after"), st.after),
       el("label", { class: "check" }, el("input", { type: "checkbox", checked: st.autumn, onchange: (e) => { st.autumn = e.target.checked; } }), el("span", { text: t("fi_autumn") })),

@@ -248,6 +248,9 @@ button { cursor: pointer; }
 .st-check { display: flex; gap: 6px; align-items: center; margin-top: 6px; font-size: 12px; }
 .dl-menu { position: fixed; z-index: 1100; right: 66px; top: 14px; width: 318px; max-height: calc(100vh - 28px); overflow: auto; border-radius: 12px; padding: 8px 10px; background: var(--glass-strong); scrollbar-width: thin; }
 .stats-open .dl-menu { right: calc(var(--panel-w) + 78px); }
+/* the menu of the top-right button opens beside it, like the download menu */
+.menu-panel { position: fixed; z-index: 1100; right: 66px; top: 14px; width: 260px; max-height: calc(100vh - 28px); overflow: auto; border-radius: 16px; padding: 12px; background: var(--glass-strong); scrollbar-width: thin; }
+.stats-open .menu-panel { right: calc(var(--panel-w) + 78px); }
 .dl-scope { margin: 2px 0 2px; font-size: 11.5px; font-weight: 600; color: var(--ink); }
 .dl-note { margin: 0 0 7px; font-size: 11px; color: var(--ink2); }
 .dl-row { display: grid; gap: 5px; padding: 7px 0; border-top: 1px solid var(--line); }
@@ -322,7 +325,7 @@ table.kv tr.clk:hover { background: rgba(255, 255, 255, .08); }
   .stats-open .bottom { right: 0; bottom: calc(52vh + 8px); }
   .hz-cap { display: none; }
   .hazbar { padding-left: 6px; }
-  .dl-menu { left: 14px; width: auto; }
+  .dl-menu, .menu-panel { left: 14px; width: auto; }
   .spin-val { font-size: 14px; }
   .round { width: 30px; height: 30px; }
   .coords { display: none; }

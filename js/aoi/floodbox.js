@@ -7,7 +7,6 @@ import { geoTiff } from "../formats.js";
 import { save } from "../export.js";
 import { U } from "../ui_text.js";
 
-const EXAMPLE = { box: { s: 50.12, n: 50.28, w: 106.05, e: 106.33 }, before: ["2021-08-15", "2021-08-25"], after: ["2021-09-10", "2021-09-16"] };
 const COLORS = { confirmed: [0, 166, 81], rural: [0, 229, 255], city: [255, 153, 0], permanent: [31, 59, 138], s2: [255, 235, 59] };
 const LAYERS = ["confirmed", "rural", "city", "permanent", "s2"];
 
@@ -18,7 +17,7 @@ const km = (x) => (x === null || x === undefined ? "—" : x.toFixed(2));
 const pct = (a, b) => (b > 0 ? Math.round(100 * a / b) + "%" : "—");
 const utc = (ms) => new Date(ms).toISOString().slice(0, 16).replace("T", " ");
 
-export function initFloodBox({ box, map, t, getBox, selectBox, geeUrl, onResult = () => {} }) {
+export function initFloodBox({ box, map, t, getBox, geeUrl, onResult = () => {} }) {
   const pane = map.createPane("aoiPane");
   pane.style.zIndex = 415;
   pane.style.pointerEvents = "none";
@@ -141,11 +140,6 @@ export function initFloodBox({ box, map, t, getBox, selectBox, geeUrl, onResult 
     box.replaceChildren(...[
       el("p", { class: "note", text: t("flood_app_note") }),
       el("p", { class: "aoi-area", text: areaLine() }),
-      el("div", { class: "btnrow" }, el("button", { class: "btn", type: "button", text: t("fa_example"), onclick: () => {
-        st.before = [...EXAMPLE.before]; st.after = [...EXAMPLE.after];
-        selectBox(EXAMPLE.box);
-        render();
-      } })),
       dateRow(t("fa_before"), st.before),
       dateRow(t("fa_after"), st.after),
       el("label", { class: "aoi-th" }, el("span", { text: `${t("fa_threshold")}: ${st.threshold.toFixed(2)}` }),

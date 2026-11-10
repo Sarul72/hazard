@@ -158,6 +158,7 @@ const ICON = {
   download: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   home: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
   menu: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+  settings: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="15" cy="7" r="2.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="17" r="2.2" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
   back: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5m0 0 6-6m-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   fold: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
 };
@@ -169,7 +170,8 @@ const HAZARD_ICON = {
   fire: outline('<path d="M12.4 2.8c.5 3.4 5.4 6 5.4 11.4a5.8 5.8 0 0 1-11.6 0c0-2.3 1-3.9 2.3-5.1.1 1.6.8 2.7 1.9 3 .1-3.5.5-6.5 2-9.3z"/><path d="M12 20c-1.6 0-2.8-1.2-2.8-2.8 0-1.5 1.5-2.4 2.5-3.9.9 1.5 3.1 2.4 3.1 3.9 0 1.6-1.2 2.8-2.8 2.8z"/>'),
   dust: outline('<path d="M12.3 12.2c-.9-.9.5-2.1 1.8-1.4 1.8 1 1.4 3.6-.5 4.2-2.7.9-5-1.7-4.2-4.3 1-3.1 5-4 7.6-2.2 3.3 2.3 3 7.4-.3 9.5-3.9 2.4-9.3.7-11-3.4"/><path d="M3.2 8.6c.8-1.7 2-3 3.6-3.9"/>'),
   crop: outline('<path d="M12 21V8"/><path d="M12 8c0-2.4 1.4-4 3-4.6 0 2.4-1.4 4-3 4.6zM12 8c0-2.4-1.4-4-3-4.6 0 2.4 1.4 4 3 4.6z"/><path d="M12 13c0-2.2 1.4-3.6 3-4.2 0 2.2-1.4 3.6-3 4.2zM12 13c0-2.2-1.4-3.6-3-4.2 0 2.2 1.4 3.6 3 4.2z"/><path d="M12 18c0-2.2 1.4-3.6 3-4.2 0 2.2-1.4 3.6-3 4.2zM12 18c0-2.2-1.4-3.6-3-4.2 0 2.2 1.4 3.6 3 4.2z"/>'),
-  pasture: outline('<path d="M3 20h18"/><path d="M6 20c0-4 1-7 3-9M9 20c0-3-.6-6-2-8M12 20c0-5 1-9 3-11M15 20c0-3 .8-5 2.4-6.6M18 20c0-2-.4-4-1.6-5.4"/>'),
+  // a cow's head from the front: horns, ears, face, muzzle with nostrils
+  pasture: outline('<path d="M8.6 7.6C7 7.2 6.2 5.8 6.4 4.2M15.4 7.6c1.6-.4 2.4-1.8 2.2-3.4"/><path d="M8.3 9.6 4.4 9c.4 1.7 1.9 2.7 3.9 2.6M15.7 9.6l3.9-.6c-.4 1.7-1.9 2.7-3.9 2.6"/><path d="M9.6 7.2h4.8c1.1 0 1.9.9 1.8 2l-.5 5.6H8.3l-.5-5.6c-.1-1.1.7-2 1.8-2z"/><rect x="7.1" y="14.8" width="9.8" height="5.2" rx="2.6"/><circle cx="10.4" cy="11.4" r=".35" fill="currentColor"/><circle cx="13.6" cy="11.4" r=".35" fill="currentColor"/><circle cx="10.2" cy="17.4" r=".55"/><circle cx="13.8" cy="17.4" r=".55"/>'),
   dzud: outline('<path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9"/><path d="M9.6 4.6 12 6.4l2.4-1.8M9.6 19.4 12 17.6l2.4 1.8M3.9 10.2l2.8.9-.6 2.9M20.1 10.2l-2.8.9.6 2.9"/>'),
 };
 const SOON = ["crop", "pasture", "dzud"];
@@ -185,12 +187,25 @@ function showSoon(h) {
 }
 function hideSoon() { clearTimeout(soonTimer); $("soon").classList.remove("on"); }
 
-/** The left menu folds away whole and comes back from the menu button on the right. */
+/** The left panel holds the settings of the computation of the chosen hazard: it shows only once a hazard is chosen, folds
+ * away whole and comes back from the settings button on the right or by picking the hazard again. */
 function setSide(open) {
   state.sideOpen = open;
-  $("side").classList.toggle("collapsed", !open);
-  document.body.classList.toggle("side-collapsed", !open);
   store.set("hw.side", open ? "1" : "0");
+  showSide();
+  renderRail();
+}
+function showSide() {
+  const shown = state.sideOpen && Boolean(state.hazard);
+  $("side").classList.toggle("collapsed", !shown);
+  document.body.classList.toggle("side-collapsed", !shown);
+}
+
+/** The menu of the button at the top right (borders, satellite image, sources) opens on the right, beside the button. */
+function setMenu(open) {
+  state.menuOpen = open;
+  $("menu").hidden = !open;
+  if (open) $("dl-menu").hidden = true;
   renderRail();
 }
 
@@ -203,10 +218,11 @@ function renderRail() {
   const draw = state.rect.mode === "draw", results = Boolean(state.hazard);
   $("back").hidden = !results;
   $("rail").replaceChildren(...[
-    button(ICON.menu, t(state.sideOpen ? "side_close" : "rail_menu"), () => setSide(!state.sideOpen), state.sideOpen ? "on" : ""),
+    button(ICON.menu, t(state.menuOpen ? "menu_close" : "rail_menu"), () => setMenu(!state.menuOpen), state.menuOpen ? "on" : ""),
+    results && !state.sideOpen && button(ICON.settings, t("rail_settings"), () => setSide(true)),
     results && button(draw ? ICON.draw : ICON.move, t(draw ? "rail_draw" : "rail_move"), () => { state.rect.toggle(); renderRail(); }, draw ? "on" : ""),
     results && button("i", t("rail_method"), () => showMethods(state.hazard)),
-    button(ICON.download, t("rail_download"), () => state.downloads.toggle()),
+    button(ICON.download, t("rail_download"), () => { if (state.menuOpen) setMenu(false); state.downloads.toggle(); }),
     button(ICON.home, t("rail_home"), fitMongolia),
     button(t("lang"), t("lang"), () => { state.lang = state.lang === "mn" ? "en" : "mn"; store.set("hw.lang", state.lang); renderAllText(); }),
   ].filter(Boolean));
@@ -231,6 +247,7 @@ function renderScreen() {
   $("dust-box").hidden = !dust; // the dust check sits beside the mine tool
   if (!dust) $("dust-box").open = false;
   state.dustBox?.show(dust);
+  showSide();
   applyBorders();
   renderBorders();
   $("t-hazards").textContent = t(results ? "hazards" : "pick_hazard");
@@ -603,21 +620,18 @@ async function boot() {
   initSatState();
   // the menu opens on wide screens unless the user folded it away last time; on narrow screens it waits for the button
   state.sideOpen = window.innerWidth > 1000 && store.get("hw.side") !== "0";
-  $("side").classList.toggle("collapsed", !state.sideOpen);
-  document.body.classList.toggle("side-collapsed", !state.sideOpen);
+  state.menuOpen = false;
+  showSide();
   renderStatic();
   initMap();
   state.rect = initRectDraw(state.map, { onDone: onBox, isBlocked: () => $("dlg").open });
   const resultReady = () => state.downloads?.refresh();
-  state.floodBox = initFloodBox({ box: $("flood-app"), map: state.map, t, getBox: () => state.aoi ?? null, geeUrl: FLOOD_APP_URL, onResult: resultReady,
-    selectBox: (b) => { state.rect.set(b); state.map.fitBounds([[b.s, b.w], [b.n, b.e]], { paddingTopLeft: [window.innerWidth > 1000 ? 360 : 10, 70], paddingBottomRight: [window.innerWidth > 720 ? 420 : 10, 110] }); } });
+  state.floodBox = initFloodBox({ box: $("flood-app"), map: state.map, t, getBox: () => state.aoi ?? null, geeUrl: FLOOD_APP_URL, onResult: resultReady });
   state.floodBox.render();
-  state.fireBox = initFireBox({ box: $("fire-app"), map: state.map, t, getBox: () => state.aoi ?? null, geeUrl: FIRE_APP_URL, onResult: resultReady,
-    selectBox: (b) => { state.rect.set(b); state.map.fitBounds([[b.s, b.w], [b.n, b.e]], { paddingTopLeft: [window.innerWidth > 1000 ? 360 : 10, 70], paddingBottomRight: [window.innerWidth > 720 ? 420 : 10, 110] }); } });
+  state.fireBox = initFireBox({ box: $("fire-app"), map: state.map, t, getBox: () => state.aoi ?? null, geeUrl: FIRE_APP_URL, onResult: resultReady });
   state.fireBox.render();
   state.dustBox = initDustBox({ box: $("dust-app"), map: state.map, t, getBox: () => state.aoi ?? null, getDay: () => state.date, geeUrl: DUST_APP_URL, onResult: resultReady,
-    setDay: async (d) => { state.dateBar.setValue(d); await setDate(state.dateBar.value); },
-    selectBox: (b) => { state.rect.set(b); state.map.fitBounds([[b.s, b.w], [b.n, b.e]], { paddingTopLeft: [window.innerWidth > 1000 ? 360 : 10, 70], paddingBottomRight: [window.innerWidth > 720 ? 420 : 10, 110] }); } });
+    setDay: async (d) => { state.dateBar.setValue(d); await setDate(state.dateBar.value); } });
   state.dustBox.render();
   state.panel = createStatsPanel($("stats"), { t, classes: classesNow, classLabel, onClose: closeSelection, onMethods: showMethods, onCsv: () => state.downloads.seriesCsv(), onPlume: showPlume });
   state.tools = initTools({ map: state.map, getLang: () => state.lang, requestSat, containers: { poly: el("div"), mine: $("view-mine") }, onMethods: showMethods, busy,
