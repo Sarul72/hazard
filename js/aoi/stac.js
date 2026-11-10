@@ -29,6 +29,30 @@ export async function search(collection, box, from, to, limit = 200) {
   return out;
 }
 
+/** MODIS sinusoidal tiles {h, v} touching a box. The catalogue's footprints of some tiles are wrong (h26v04, which
+ * covers eastern Dornod, is not found by a box search), so MODIS files are looked up by tile number instead. */
+export function modisTiles(box) {
+  const R = 6371007.181, T = 1111950.5197665, X0 = 20015109.354, Y0 = 10007554.677, rad = Math.PI / 180, out = new Map();
+  for (let i = 0; i <= 4; i++) for (let j = 0; j <= 4; j++) {
+    const lat = box.s + (box.n - box.s) * i / 4, lon = box.w + (box.e - box.w) * j / 4;
+    const h = Math.floor((R * lon * rad * Math.cos(lat * rad) + X0) / T), v = Math.floor((Y0 - R * lat * rad) / T);
+    out.set(`${h}/${v}`, { h, v });
+  }
+  return [...out.values()];
+}
+
+/** MODIS items of a collection over a box in a period, found by tile number. */
+export async function searchModis(collection, box, from, to) {
+  const out = [];
+  for (const { h, v } of modisTiles(box)) {
+    const body = { collections: [collection], datetime: `${from}T00:00:00Z/${to}T23:59:59Z`, limit: 100,
+      query: { "modis:horizontal-tile": { eq: h }, "modis:vertical-tile": { eq: v } } };
+    const page = await json(`${API}/stac/v1/search`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    out.push(...page.features);
+  }
+  return out;
+}
+
 /** Group items whose times lie within an hour: the frames of one satellite pass. */
 export function passes(items) {
   const sorted = [...items].sort((a, b) => Date.parse(a.properties.datetime) - Date.parse(b.properties.datetime));

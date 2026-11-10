@@ -15,6 +15,7 @@ export const SOURCES = [
   { text: "Runfola, D., et al. (2020). geoBoundaries (NSO Mongolia, OCHA ROAP), CC BY 3.0 IGO.", url: "https://www.geoboundaries.org/" },
   { text: "Key, C.H., Benson, N.C. (2006). Landscape Assessment: Ground measure of severity, the Composite Burn Index; and remote sensing of severity, the Normalized Burn Ratio. FIREMON, USDA Forest Service RMRS-GTR-164-CD.", url: "https://research.fs.usda.gov/treesearch/24066" },
   { text: "Giglio, L., et al. (2018). The Collection 6 MODIS burned area mapping algorithm and product (MCD64A1). Remote Sensing of Environment 217, 72–85.", url: "https://doi.org/10.1016/j.rse.2018.08.005" },
+  { text: "Giglio, L., Schroeder, W., Justice, C.O. (2016). The collection 6 MODIS active fire detection algorithm and fire products (MOD14A1/MYD14A1). Remote Sensing of Environment 178, 31–41.", url: "https://doi.org/10.1016/j.rse.2016.02.054" },
   { text: "Ackerman, S.A. (1997). Remote sensing aerosols using satellite infrared observations. Journal of Geophysical Research 102, 17069–17079 (split-window dust test).", url: "https://doi.org/10.1029/96JD03066" },
   { text: "Vermote, E. (2021). MODIS/Aqua Surface Reflectance Daily L3 Global 0.05Deg CMG (MYD09CMG v061), NASA LP DAAC.", url: "https://doi.org/10.5067/MODIS/MYD09CMG.061" },
   { text: "Microsoft Planetary Computer: Sentinel-1 RTC, Sentinel-2 L2A, JRC Global Surface Water, ESA WorldCover, Copernicus DEM GLO-30 (open data, read through its STAC and data API).", url: "https://planetarycomputer.microsoft.com/" },

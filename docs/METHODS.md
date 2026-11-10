@@ -182,6 +182,21 @@ A second Earth Engine App (`gee_app/fire_aoi.js`, published as `fire-aoi` under 
 
 March pre-fire images still held snow and melt water, which made 140 km² of unburned steppe look burned; masking snow by NDSI and subtracting the dNBR of an unburned ring did not cure it, and higher thresholds lost the fires (F1 0.15–0.54 at 0.15–0.20). The autumn baseline cut the false burn to 1–2 % of the area while keeping the agreement with MODIS. MODIS is not ground truth: at 500 m it misses small fires and smooths edges, so the F1 measures agreement, not accuracy. Steppe fires came out almost entirely as low severity (dNBR medians 0.13–0.18).
 
+**Computed on the page (added 2026-11-10).** The wildfire menu now runs the same steps in the browser for the box drawn or the soum picked (`js/aoi/fire.js`), with the fixes made to the App on 2026-11-08 (comparison from the typed pre-fire date, MODIS counted by burn day, a stop when no clear pixel is left). Sentinel-2 L2A, MCD64A1 and active fire come from the Microsoft Planetary Computer through its data API. Differences from the App: each NBR median uses the 4 clearest passes of the period instead of every image (to keep the download small); NBR arrives in steps of 0.008; active fire is MODIS MOD14A1/MYD14A1 (fire classes 7–9, 1 km, Giglio et al. 2016) instead of FIRMS, whose API needs a key that cannot sit in a public page. Monthly MCD64A1 files are joined with "or": a first version filled only gaps and let a month without burns hide the next month's burns (0.86 km² instead of 227 km² in the example).
+
+On the April 2019 example (autumn pre-fire image) the page gives 357.1 km² burned (App 358.9), MODIS 227.2 km² (227.3), 63 % of the Sentinel-2 burn inside MODIS and 100 % of MODIS found (both as the App), low severity 326.3 km² and moderate-low 30.8 km² (App 317.3 and 41.6: the median of 4 passes instead of all images moves part of the burn between these two classes), and 2.8 km² of 1 km cells with MODIS active fire (FIRMS 2.2 km²).
+
+The other test areas, all with the autumn pre-fire image (App values from the table above):
+
+| Area | Sentinel-2 burned: page / App | MODIS: page / App | F1: page / App |
+|---|---|---|---|
+| Fire, April 2023 (117.5–117.8 E) | 223 / 244 km² | 356 / 356 km² | 0.76 / 0.80 |
+| Fire, May 2023 (115.9–116.2 E) | 153 / 160 km² | 250 / 249–265 km² | 0.60 / 0.64 |
+| No fire, April 2023 (113.5–113.8 E) | 2.0 / 3 km² | 0 / 0 | — |
+| No fire, April 2019 (112.0–112.3 E) | 1.6 / 8 km² | 0 / 0 | — |
+
+The page finds a little less burned land than the App (the median of 4 passes is stricter than the median of all images) and fewer false burns. The April 2023 fire lies in MODIS tile h26v04, whose footprint in the Planetary Computer's catalogue is wrong, so a box search missed it; MODIS files are now looked up by tile number (`searchModis` in `js/aoi/stac.js`).
+
 ### Satellite check of dust over a drawn area (added 2026-11)
 A third Earth Engine App (`gee_app/dust_aoi.js`, published as `dust-aoi` under temp-support-478105) sits beside the mine tool in the dust menu. All three sources are coarse, so it works on areas up to 300,000 km² and does not map at 10–30 m.
 

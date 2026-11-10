@@ -21,6 +21,7 @@ import { createSoumLayer, loadSoums } from "./soums.js";
 import { el } from "./dom.js";
 import { initFloodBox } from "./aoi/floodbox.js";
 import { initDustBox } from "./aoi/dustbox.js";
+import { initFireBox } from "./aoi/firebox.js";
 
 const $ = (id) => document.getElementById(id);
 const store = {
@@ -67,7 +68,8 @@ function renderStatic() {
   $("t-footer").textContent = t("footer");
   $("t-flood-app").textContent = t("flood_app"); // flood is computed on this page (js/aoi), not in a GEE window
   state.floodBox?.render();
-  renderAppBox("fire");
+  $("t-fire-app").textContent = t("fire_app"); // burned area is computed on this page (js/aoi), the GEE App stays linked
+  state.fireBox?.render();
   $("t-dust-app").textContent = t("dust_app"); // dust is checked on this page (js/aoi), the GEE App stays linked
   state.dustBox?.render();
   renderSources();
@@ -195,6 +197,7 @@ function renderScreen() {
   const fire = state.hazard === "fire"; // and the burned area app to wildfire
   $("fire-box").hidden = !fire;
   if (!fire) $("fire-box").open = false;
+  state.fireBox?.show(fire);
   $("dust-box").hidden = !dust; // the dust check sits beside the mine tool
   if (!dust) $("dust-box").open = false;
   state.dustBox?.show(dust);
@@ -206,33 +209,9 @@ function renderScreen() {
   renderRail();
 }
 
-/* -------------------------------------------------- detailed flood app and sources */
-/** Detailed mapping at 10-30 m runs in Google Earth Engine Apps, opened here in a window; the site itself holds no login. */
-const APPS = { flood: FLOOD_APP_URL, fire: FIRE_APP_URL, dust: DUST_APP_URL };
-
-function openApp(kind) {
-  const dlg = $("dlg"), url = APPS[kind];
-  dlg.classList.add("dlg-app");
-  dlg.replaceChildren(
-    el("button", { class: "dlg-x", type: "button", "aria-label": t("close"), text: "✕", onclick: () => dlg.close() }),
-    el("h2", { text: t(kind + "_app") }),
-    el("p", { class: "dlg-warn", text: t(kind + "_app_warn") }),
-    el("iframe", { class: "app-frame", src: url, title: t(kind + "_app"), allow: "fullscreen" }),
-    el("p", { class: "lead" }, el("a", { href: url, target: "_blank", rel: "noopener", text: t("flood_app_tab") })),
-  );
-  dlg.addEventListener("close", () => { dlg.classList.remove("dlg-app"); dlg.replaceChildren(); }, { once: true });
-  dlg.showModal();
-}
-
-function renderAppBox(kind) {
-  $(`t-${kind}-app`).textContent = t(kind + "_app");
-  $(`${kind}-app`).replaceChildren(
-    el("p", { class: "note", text: t(kind + "_app_note") }),
-    el("div", { class: "btnrow" },
-      el("button", { class: "btn", type: "button", text: t("flood_app_open"), onclick: () => openApp(kind) }),
-      el("a", { class: "btn", href: APPS[kind], target: "_blank", rel: "noopener", text: t("flood_app_tab") })),
-  );
-}
+/* -------------------------------------------------- sources */
+/* The detailed checks of flood, fire and dust run on this page (js/aoi); each links its Google Earth Engine App, which
+ * no longer opens in a window here. */
 
 function renderSources() {
   $("t-sources").textContent = t("sources");
@@ -493,7 +472,7 @@ function renderSelection() {
 }
 
 /** The area of the detailed checks: the last box drawn or soum picked. */
-function setAoi(box) { state.aoi = box; state.floodBox?.refresh(); state.dustBox?.refresh(); }
+function setAoi(box) { state.aoi = box; state.floodBox?.refresh(); state.fireBox?.refresh(); state.dustBox?.refresh(); }
 
 function onBox(box) {
   state.soumLayer?.pick(null);
@@ -590,6 +569,9 @@ async function boot() {
   state.floodBox = initFloodBox({ box: $("flood-app"), map: state.map, t, getBox: () => state.aoi ?? null, geeUrl: FLOOD_APP_URL,
     selectBox: (b) => { state.rect.set(b); state.map.fitBounds([[b.s, b.w], [b.n, b.e]], { paddingTopLeft: [window.innerWidth > 1000 ? 360 : 10, 10], paddingBottomRight: [window.innerWidth > 720 ? 420 : 10, 110] }); } });
   state.floodBox.render();
+  state.fireBox = initFireBox({ box: $("fire-app"), map: state.map, t, getBox: () => state.aoi ?? null, geeUrl: FIRE_APP_URL,
+    selectBox: (b) => { state.rect.set(b); state.map.fitBounds([[b.s, b.w], [b.n, b.e]], { paddingTopLeft: [window.innerWidth > 1000 ? 360 : 10, 10], paddingBottomRight: [window.innerWidth > 720 ? 420 : 10, 110] }); } });
+  state.fireBox.render();
   state.dustBox = initDustBox({ box: $("dust-app"), map: state.map, t, getBox: () => state.aoi ?? null, getDay: () => state.date, geeUrl: DUST_APP_URL,
     setDay: async (d) => { state.dateBar.setValue(d); await setDate(state.dateBar.value); },
     selectBox: (b) => { state.rect.set(b); state.map.fitBounds([[b.s, b.w], [b.n, b.e]], { paddingTopLeft: [window.innerWidth > 1000 ? 360 : 10, 10], paddingBottomRight: [window.innerWidth > 720 ? 420 : 10, 110] }); } });
