@@ -2,6 +2,9 @@
  * Anything not computed is written as such, never left to look like a real number. */
 import { el, svg } from "./dom.js";
 import { fin } from "./stats.js";
+import { meaning, percent, times, SCORE_MODEL } from "./meaning.js";
+
+const fill = (s, v) => s.replace(/\{(\w+)\}/g, (_, k) => v[k] ?? "");
 
 const f = (v, d = 1) => (fin(v) ? v.toFixed(d) : "—");
 const signed = (v, d = 2) => (fin(v) ? (v >= 0 ? "+" : "") + v.toFixed(d) : "—");
@@ -91,6 +94,30 @@ const atLeast = (b) => (b.missing.length ? "≥" : "");
 export function createStatsPanel(root, { t, classes: classesNow, classLabel, onClose, onMethods, onCsv, onPlume }) {
   const row = (label, value, cls) => el("div", { class: "st-row" + (cls ? " " + cls : "") }, el("dt", { text: label }), el("dd", { text: value }));
 
+  /** The day in words first: the level, what it means as a chance or a return period, how wide the error is. */
+  function summary(s, d, cls, lo, hi) {
+    const m = meaning(s.hazard, d.mean, d.budget?.U, Number(s.date.slice(5, 7)));
+    const name = (c) => classLabel(c.key), kids = [];
+    kids.push(el("div", { class: "st-verdict" }, el("span", { class: "chip", style: `background:${cls.color};color:${cls.ink}`, text: name(cls) }), el("span", { text: t("verdict_" + (s.hazard ?? "all")) })));
+    const dir = (r) => (r >= 1 ? fill(t("times_more"), { r: times(r) }) : fill(t("times_less"), { r: times(1 / r) }));
+    if (m.kind === "lift" && s.hazard === "dust") kids.push(el("p", { class: "st-say", text: fill(t("say_dust"), { p: percent(m.p), base: percent(SCORE_MODEL.dust.base), dir: dir(m.ratio) }) }));
+    if (m.kind === "lift" && s.hazard === "fire") kids.push(el("p", { class: "st-say", text: fill(t("say_fire"), { dir: dir(m.ratio) }) }));
+    if (m.kind === "flood") kids.push(el("p", { class: "st-say", text: m.years >= 2 ? fill(t("say_flood"), { y: Math.round(m.years) }) : t("say_flood_usual") }));
+    if (m.kind === "all") kids.push(el("p", { class: "st-say", text: t("say_all") }));
+    if (d.budget) {
+      const range = m.kind === "lift" && s.hazard === "dust" ? fill(t("range_p"), { a: percent(m.pLo), b: percent(m.pHi) })
+        : m.kind === "lift" ? fill(t("range_r"), { a: dir(m.ratioLo), b: dir(m.ratioHi) })
+          : m.kind === "flood" && m.yearsHi >= 2 ? fill(t("range_y"), { a: Math.max(1, Math.round(m.yearsLo)), b: Math.round(m.yearsHi) }) : "";
+      const span = lo === hi ? fill(t("err_same"), { a: name(lo) }) : fill(t("err_span"), { a: name(lo), b: name(hi) });
+      kids.push(el("p", { class: "st-say err" + (lo === hi ? "" : " wide"), text: `${span}${range ? " " + range : ""}` }));
+    }
+    if (m.offSeason) kids.push(el("p", { class: "st-note warn", text: fill(t("off_season_dust"), { m: s.date.slice(5, 7).replace(/^0/, "") }) }));
+    kids.push(el("details", { class: "st-help" },
+      el("summary", { text: `${t("score_line").replace("{v}", f(d.mean, 0)).replace("{u}", d.budget ? `± ${atLeast(d.budget)}${f(d.budget.U, 0)}` : "")} · ${t("what_score")}` }),
+      el("p", { text: t(m.kind === "lift" ? "help_lift" : m.kind === "flood" ? "help_flood" : "help_all") })));
+    return kids;
+  }
+
   function dayBlock(s) {
     const d = s.day, classes = classesNow(), kids = [el("div", { class: "st-kicker", text: `${t("k_day")} · ${s.date}` })];
     if (!d) { kids.push(el("p", { class: "st-note", text: s.dayMissing ? t("no_day").replace("{d}", s.date) : t("no_cells") })); return kids; }
@@ -98,8 +125,8 @@ export function createStatsPanel(root, { t, classes: classesNow, classLabel, onC
     // If the error bar crosses a class limit the class itself is uncertain, so both ends are named.
     const at = (v) => classes.find((c) => Math.min(Math.max(v, 0), 100) < c.max);
     const lo = d.budget ? at(d.mean - d.budget.U) : cls, hi = d.budget ? at(d.mean + d.budget.U) : cls;
-    const label = lo === hi ? classLabel(cls.key) : `${classLabel(lo.key)} – ${classLabel(hi.key)}`;
-    kids.push(el("div", { class: "st-hero" }, el("b", { text: f(d.mean, 0) }), d.budget ? el("b", { class: "pm", text: `± ${atLeast(d.budget)}${f(d.budget.U, 0)}` }) : null, el("span", { text: `${t("points")} · ${label}` })));
+    kids.push(...summary(s, d, cls, lo, hi));
+    kids.push(el("div", { class: "st-kicker sub", text: t("seg_title") }));
     const segs = classes.map((c, i) => ({ c, s: d.share[i] })).filter((x) => x.s > 0);
     kids.push(el("div", { class: "seg", role: "img", "aria-label": segs.map((x) => `${classLabel(x.c.key)} ${Math.round(x.s * 100)}%`).join(", ") },
       segs.map((x) => el("i", { style: `flex:${x.s};background:${x.c.color}`, title: `${classLabel(x.c.key)} ${Math.round(x.s * 100)}%` }))));
