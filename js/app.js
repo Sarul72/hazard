@@ -20,6 +20,7 @@ import { openMethods } from "./methods.js";
 import { createSoumLayer, loadSoums } from "./soums.js";
 import { el } from "./dom.js";
 import { initFloodBox } from "./aoi/floodbox.js";
+import { initDustBox } from "./aoi/dustbox.js";
 
 const $ = (id) => document.getElementById(id);
 const store = {
@@ -67,7 +68,8 @@ function renderStatic() {
   $("t-flood-app").textContent = t("flood_app"); // flood is computed on this page (js/aoi), not in a GEE window
   state.floodBox?.render();
   renderAppBox("fire");
-  renderAppBox("dust");
+  $("t-dust-app").textContent = t("dust_app"); // dust is checked on this page (js/aoi), the GEE App stays linked
+  state.dustBox?.render();
   renderSources();
   $("soum-q").placeholder = t("soum_search");
   $("hint").textContent = t("hint");
@@ -195,6 +197,7 @@ function renderScreen() {
   if (!fire) $("fire-box").open = false;
   $("dust-box").hidden = !dust; // the dust check sits beside the mine tool
   if (!dust) $("dust-box").open = false;
+  state.dustBox?.show(dust);
   applyBorders();
   renderBorders();
   $("t-hazards").textContent = t(results ? "hazards" : "pick_hazard");
@@ -324,6 +327,7 @@ function updateNotice() {
 async function setDate(d) {
   state.date = d;
   state.movedDay = false;
+  state.dustBox?.refresh(); // its day is the day picker's
   syncSat();
   renderDateFold();
   state.downloads?.refresh();
@@ -489,7 +493,7 @@ function renderSelection() {
 }
 
 /** The area of the detailed checks: the last box drawn or soum picked. */
-function setAoi(box) { state.aoi = box; state.floodBox?.refresh(); }
+function setAoi(box) { state.aoi = box; state.floodBox?.refresh(); state.dustBox?.refresh(); }
 
 function onBox(box) {
   state.soumLayer?.pick(null);
@@ -586,6 +590,10 @@ async function boot() {
   state.floodBox = initFloodBox({ box: $("flood-app"), map: state.map, t, getBox: () => state.aoi ?? null, geeUrl: FLOOD_APP_URL,
     selectBox: (b) => { state.rect.set(b); state.map.fitBounds([[b.s, b.w], [b.n, b.e]], { paddingTopLeft: [window.innerWidth > 1000 ? 360 : 10, 10], paddingBottomRight: [window.innerWidth > 720 ? 420 : 10, 110] }); } });
   state.floodBox.render();
+  state.dustBox = initDustBox({ box: $("dust-app"), map: state.map, t, getBox: () => state.aoi ?? null, getDay: () => state.date, geeUrl: DUST_APP_URL,
+    setDay: async (d) => { state.dateBar.setValue(d); await setDate(state.dateBar.value); },
+    selectBox: (b) => { state.rect.set(b); state.map.fitBounds([[b.s, b.w], [b.n, b.e]], { paddingTopLeft: [window.innerWidth > 1000 ? 360 : 10, 10], paddingBottomRight: [window.innerWidth > 720 ? 420 : 10, 110] }); } });
+  state.dustBox.render();
   state.panel = createStatsPanel($("stats"), { t, classes: classesNow, classLabel, onClose: closeSelection, onMethods: showMethods, onCsv: () => state.downloads.seriesCsv(), onPlume: showPlume });
   state.tools = initTools({ map: state.map, getLang: () => state.lang, requestSat, containers: { poly: el("div"), mine: $("view-mine") }, onMethods: showMethods, busy,
     onWater: (on) => { if (state.borders.water !== on) { state.borders.water = on; applyBorders(); renderBorders(); } },

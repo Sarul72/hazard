@@ -204,6 +204,12 @@ button { cursor: pointer; }
 .aoi-legend .check i { flex: none; width: 12px; height: 12px; margin-top: 2px; border-radius: 2px; }
 .tool .note.small { font-size: 10.5px; color: var(--muted); }
 .aoi-img { image-rendering: pixelated; }
+.aoi-dates.one { grid-template-columns: 1fr; }
+.aoi-verdict { margin: 8px 0 4px; padding: 7px 9px; border-radius: 8px; font-size: 13px; font-weight: 600; line-height: 1.4; border-left: 4px solid var(--line); background: rgba(255, 255, 255, .06); }
+.aoi-verdict.v-severe { border-left-color: #b8481d; }
+.aoi-verdict.v-strong { border-left-color: #d68c34; }
+.aoi-verdict.v-possible { border-left-color: #e8c66a; }
+.aoi-verdict.v-no, .aoi-verdict.v-not_local { border-left-color: #6fae7a; }
 .src-list a { color: #8fbdf2; text-decoration: none; }
 .src-list a:hover { text-decoration: underline; }
 

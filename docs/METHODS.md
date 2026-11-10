@@ -203,6 +203,26 @@ A third Earth Engine App (`gee_app/dust_aoi.js`, published as `dust-aoi` under t
 
 On the two 2023 storms the aerosol index and the BTD agreed fully. The great storm of 14–15 March 2021 was not seen at the early-afternoon overpass: on the 14th the whole area was under cold cloud tops, and the aerosol index stayed negative. On a calm, clear spring day the BTD was below −0.5 K over 96 % of the Gobi, because bare desert emits less in band 31 than in band 32; this is why it never decides alone. CAMS dust AOD stayed below 0.2 on storm days, far under what such storms usually reach, so its values are kept as a model hint.
 
+### Dust check computed on the page (added 2026-11-10)
+The dust menu now checks a box drawn on the map (or a soum picked) in the browser (`js/aoi/dust.js`), for the day of the day picker. It reports what was measured and adds no new score; the GEE App stays as a link for whether dust was seen, because TROPOMI files (tens to over 100 MB each) are too large to read in a browser.
+
+* **Ground**: the clearest Sentinel-2 L2A passes of the 30 days up to the day (Microsoft Planetary Computer, cut by its data API), up to three, the later ones filling only cloud. Scene class 11 is snow, 6 water, 3 and 8–10 cloud and shadow; the rest is sorted by NDVI (harmonized for processing baseline 04.00): below 0.15 bare soil and sand, 0.15–0.30 sparse vegetation, above that vegetation. 20 m up to 2,000 km², 60 m up to 20,000 km². The NDVI limits are common conventions, not fitted to Mongolian dust events.
+* **Weather**: Open-Meteo hourly wind at 10 m, gusts, precipitation, snow depth and topsoil moisture (0–7 cm) at nine points (the centres of a 3 × 3 split of the box) for the day and the two after it: forecast within 85 days, ERA5 before. Hours are counted when the mean wind of the nine points is at least 6, 10 or 14 m/s on a day without rain (≥ 0.254 mm, US EPA AP-42 13.2.2) and without snow (≥ 1 cm), the same onset and rules as the national dust score. CAMS dust near the ground (Open-Meteo air quality) is reported with the WHO 24-hour PM10 guideline of 45 µg/m³ as a reference level.
+* **Conclusion**: no conditions when the ground is snow-covered, bare ground is under 5 % of the clear part, or the wind stayed below 6 m/s on dry hours; otherwise "some dust may rise", "conditions met" (≥ 10 m/s) or "met, with a storm" (≥ 14 m/s). When CAMS is above 45 µg/m³ but there are no local conditions, the page says so apart: the dust may come from elsewhere or the model may be wrong.
+
+**Tests (2026-11-10)**, box 104–105 E, 43–44 N (8,989 km², 60 m):
+
+| Day (seen by the GEE App's TROPOMI test) | Bare ground | Hours ≥ 6 / ≥ 10 m/s | Highest wind / gust | CAMS dust | Conclusion |
+|---|---|---|---|---|---|
+| 2023-03-21, dust storm (AAI > 1 on 100 %) | 95 % | 18 / 7 | 13.3 / 26.7 m/s | 1,276 µg/m³ | conditions met |
+| 2023-04-10, dust storm (AAI > 1 on 100 %) | 97 % | 39 / 10 | 11.8 / 25.0 m/s | 835 µg/m³ | conditions met |
+| 2021-03-14, dust storm (under cloud at the overpass) | 98 % | 20 / 12 | 12.4 / 29.5 m/s | no data | conditions met |
+| 2021-03-10, calm (AAI 0 %) | 98 % | 0 / 0 | 5.7 / 14.4 m/s | no data | no conditions (calm) |
+| 2021-07-20, calm (AAI 0 %) | 96 % | 18 / 0 | 8.0 / 19.7 m/s | no data | **some dust may rise** |
+| 2023-07-20, rain on 2 of 3 days | 97 % | 0 / 0 | 6.4 / 16.9 m/s | 581 µg/m³ | no conditions here; CAMS shows dust |
+
+All three storms were flagged, including 2021-03-14, which TROPOMI missed under cloud. The calm day of 2021-03-10, on which the MODIS split-window test of the GEE App marked 96 % of the area as dust, is correctly not flagged. The calm summer day of 2021-07-20 is a false alarm at the lowest level: 18 hours just above 6 m/s on bare ground raised no dust that TROPOMI could see. Wind above 6 m/s is a condition, not a sign, of dust; six days are far too few to give a hit rate.
+
 ### Mine location conflict
 The coordinates in the user's own Earth Engine script (43.6668 N, 105.5181 E) are the **Ukhaa Khudag** mine in Tsogttsetsii soum, **Ömnögovi** province (Wikipedia gives 43.6754 N, 105.5211 E, about 0.9 km away). They are not in Dornogovi. Mines that are in Dornogovi (Bayanshand/Dovtsog Khudag, Mandakh; Eldev, Dalanjargalan) are also offered. Which Dornogovi mine is the largest was not established from the sources found; the Mineral Resources and Petroleum Authority of Mongolia is the body that holds production figures.
 * Wind-direction uncertainty: hourly model winds are often 10 to 30 degrees off the true local direction, and a single steady direction gives a plume far narrower than reality. The tool therefore adds an angular spread (default 10 degrees, selectable 0/10/20) to the Briggs width in quadrature, x tan(angle). This is a worst-case style envelope, not a fitted value; 0 degrees reproduces the pure Briggs plume.
