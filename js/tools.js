@@ -22,7 +22,7 @@ const TT = {
     mine_title: "Уул уурхайн шороон тоос", mine_help: "Уурхай, огноо, үргэлжлэх хугацаа сонгоод «Тооцоолох». Салхи, тоосны тархалт цагаар хөдөлнө.",
     mine_src: "Уурхай", mine_lat: "Өргөрөг", mine_lon: "Уртраг", mine_pick: "Газраас сонгох", mine_pick_on: "Газрын зураг дээр дарна уу…",
     mine_date: "Эхлэх огноо (УБ цаг)", mine_hour: "Эхлэх цаг", mine_dur: "Үргэлжлэх хугацаа", mine_hours: "цаг", mine_radius: "Харах радиус", mine_spread: "Салхины чиглэлийн тодорхойгүй байдал", mine_km: "км",
-    mine_event: "Жишээ: 2025-06-01", mine_run: "Тооцоолох", mine_busy: "Тооцоолж байна…",
+    mine_run: "Тооцоолох", mine_busy: "Тооцоолж байна…",
     play: "▶ Тоглуулах", pause: "⏸ Зогсоох", speed: "Хурд", t_wind: "Салхи", t_gust: "Давыг", t_dir: "Чиглэл (хаанаас)", t_cams: "CAMS тоос", t_pm10: "CAMS PM10",
     l_plume: "Тоосны тархалт", l_wind: "Салхины сум", l_homes: "Өвөлжөө, хаваржаа", l_water: "Гол, нуур (JRC, Landsat 1984–2021)", l_aod: "MODIS Deep Blue тоосны аэрозол — бодит хиймэл дагуулын хэмжилт", l_hls: "Sentinel-2 / Landsat 30 м (тухайн өдөр)",
     homes_none: "Айл өрхийн өгөгдөл хараахан бэлэн биш (GitHub Actions «Settlements» ажилласны дараа гарна).", homes_title: "Тархацад өртөж буй айл өрх", homes_total: "Радиус доторх нийт", homes_exposed: "Өртөж буй (индекс ≥ 2)",
@@ -46,7 +46,7 @@ const TT = {
     mine_title: "Mine dust plume", mine_help: "Pick a mine, a date and a duration, then Compute. Wind and dust spread animate hour by hour.",
     mine_src: "Mine", mine_lat: "Latitude", mine_lon: "Longitude", mine_pick: "Pick on map", mine_pick_on: "Click the map…",
     mine_date: "Start date (Ulaanbaatar time)", mine_hour: "Start hour", mine_dur: "Duration", mine_hours: "h", mine_radius: "View radius", mine_spread: "Wind-direction uncertainty", mine_km: "km",
-    mine_event: "Example: 2025-06-01", mine_run: "Compute", mine_busy: "Computing…",
+    mine_run: "Compute", mine_busy: "Computing…",
     play: "▶ Play", pause: "⏸ Pause", speed: "Speed", t_wind: "Wind", t_gust: "Gust", t_dir: "Direction (from)", t_cams: "CAMS dust", t_pm10: "CAMS PM10",
     l_plume: "Dust plume", l_wind: "Wind arrows", l_homes: "Winter and spring camps", l_water: "Lakes and rivers (JRC, Landsat 1984-2021)", l_aod: "MODIS Deep Blue dust aerosol — real satellite measurement", l_hls: "Sentinel-2 / Landsat 30 m (that day)",
     homes_none: "Household data not built yet (appears after the GitHub Actions workflow “Settlements” has run).", homes_title: "Households in the plume", homes_total: "Total inside radius", homes_exposed: "Exposed (index ≥ 2)",
@@ -560,7 +560,6 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
       ui.dur = el("select", { onchange: (e) => { st.dur = Number(e.target.value); } }, ...[24, 48, 72].map((v) => el("option", { value: v, text: `${v}`, selected: v === st.dur })));
       ui.rad = el("select", { onchange: (e) => { st.radius = Number(e.target.value); drawSource(); } }, ...[50, 100, 200].map((v) => el("option", { value: v, text: `${v}`, selected: v === st.radius })));
       ui.spread = el("select", { onchange: (e) => { st.spread = Number(e.target.value); } }, ...[0, 10, 20].map((v) => el("option", { value: v, text: `${v}°`, selected: v === st.spread })));
-      ui.event = el("button", { class: "btn small", onclick: () => { st.date = "2025-06-01"; st.hour = 0; st.dur = 48; ui.date.value = st.date; ui.hour.value = "0"; ui.dur.value = "48"; setSource(MINES[0].lat, MINES[0].lon, MINES[0].id); ui.mine.value = MINES[0].id; run(); } });
       ui.run = el("button", { class: "btn primary", onclick: run });
       ui.method = el("button", { class: "btn small", onclick: () => onMethods?.("plume") });
       ui.status = el("p", { class: "note", role: "status" });
@@ -576,7 +575,7 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
       const field = (labelKey, ...ctrl) => { const lab = el("span"); lab.dataset.k = labelKey; return el("label", { class: "inline" }, lab, ...ctrl); };
       ui.fields.append(field("mine_src", ui.mine), field("mine_material", ui.material), field("mine_lat", ui.lat), field("mine_lon", ui.lon, ui.pick), field("mine_date", ui.date), field("mine_hour", ui.hour), field("mine_dur", ui.dur), field("mine_radius", ui.rad), field("mine_spread", ui.spread));
       ui.transport = el("div", { class: "transport" }, ui.play, ui.slider, ui.speed);
-      root.replaceChildren(ui.title, ui.help, ui.fields, el("div", { class: "btnrow" }, ui.run, ui.event, ui.method), ui.status, ui.transport, ui.readout, ui.toggles, ui.results);
+      root.replaceChildren(ui.title, ui.help, ui.fields, el("div", { class: "btnrow" }, ui.run, ui.method), ui.status, ui.transport, ui.readout, ui.toggles, ui.results);
       map.on("click", (e) => { if (st.picking && st.active) { st.picking = false; map.getContainer().style.cursor = ""; ui.pick.textContent = t("mine_pick"); ui.mine.value = ""; setSource(e.latlng.lat, e.latlng.lng, null); } });
       ui.hour.value = String(st.hour); ui.lat.value = st.lat.toFixed(4); ui.lon.value = st.lon.toFixed(4);
       relabel(); drawSource();
@@ -587,7 +586,7 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
       ui.mine.replaceChildren(...MINES.map((m) => el("option", { value: m.id, text: getLang() === "mn" ? m.mn : m.en, selected: m.id === st.mineId })), el("option", { value: "", text: "—", selected: !st.mineId }));
       for (const s of ui.fields.querySelectorAll("span[data-k]")) s.textContent = t(s.dataset.k) + (s.dataset.k === "mine_dur" ? ` (${t("mine_hours")})` : s.dataset.k === "mine_radius" ? ` (${t("mine_km")})` : "") + ": ";
       ui.pick.textContent = st.picking ? t("mine_pick_on") : t("mine_pick");
-      ui.run.textContent = t("mine_run"); ui.event.textContent = t("mine_event"); ui.play.textContent = st.playing ? t("pause") : t("play");
+      ui.run.textContent = t("mine_run"); ui.play.textContent = st.playing ? t("pause") : t("play");
       ui.labels.plume.textContent = t("l_plume"); ui.labels.wind.textContent = t("l_wind"); ui.labels.homes.textContent = t("l_homes"); ui.labels.water.textContent = t("l_water");
       if (st.sim) { renderReadout(); renderResults(); }
     }

@@ -86,7 +86,5 @@ export function initRectDraw(map, { onDone, onClear, isBlocked = () => false }) 
     /** With nothing to compute there is nothing to select, and the left button moves the map as on any other map. */
     setActive(on) { active = on; apply(); },
     clear() { if (rect) rect.remove(); rect = null; drag = null; onClear?.(); },
-    /** Draw a given box {s, n, w, e}, as if the user had drawn it (used by examples). */
-    set(b) { if (rect) rect.remove(); drag = null; rect = L.rectangle(L.latLngBounds([b.s, b.w], [b.n, b.e]), style).addTo(map); onDone(b); },
   };
 }
