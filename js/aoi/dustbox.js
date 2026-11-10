@@ -3,6 +3,7 @@
 import { el } from "../dom.js";
 import { DUST, LAND, computeDust, scaleFor } from "./dust.js";
 import { boxAreaKm2 } from "./raster.js";
+import { U } from "../ui_text.js";
 
 const EXAMPLE = { box: { s: 43.0, n: 44.0, w: 104.0, e: 105.0 }, day: "2023-04-10" };
 const COLORS = { bare: [214, 140, 52], sparse: [236, 214, 140], veg: [70, 150, 80], snow: [232, 244, 255], water: [40, 110, 210], cloud: [120, 120, 120] };
@@ -15,7 +16,7 @@ const hm = (s) => (s ? s.replace("T", " ") : "—");
 
 /** The day is the site's one day (the day picker): changing it here moves the whole screen, so the area window and this
  * check never speak of different days. */
-export function initDustBox({ box, map, t, getBox, getDay, setDay, selectBox, geeUrl }) {
+export function initDustBox({ box, map, t, getBox, getDay, setDay, selectBox, geeUrl, onResult = () => {} }) {
   const pane = map.getPane("aoiPane") ?? map.createPane("aoiPane");
   pane.style.zIndex = 415;
   pane.style.pointerEvents = "none";
@@ -87,6 +88,35 @@ export function initDustBox({ box, map, t, getBox, getDay, setDay, selectBox, ge
     }
     st.running = false;
     render();
+    onResult();
+  }
+
+  /** The result for the GIS downloads (js/aoi/files.js): ground classes, the conclusion and what is known of the error.
+   * Without a clear Sentinel-2 image there is no ground map, so there is nothing to download. */
+  function layer() {
+    const r = st.result;
+    if (!r?.land) return null;
+    const g = r.grid, w = r.wind, sh = r.shares, en = (k) => U.en[k] ?? k, lineList = lines(r);
+    const head = fill(t("da_v_" + r.verdict.key), { n: w?.onset ?? 0, m: f1(w?.maxWind), bare: pct(sh?.share?.[LAND.bare]) });
+    const why = r.verdict.why.map((k) => t("da_why_" + k)).join(" ");
+    const cloud = sh ? Math.max(0, 1 - sh.seenShare) : null;
+    return {
+      hazard: "dust", stamp: r.day.replaceAll("-", ""), title: t("dd_t_dust"), titleEn: en("dd_t_dust"),
+      period: fill(t("dd_p_dust"), { d: r.day, i: r.dates.join(", ") }), periodShort: r.day,
+      grid: g, scale: r.scale, km2: r.km2, box: { s: g.north - g.h * g.dy, n: g.north, w: g.west, e: g.west + g.w * g.dx },
+      codes: r.land, noData: LAND.none, missing: [LAND.none, LAND.cloud], noDataNote: t("dd_nd_dust"),
+      classes: [[LAND.none, "none", "dd_c_nodata", [0, 0, 0], false], ...LAYERS.map((k) => [LAND[k], k, "da_l_" + k, COLORS[k], true])]
+        .map(([code, key, label, color, on]) => ({ code, key, mn: t(label), en: en(label), color, vector: on, paint: on })),
+      bands: [],
+      meta: { day: r.day, image_dates: r.dates.join(" "), verdict: r.verdict.key, bare_pct: sh ? Math.round(100 * sh.share[LAND.bare]) : null, seen_pct: sh ? Math.round(100 * sh.seenShare) : null,
+        wind_hours_over_6: w?.onset ?? null, max_wind_m_s: w?.maxWind ?? null, max_gust_m_s: w?.maxGust ?? null, rain_mm: w?.rainMm ?? null, cams_dust_max_ug_m3: w?.cams ? Math.round(w.cams.max) : null,
+        weather: r.weatherSource === "era5" ? "ERA5 (ECMWF) via Open-Meteo" : "Open-Meteo forecast", source: "Microsoft Planetary Computer: Sentinel-2 L2A; Open-Meteo" },
+      summaryEn: `Mongolia Hazard Watch: dust check of ${r.day}. Conclusion: ${r.verdict.key}. Bare ground ${sh ? Math.round(100 * sh.share[LAND.bare]) : "?"}% of the part seen, wind above 6 m/s for ${w?.onset ?? "?"} hours, up to ${w?.maxWind?.toFixed(1) ?? "?"} m/s. Conditions for dust, not observed dust. Pixel ${r.scale} m. Not an official warning.`,
+      summaryHere: head, lines: lineList, verdict: [head, why].filter(Boolean).join(" "),
+      error: [t("dd_e_dust_test"), t("dd_e_dust_pts"), ...(cloud !== null && cloud > 0.005 ? [fill(t("dd_e_cloud"), { a: (cloud * r.km2).toFixed(2), p: Math.round(100 * cloud) })] : []), fill(t("dd_e_px"), { s: r.scale })],
+      warn: t("da_warn"), method: t("dd_m_dust"), src: t("da_src"),
+      creditsEn: "Microsoft Planetary Computer; Copernicus Sentinel-2 (ESA); Open-Meteo (ECMWF IFS, ERA5, CAMS). Copyright holders of the source data keep their rights.",
+    };
   }
 
   function render() {
@@ -112,6 +142,7 @@ export function initDustBox({ box, map, t, getBox, getDay, setDay, selectBox, ge
 
   return {
     render,
+    layer,
     refresh() { if (!st.running) render(); },
     show(on) { if (on) { if (!st.overlay && st.result) paint(); } else { st.overlay?.remove(); st.overlay = null; } },
   };

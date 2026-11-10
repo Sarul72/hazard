@@ -1,5 +1,5 @@
 /* The hand-written file formats. check() is plain JavaScript so it also runs in a browser where Node is not installed. */
-import { MERCATOR_WKT, arcgisXml, auxXml, bandStats, csv, featureCollection, geoTiff, geoTiffRgb, kmlGroundOverlay, kmlPolygons, mercatorX, mercatorY, pdfFromJpeg, shapefile, worldFile, zip } from "../js/formats.js";
+import { MERCATOR_WKT, arcgisXml, auxXml, bandStats, csv, featureCollection, geoTiff, geoTiffClasses, geoTiffRgb, kmlGroundOverlay, kmlPolygons, mercatorX, mercatorY, pdfFromJpeg, shapefile, worldFile, zip } from "../js/formats.js";
 
 const dec = new TextDecoder();
 
@@ -61,6 +61,14 @@ export function check() {
   yes("aux file holds the projection", pam.includes("<SRS>W&lt;1&gt;</SRS>"));
   yes("aux file holds the result", pam.includes('<MDI key="U95">4</MDI>'));
   yes("aux file holds band statistics", pam.includes('<PAMRasterBand band="1"><Description>a</Description>') && pam.includes('<MDI key="STATISTICS_MAXIMUM">3</MDI>'));
+  /* class raster with colours and its class table */
+  const C = tagsOf(geoTiffClasses({ w: 3, h: 1, codes: Uint8Array.from([0, 2, 255]), palette: [[2, [10, 20, 30]]], west: 1, north: 2, dx: 0.5, dy: 0.5, noData: 255 }));
+  yes("class tiff is one byte band with a palette", C.d.getUint16(C.tags.get(262).at + 8, true) === 3 && C.d.getUint16(C.tags.get(258).at + 8, true) === 8 && C.tags.get(320).n === 768);
+  yes("class tiff colour of code 2 in 16 bits", C.d.getUint16(C.tags.get(320).off + 2 * 2, true) === 10 * 257 && C.d.getUint16(C.tags.get(320).off + (256 + 2) * 2, true) === 20 * 257 && C.d.getUint16(C.tags.get(320).off + (512 + 2) * 2, true) === 30 * 257);
+  yes("class tiff keeps the codes", [...new Uint8Array(C.d.buffer).slice(-3)].join() === "0,2,255");
+  yes("class tiff no data", dec.decode(new Uint8Array(C.d.buffer, C.tags.get(42113).at + 8, 3)) === "255");
+  const rat = auxXml({ names: ["c"], bands: [Uint8Array.from([1, 2])], noData: 255, tables: [{ fields: [{ name: "Value", type: 0, usage: 5 }, { name: "Class_mn", type: 2, usage: 2 }], rows: [[1, "Ус & шавар"]] }] });
+  yes("aux file holds the class table", rat.includes('<GDALRasterAttributeTable tableType="thematic"><FieldDefn index="0"><Name>Value</Name><Type>0</Type><Usage>5</Usage></FieldDefn>') && rat.includes('<Row index="0"><F>1</F><F>Ус &amp; шавар</F></Row>'));
   const esriXml = arcgisXml({ title: "a & b", summary: "s", description: "d", credits: "c" });
   yes("arcgis metadata", esriXml.startsWith("<?xml") && esriXml.includes("<resTitle>a &amp; b</resTitle>") && esriXml.includes("<idPurp>s</idPurp>") && esriXml.includes("<idAbs>d</idAbs>"));
 

@@ -5,6 +5,7 @@ import { CODE, FLOOD, computeFlood, scaleFor } from "./flood.js";
 import { boxAreaKm2 } from "./raster.js";
 import { geoTiff } from "../formats.js";
 import { save } from "../export.js";
+import { U } from "../ui_text.js";
 
 const EXAMPLE = { box: { s: 50.12, n: 50.28, w: 106.05, e: 106.33 }, before: ["2021-08-15", "2021-08-25"], after: ["2021-09-10", "2021-09-16"] };
 const COLORS = { confirmed: [0, 166, 81], rural: [0, 229, 255], city: [255, 153, 0], permanent: [31, 59, 138], s2: [255, 235, 59] };
@@ -17,7 +18,7 @@ const km = (x) => (x === null || x === undefined ? "—" : x.toFixed(2));
 const pct = (a, b) => (b > 0 ? Math.round(100 * a / b) + "%" : "—");
 const utc = (ms) => new Date(ms).toISOString().slice(0, 16).replace("T", " ");
 
-export function initFloodBox({ box, map, t, getBox, selectBox, geeUrl }) {
+export function initFloodBox({ box, map, t, getBox, selectBox, geeUrl, onResult = () => {} }) {
   const pane = map.createPane("aoiPane");
   pane.style.zIndex = 415;
   pane.style.pointerEvents = "none";
@@ -101,6 +102,38 @@ export function initFloodBox({ box, map, t, getBox, selectBox, geeUrl }) {
     }
     st.running = false;
     render();
+    onResult();
+  }
+
+  /** The result for the GIS downloads (js/aoi/files.js): classes, values and what is known of the error. */
+  function layer() {
+    const r = st.result;
+    if (!r) return null;
+    const g = r.grid, n = g.w * g.h, codes = new Uint8Array(n), en = (k) => U.en[k] ?? k;
+    for (let i = 0; i < n; i++) codes[i] = r.code[i] || (r.permanent[i] ? 4 : 0);
+    const b = utc(r.radar.before), a = utc(r.radar.after), flood = r.sums.rural + r.sums.city;
+    const conf = r.optical && r.sums.seen > 0 ? Math.round(100 * r.sums.both / r.sums.seen) : null;
+    const cls = (code, key, label, color, vector = true) => ({ code, key, mn: t(label), en: en(label), color, vector, paint: vector });
+    const lineList = lines(r);
+    return {
+      hazard: "flood", stamp: b.slice(0, 10).replaceAll("-", "") + "_" + a.slice(0, 10).replaceAll("-", ""),
+      title: t("dd_t_flood"), titleEn: en("dd_t_flood"),
+      period: fill(t("dd_p_flood"), { b, a }), periodShort: `${b.slice(0, 10)}_${a.slice(0, 10)}`,
+      grid: g, scale: r.scale, km2: r.km2, box: { s: g.north - g.h * g.dy, n: g.north, w: g.west, e: g.west + g.w * g.dx },
+      codes, noData: 0, missing: [], noDataNote: t("dd_nd_flood"),
+      classes: [cls(0, "none", "dd_c_none", [0, 0, 0], false), cls(1, "radar", "fa_l_rural", COLORS.rural), cls(2, "town", "fa_l_city", COLORS.city), cls(3, "confirmed", "fa_l_confirmed", COLORS.confirmed), cls(4, "permanent", "fa_l_permanent", COLORS.permanent)],
+      bands: [
+        { name: "permanent_water", about: t("dd_b_perm"), data: Float32Array.from(r.permanent) },
+        ...(r.s2water ? [{ name: "s2_new_water", about: t("dd_b_s2"), data: Float32Array.from(r.s2water, (v, i) => (r.s2clear[i] ? v : -9999)) }] : []),
+      ],
+      meta: { radar_before_utc: b, radar_after_utc: a, orbit: r.radar.orbit, pass: r.radar.pass, threshold: r.threshold, optical_date: r.optical?.date ?? null,
+        flood_km2: +flood.toFixed(4), flood_town_km2: +r.sums.city.toFixed(4), confirmed_pct: conf, source: "Microsoft Planetary Computer: Sentinel-1 RTC, Sentinel-2 L2A, JRC GSW 1.3, ESA WorldCover 2021, Copernicus DEM GLO-30" },
+      summaryEn: `Mongolia Hazard Watch: flood detailed check, radar ${b} to ${a} UTC. Radar flood ${flood.toFixed(2)} km2 (${r.sums.city.toFixed(2)} km2 in towns)${conf === null ? ", no clear Sentinel-2 image to confirm it" : `, ${conf}% of it confirmed by Sentinel-2 where clear`}. Pixel ${r.scale} m, threshold ${r.threshold.toFixed(2)}. Not an official warning.`,
+      summaryHere: lineList.join(" "), lines: lineList, verdict: null,
+      error: [t("dd_e_flood_app"), t("dd_e_flood_s2"), conf === null ? t("dd_e_flood_nos2") : fill(t("dd_e_flood_now"), { c: conf }), fill(t("dd_e_px"), { s: r.scale })],
+      warn: t("fa_warn"), method: fill(t("dd_m_flood"), { th: r.threshold.toFixed(2) }), src: t("fa_src"),
+      creditsEn: "Microsoft Planetary Computer; Copernicus Sentinel-1 and Sentinel-2 (ESA); JRC Global Surface Water; ESA WorldCover; Copernicus DEM. Copyright holders of the source data keep their rights.",
+    };
   }
 
   function render() {
@@ -133,6 +166,7 @@ export function initFloodBox({ box, map, t, getBox, selectBox, geeUrl }) {
 
   return {
     render,
+    layer,
     /** The box changed: the area line follows; an old result stays until a new run. */
     refresh() { if (!st.running) render(); },
     /** Leaving the flood view hides the layer; coming back shows it again. */

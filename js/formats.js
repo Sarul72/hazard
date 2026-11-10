@@ -120,6 +120,20 @@ export function geoTiff({ w, h, bands, west, north, dx, dy, noData = -9999, name
   ], px);
 }
 
+/** One-band Byte GeoTIFF of class codes with its colours, in EPSG:4326, so GIS programs show it coloured at once.
+ * palette: [[code, [r, g, b]]]; codes without a colour are black. */
+export function geoTiffClasses({ w, h, codes, palette, west, north, dx, dy, noData = 255, name = "class", description = "", meta = {} }) {
+  const map = new Array(768).fill(0);
+  for (const [v, [r, g, b]] of palette) { map[v] = r * 257; map[256 + v] = g * 257; map[512 + v] = b * 257; }
+  return tiff([
+    [256, LONG, [w]], [257, LONG, [h]], [258, SHORT, [8]], [259, SHORT, [1]], [262, SHORT, [3]], [273, LONG, ["data"]],
+    [277, SHORT, [1]], [278, LONG, [h]], [279, LONG, [codes.length]], [284, SHORT, [1]], [320, SHORT, map], [339, SHORT, [1]],
+    [33550, DOUBLE, [dx, dy, 0]], [33922, DOUBLE, [0, 0, 0, west, north, 0]],
+    [34735, SHORT, [1, 1, 0, 3, 1024, 0, 1, 2, 1025, 0, 1, 1, 2048, 0, 1, 4326]], [42113, ASCII, ascii(noData)],
+    ...notes(description, gdalMetadata(meta, [name], [codes], noData)),
+  ], codes);
+}
+
 /** The map as one RGB GeoTIFF in Web Mercator. rgba: the pixels of a canvas; box: its corners in degrees. */
 export function geoTiffRgb({ w, h, rgba, box, description = "", meta = {} }) {
   const px = new Uint8Array(w * h * 3);
@@ -140,13 +154,18 @@ export const arcgisXml = ({ title, summary, description, credits }) => `<?xml ve
 <metadata xml:lang="en"><Esri><ArcGISFormat>1.0</ArcGISFormat></Esri><dataIdInfo><idCitation><resTitle>${esc(title)}</resTitle></idCitation><idPurp>${esc(summary)}</idPurp><idAbs>${esc(description)}</idAbs><idCredit>${esc(credits)}</idCredit></dataIdInfo></metadata>
 `;
 
-/** The companion file GDAL and ArcGIS read for a raster or image: its projection, notes, and the name and statistics of each band. */
-export function auxXml({ wkt = null, meta = {}, names = [], bands = [], noData = -9999 }) {
+/** A table of class names, areas and colours for a band of codes. ArcGIS Pro and QGIS use it for the legend.
+ * fields: [{ name, type: 0 integer | 1 real | 2 text, usage: 0 plain | 1 count | 2 name | 5 value | 6, 7, 8 red, green, blue }] */
+const ratXml = ({ fields, rows }) => `<GDALRasterAttributeTable tableType="thematic">${fields.map((f, i) => `<FieldDefn index="${i}"><Name>${esc(f.name)}</Name><Type>${f.type}</Type><Usage>${f.usage}</Usage></FieldDefn>`).join("")}${rows.map((r, i) => `<Row index="${i}">${r.map((v) => `<F>${esc(v)}</F>`).join("")}</Row>`).join("")}</GDALRasterAttributeTable>`;
+
+/** The companion file GDAL and ArcGIS read for a raster or image: its projection, notes, the name and statistics of each
+ * band and, where given, the class table of a band (tables[i]). */
+export function auxXml({ wkt = null, meta = {}, names = [], bands = [], noData = -9999, tables = [] }) {
   const mdi = (k, v) => `<MDI key="${esc(k)}">${esc(v)}</MDI>`;
   const rows = Object.entries(meta).filter(([, v]) => v !== null && v !== undefined).map(([k, v]) => mdi(k, v));
   const perBand = bands.map((band, i) => {
     const s = bandStats(band, noData);
-    return `<PAMRasterBand band="${i + 1}">${names[i] ? `<Description>${esc(names[i])}</Description>` : ""}${s ? `<Metadata>${STATS.map(([k, f]) => mdi(`STATISTICS_${k}`, +s[f].toFixed(4))).join("")}</Metadata>` : ""}</PAMRasterBand>`;
+    return `<PAMRasterBand band="${i + 1}">${names[i] ? `<Description>${esc(names[i])}</Description>` : ""}${s ? `<Metadata>${STATS.map(([k, f]) => mdi(`STATISTICS_${k}`, +s[f].toFixed(4))).join("")}</Metadata>` : ""}${tables[i] ? ratXml(tables[i]) : ""}</PAMRasterBand>`;
   });
   return `<PAMDataset>${wkt ? `<SRS>${esc(wkt)}</SRS>` : ""}${rows.length ? `<Metadata>${rows.join("")}</Metadata>` : ""}${perBand.join("")}</PAMDataset>\n`;
 }

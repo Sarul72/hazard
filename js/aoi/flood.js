@@ -140,7 +140,7 @@ export async function computeFlood({ box, before, after, threshold = FLOOD.thres
     }
   }
   return {
-    grid: g, km2, scale, code, permanent, s2water: optical?.water ?? null, sums,
+    grid: g, km2, scale, code, permanent, s2water: optical?.water ?? null, s2clear: optical?.clear ?? null, sums,
     radar: { orbit: pair.orbit, pass: pair.pass, before: pair.before.t0, after: pair.after.t0, nBefore: pair.before.items.length, nAfter: pair.after.items.length },
     optical: optical ? { date: optical.date, share: optical.share } : null,
   };

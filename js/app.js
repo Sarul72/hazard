@@ -608,13 +608,14 @@ async function boot() {
   renderStatic();
   initMap();
   state.rect = initRectDraw(state.map, { onDone: onBox, isBlocked: () => $("dlg").open });
-  state.floodBox = initFloodBox({ box: $("flood-app"), map: state.map, t, getBox: () => state.aoi ?? null, geeUrl: FLOOD_APP_URL,
+  const resultReady = () => state.downloads?.refresh();
+  state.floodBox = initFloodBox({ box: $("flood-app"), map: state.map, t, getBox: () => state.aoi ?? null, geeUrl: FLOOD_APP_URL, onResult: resultReady,
     selectBox: (b) => { state.rect.set(b); state.map.fitBounds([[b.s, b.w], [b.n, b.e]], { paddingTopLeft: [window.innerWidth > 1000 ? 360 : 10, 70], paddingBottomRight: [window.innerWidth > 720 ? 420 : 10, 110] }); } });
   state.floodBox.render();
-  state.fireBox = initFireBox({ box: $("fire-app"), map: state.map, t, getBox: () => state.aoi ?? null, geeUrl: FIRE_APP_URL,
+  state.fireBox = initFireBox({ box: $("fire-app"), map: state.map, t, getBox: () => state.aoi ?? null, geeUrl: FIRE_APP_URL, onResult: resultReady,
     selectBox: (b) => { state.rect.set(b); state.map.fitBounds([[b.s, b.w], [b.n, b.e]], { paddingTopLeft: [window.innerWidth > 1000 ? 360 : 10, 70], paddingBottomRight: [window.innerWidth > 720 ? 420 : 10, 110] }); } });
   state.fireBox.render();
-  state.dustBox = initDustBox({ box: $("dust-app"), map: state.map, t, getBox: () => state.aoi ?? null, getDay: () => state.date, geeUrl: DUST_APP_URL,
+  state.dustBox = initDustBox({ box: $("dust-app"), map: state.map, t, getBox: () => state.aoi ?? null, getDay: () => state.date, geeUrl: DUST_APP_URL, onResult: resultReady,
     setDay: async (d) => { state.dateBar.setValue(d); await setDate(state.dateBar.value); },
     selectBox: (b) => { state.rect.set(b); state.map.fitBounds([[b.s, b.w], [b.n, b.e]], { paddingTopLeft: [window.innerWidth > 1000 ? 360 : 10, 70], paddingBottomRight: [window.innerWidth > 720 ? 420 : 10, 110] }); } });
   state.dustBox.render();
@@ -623,7 +624,8 @@ async function boot() {
     onWater: (on) => { if (state.borders.water !== on) { state.borders.water = on; applyBorders(); renderBorders(); } },
     campsFor: async (box) => { const a = await loadCamps(); return a ? campsInside(a, box) : null; } });
   state.dateBar = initDateBar($("datebar"), { onChange: setDate, text: t, monthName: (m) => t("months")[m - 1] });
-  state.downloads = initDownloads({ box: $("dl-menu"), state, t, frameNow, uFrameNow, classOf, classLabel, classes: classesNow, soumsReady, borders: activeBorders, busy });
+  state.downloads = initDownloads({ box: $("dl-menu"), state, t, frameNow, uFrameNow, classOf, classLabel, classes: classesNow, soumsReady, borders: activeBorders, busy,
+    detailLayer: () => ({ flood: state.floodBox, fire: state.fireBox, dust: state.dustBox })[state.hazard]?.layer() ?? null });
   renderSat();
   renderScreen();
   renderDateFold();

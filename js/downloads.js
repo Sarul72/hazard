@@ -12,6 +12,7 @@ import { el } from "./dom.js";
 import { versionAt } from "./gibs.js";
 import { U } from "./ui_text.js";
 import { cellRows, drawMap, save, toJpeg, toPng } from "./export.js";
+import { initDetailFiles } from "./aoi/files.js";
 import { MERCATOR_WKT, MIME, arcgisXml, auxXml, csv, featureCollection, geoTiff, geoTiffRgb, kmlGroundOverlay, kmlPolygons, pdfFromJpeg, pointFeature, shapefile, worldFile, zip } from "./formats.js";
 
 const SOUM_FIELDS = [
@@ -29,7 +30,8 @@ const single = async (name, data) => ({ base: name.replace(/\.([^.]+)$/, "_$1"),
 /** Error as a share of the score. Near zero the share says nothing, so it stays empty. */
 const relative = (u, score) => (typeof u === "number" && score >= 1 ? Math.round((u / score) * 100) : null);
 
-export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, classLabel, classes, soumsReady, borders, busy }) {
+export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, classLabel, classes, soumsReady, borders, busy, detailLayer = () => null }) {
+  const detailFiles = initDetailFiles({ t });
   const fill = (k, o) => Object.entries(o).reduce((a, [x, y]) => a.replace(`{${x}}`, y), t(k));
   const baseLayer = () => versionAt(GIBS.layers.find((l) => l.kind === "base" && state.sat[l.key].on), state.date);
   const stamp = () => state.date.replaceAll("-", "");
@@ -363,7 +365,13 @@ export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, cla
     message.replaceChildren(el("a", { href: url, download: name, text: fill("dl_ready", { n: name }) }));
   }
 
-  async function run(button, job, what) {
+  /** The files of a detailed check (flood, fire or dust computed on the page), with their own README. */
+  async function deliverDetail(L, kind, what) {
+    const { name, blob } = await detailFiles.build(L, kind, what), url = save(blob, name);
+    message.replaceChildren(el("a", { href: url, download: name, text: fill("dl_ready", { n: name }) }));
+  }
+
+  async function run(button, work) {
     const label = button.textContent;
     message.textContent = "";
     button.disabled = true;
@@ -371,7 +379,7 @@ export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, cla
     busy(true);
     try {
       await new Promise((ok) => setTimeout(ok, 60)); // let the computing screen appear before the page is busy
-      await deliver(context(), job, what);
+      await work();
     } catch (e) {
       console.error(e);
       message.textContent = t("dl_fail") + e.message;
@@ -383,10 +391,16 @@ export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, cla
 
   const row = (key, formats, sub = key + "_sub") => el("div", { class: "dl-row" },
     el("div", {}, el("b", { text: t(key) }), el("small", { text: t(sub) })),
-    el("div", { class: "dl-fmt" }, formats.map(([label, job, tip]) => el("button", { type: "button", title: tip ?? null, text: label, onclick: (e) => run(e.currentTarget, job, `${t(key)} (${label})`) }))));
+    el("div", { class: "dl-fmt" }, formats.map(([label, job, tip]) => el("button", { type: "button", title: tip ?? null, text: label, onclick: (e) => run(e.currentTarget, () => deliver(context(), job, `${t(key)} (${label})`)) }))));
+
+  /** The row of the detailed check of the hazard on screen, at the top: it is the finest result the page has. */
+  const detailRow = (L) => el("div", { class: "dl-row dl-detail" },
+    el("div", {}, el("b", { text: L.title }), el("small", { text: `${L.periodShort.replace("_", " – ")} · ${L.scale} ${t("dd_m")} · ${t("dl_detail_sub")}` })),
+    el("div", { class: "dl-fmt" }, detailFiles.formats().map(([label, kind, tip]) => el("button", { type: "button", title: tip ?? null, text: label, onclick: (e) => run(e.currentTarget, () => deliverDetail(L, kind, `${L.title} (${label})`)) }))));
 
   function render() {
-    const c = context(), rows = [];
+    const c = context(), rows = [], L = detailLayer();
+    if (L) rows.push(detailRow(L));
     const image = [["JPG", asJpg], ["PNG", asPng], ["PDF", asPdf], ["JPG+JGW", asGisImage, t("dl_gis_tip")], ["GeoTIFF", asMapTif, t("dl_tif_tip")]];
     if (c.day) {
       rows.push(row("dl_map", image));

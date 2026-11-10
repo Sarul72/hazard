@@ -238,6 +238,23 @@ The dust menu now checks a box drawn on the map (or a soum picked) in the browse
 
 All three storms were flagged, including 2021-03-14, which TROPOMI missed under cloud. The calm day of 2021-03-10, on which the MODIS split-window test of the GEE App marked 96 % of the area as dust, is correctly not flagged. The calm summer day of 2021-07-20 is a false alarm at the lowest level: 18 hours just above 6 m/s on bare ground raised no dust that TROPOMI could see. Wind above 6 m/s is a condition, not a sign, of dust; six days are far too few to give a hit rate.
 
+### GIS files of the detailed checks (added 2026-11-10)
+After a flood, wildfire or dust check has run on the page, the download menu shows its row first: it is the finest result the page has. `js/aoi/files.js` turns the check's own pixels into files, with nothing resampled, so the files hold what the map shows.
+
+| File | What it holds |
+|---|---|
+| `*_classes.tif` (+ `.tif.aux.xml`, `.tfw`, `.prj`, `.tif.xml`) | One byte per pixel, the class code, with its colours inside the TIFF and a class table (name in Mongolian and English, area in km², colour) in the `.aux.xml`, which ArcGIS Pro and QGIS read as the legend. EPSG:4326. |
+| `*_values.tif` | Float bands where the check has values: flood permanent water and Sentinel-2 new water; fire dNBR, MODIS burned area and MODIS active fire. −9999 = no data. |
+| `*_polygons.shp` / `.geojson` / `.kml` | One multipart polygon per class, with `area_km2`, `share_pct`, `n_poly`, `small_km2`, `period`, `px_m`. |
+| `*.kmz` | The class picture laid over the ground in Google Earth. |
+| `*_map.png` (+ `.pgw`, `.prj`, `.aux.xml`) | The same picture, placed in EPSG:4326. |
+
+Polygons follow the pixel edges exactly, as gdal_polygonize does (`js/aoi/vector.js`). Pixels of a class that share an edge form one polygon; pixels touching only at a corner are joined there only when they already belong to the same polygon, so no ring passes a point twice and every polygon is valid in GEOS and ArcGIS (`tests/vector.test.mjs`). Groups smaller than about 1,000 m² (10 pixels at 10 m, 3 at 20 m, 1 at 30 m and coarser) are left out of the polygon files to keep them small; their area is reported in `small_km2` and the rasters keep every pixel.
+
+Each ZIP has a README with the period, area, pixel size, the result lines of the check, the area of every class and the possible error as far as it is known: the comparison with the GEE App, the per-run check against a second source (Sentinel-2 for flood, MODIS for fire), the area left without a result under cloud, and the one-pixel uncertainty of edges.
+
+Checked on the three examples with GDAL 3 (ArcGIS Pro Python) and arcpy 3.4: the class tables equal the pixel areas and the numbers of the side menu (flood 17.81 + 8.16 = 25.97 km², fire 326.28 + 30.82 + 0.004 = 357.1 km²); every polygon is valid in OGR and in Check Geometry (the only note is the missing optional spatial index); the ellipsoidal area of the polygons is within 0.3 % of `area_km2 − small_km2`; all files load into a file geodatabase, JSON To Features and KML To Layer work, and the PNG lands at its place. Sizes: flood (355 km², 10 m) 37 MB for everything, of which 28 MB the float raster; fire (366 km², 20 m) 21 MB; dust (8,989 km², 60 m) 34 MB.
+
 ### Mine location conflict
 The coordinates in the user's own Earth Engine script (43.6668 N, 105.5181 E) are the **Ukhaa Khudag** mine in Tsogttsetsii soum, **Ömnögovi** province (Wikipedia gives 43.6754 N, 105.5211 E, about 0.9 km away). They are not in Dornogovi. Mines that are in Dornogovi (Bayanshand/Dovtsog Khudag, Mandakh; Eldev, Dalanjargalan) are also offered. Which Dornogovi mine is the largest was not established from the sources found; the Mineral Resources and Petroleum Authority of Mongolia is the body that holds production figures.
 * Wind-direction uncertainty: hourly model winds are often 10 to 30 degrees off the true local direction, and a single steady direction gives a plume far narrower than reality. The tool therefore adds an angular spread (default 10 degrees, selectable 0/10/20) to the Briggs width in quadrature, x tan(angle). This is a worst-case style envelope, not a fitted value; 0 degrees reproduces the pure Briggs plume.

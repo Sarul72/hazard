@@ -5,6 +5,7 @@ import { CLASSES, FIRE, computeFire, scaleFor } from "./fire.js";
 import { boxAreaKm2 } from "./raster.js";
 import { geoTiff } from "../formats.js";
 import { save } from "../export.js";
+import { U } from "../ui_text.js";
 
 const EXAMPLE = { box: { s: 48.95, n: 49.10, w: 115.60, e: 115.90 }, before: ["2019-04-01", "2019-04-27"], after: ["2019-05-02", "2019-05-30"] };
 const MODIS = [0, 80, 255], FIRE_PX = [255, 0, 0];
@@ -15,7 +16,7 @@ const pct = (a, b) => (b > 0 ? Math.round(100 * a / b) + "%" : "—");
 const iso = (d) => d.toISOString().slice(0, 10);
 const ago = (n) => iso(new Date(Date.now() - n * 86400000));
 
-export function initFireBox({ box, map, t, getBox, selectBox, geeUrl }) {
+export function initFireBox({ box, map, t, getBox, selectBox, geeUrl, onResult = () => {} }) {
   const pane = map.getPane("aoiPane") ?? map.createPane("aoiPane");
   pane.style.zIndex = 415;
   pane.style.pointerEvents = "none";
@@ -99,6 +100,36 @@ export function initFireBox({ box, map, t, getBox, selectBox, geeUrl }) {
     }
     st.running = false;
     render();
+    onResult();
+  }
+
+  /** The result for the GIS downloads (js/aoi/files.js): severity classes, dNBR and MODIS, and what is known of the error. */
+  function layer() {
+    const r = st.result;
+    if (!r) return null;
+    const g = r.grid, p = r.periods, s = r.sums, en = (k) => U.en[k] ?? k, lineList = lines(r);
+    const inMod = s.burned > 0 ? Math.round(100 * s.both / s.burned) : null, cloud = Math.max(0, r.km2 - s.seen);
+    return {
+      hazard: "fire", stamp: p.after[0].replaceAll("-", "") + "_" + p.after[1].replaceAll("-", ""),
+      title: t("dd_t_fire"), titleEn: en("dd_t_fire"),
+      period: fill(t("dd_p_fire"), { b0: p.before[0], b1: p.before[1], a0: p.after[0], a1: p.after[1] }), periodShort: `${p.after[0]}_${p.after[1]}`,
+      grid: g, scale: r.scale, km2: r.km2, box: { s: g.north - g.h * g.dy, n: g.north, w: g.west, e: g.west + g.w * g.dx },
+      codes: r.severity, noData: 255, missing: [255], noDataNote: t("dd_nd_fire"),
+      classes: CLASSES.map((c, k) => ({ code: k, key: c.key, mn: t("fi_c_" + c.key), en: en("fi_c_" + c.key), color: c.color, vector: k >= 3, paint: k !== 2 })),
+      bands: [
+        { name: "dNBR", about: t("dd_b_dnbr"), data: Float32Array.from(r.dnbr, (v) => (Number.isNaN(v) ? -9999 : v)) },
+        { name: "modis_burned", about: t("dd_b_modis"), data: Float32Array.from(r.modis) },
+        { name: "modis_active_fire", about: t("dd_b_fire"), data: Float32Array.from(r.fire) },
+      ],
+      meta: { pre_fire: p.before.join("/"), post_fire: p.after.join("/"), spring_autumn_baseline: p.spring ? "yes" : "no", compare_from: p.compareFrom, burned_from_dNBR: FIRE.burned,
+        burned_km2: +s.burned.toFixed(4), modis_burned_km2: +s.modis.toFixed(4), burned_inside_modis_pct: inMod, cloud_km2: +cloud.toFixed(4),
+        source: "Microsoft Planetary Computer: Sentinel-2 L2A, MODIS MCD64A1 and MOD14A1/MYD14A1 (collection 6.1)" },
+      summaryEn: `Mongolia Hazard Watch: burned area check, pre-fire ${p.before.join(" to ")}, post-fire ${p.after.join(" to ")}. Burned ${s.burned.toFixed(2)} km2 (dNBR >= ${FIRE.burned}); MODIS burned area ${s.modis.toFixed(2)} km2${inMod === null ? "" : `, ${inMod}% of the Sentinel-2 burn inside it`}. Pixel ${r.scale} m. Not an official warning.`,
+      summaryHere: lineList.join(" "), lines: lineList, verdict: null,
+      error: [t("dd_e_fire_app"), inMod === null ? t("dd_e_fire_none") : fill(t("dd_e_fire_now"), { c: inMod }), ...(cloud > 0.005 * r.km2 ? [fill(t("dd_e_cloud"), { a: cloud.toFixed(2), p: Math.round(100 * cloud / r.km2) })] : []), fill(t("dd_e_px"), { s: r.scale })],
+      warn: t("fire_app_warn"), method: t("dd_m_fire"), src: t("fi_src"),
+      creditsEn: "Microsoft Planetary Computer; Copernicus Sentinel-2 (ESA); NASA MODIS MCD64A1, MOD14A1, MYD14A1. Copyright holders of the source data keep their rights.",
+    };
   }
 
   function render() {
@@ -131,6 +162,7 @@ export function initFireBox({ box, map, t, getBox, selectBox, geeUrl }) {
 
   return {
     render,
+    layer,
     refresh() { if (!st.running) render(); },
     show(on) { if (on) { if (!st.overlay && st.result) paint(); } else { st.overlay?.remove(); st.overlay = null; } },
   };
