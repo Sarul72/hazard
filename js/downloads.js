@@ -255,6 +255,7 @@ export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, cla
       verification: v, score_classes: CLASSES.map((k) => ({ class: k.key, from: k.min, to: Math.min(k.max, 100) })), lineage: c.m.sources?.[state.hazard] ?? c.m.sources ?? null,
       plume: c.plume ? { ...plumeFacts(c), wind_spread_deg: c.plume.spread, exposed_camps: c.plume.camps, range_with_wind_changed: c.plume.range, water_reached: c.plume.water } : null,
       disclaimer: t("footer"),
+      copyright: t("copyright"),
     };
   }
   const asReport = (c) => single(`${fileBase(c)}_report.json`, JSON.stringify(reportOf(c), null, 1));
@@ -340,7 +341,7 @@ export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, cla
     section("n_sources");
     L.push(c.day ? t("x_grid") : fill("x_image_src", { r: baseLayer().res }));
     if (c.day) pair("n_version", c.m.generated_at);
-    L.push("", t("footer"));
+    L.push("", t("footer"), t("copyright"));
     return "﻿" + L.join("\r\n") + "\r\n";
   }
 
