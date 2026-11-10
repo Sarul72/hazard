@@ -69,6 +69,8 @@ function renderStatic() {
   $("t-sat-overlay").textContent = t("overlays");
   $("t-mine").textContent = t("mine");
   $("t-footer").textContent = t("footer");
+  $("t-copy").textContent = t("copyright");
+  state.map?.attributionControl.setPrefix(t("copyright"));
   $("t-flood-app").textContent = t("flood_app"); // flood is computed on this page (js/aoi), not in a GEE window
   state.floodBox?.render();
   $("t-fire-app").textContent = t("fire_app"); // burned area is computed on this page (js/aoi), the GEE App stays linked
@@ -576,7 +578,7 @@ function fitMongolia() {
 function initMap() {
   state.map = window.L.map("map", { minZoom: 4, maxBounds: [[30, 65], [62, 145]], zoomSnap: 0.25, zoomControl: false });
   fitMongolia();
-  state.map.attributionControl.setPrefix(false);
+  state.map.attributionControl.setPrefix(t("copyright")); // the author, always visible at the bottom right of the map
   state.map.on("mousemove", (e) => {
     const p = state.risk?.sample(e.latlng.lat, e.latlng.lng);
     const pos = `${dms(e.latlng.lat, "N", "S")}  ${dms(e.latlng.lng, "E", "W")}`;

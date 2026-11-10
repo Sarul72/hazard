@@ -87,6 +87,7 @@ button { cursor: pointer; }
 .check small { display: block; color: var(--muted); font-size: 10.5px; }
 .check.off { opacity: .5; }
 .foot { margin: 12px 0 0; font-size: 10.5px; color: var(--muted); }
+.foot.copy { margin-top: 6px; }
 .field { width: 100%; background: rgba(0, 0, 0, .3); border: 1px solid var(--line); border-radius: 8px; padding: 6px 9px; }
 .soum-box { margin-top: 8px; }
 .soum-list { list-style: none; margin: 6px 0 0; padding: 0; max-height: 34vh; overflow: auto; scrollbar-width: thin; }
