@@ -12,11 +12,21 @@
 <body class="bare">
 <div id="map" role="application" aria-label="Газрын зураг"></div>
 
+<nav id="hazbar" class="hazbar glass" aria-labelledby="t-hazards">
+  <span id="t-hazards" class="hz-cap"></span>
+  <div id="hazards" class="hz-row"></div>
+</nav>
+
 <aside id="side" class="side glass">
-  <button id="back" class="back" type="button" hidden></button>
+  <div class="side-top">
+    <button id="back" class="back" type="button" hidden></button>
+    <button id="side-close" class="side-close" type="button"></button>
+  </div>
   <header class="brand"><h1 id="t-title"></h1><p id="t-subtitle"></p></header>
-  <h2 id="t-hazards" class="cap"></h2>
-  <div id="hazards" class="menu"></div>
+  <details id="flood-box" class="fold calc" hidden><summary id="t-flood-app"></summary><div id="flood-app" class="tool"></div></details>
+  <details id="fire-box" class="fold calc" hidden><summary id="t-fire-app"></summary><div id="fire-app" class="tool"></div></details>
+  <details id="dust-box" class="fold calc" hidden><summary id="t-dust-app"></summary><div id="dust-app" class="tool"></div></details>
+  <details id="mine-box" class="fold" hidden><summary id="t-mine"></summary><div id="view-mine" class="tool"></div></details>
   <h2 id="t-view" class="cap"></h2>
   <div id="modes" class="menu"></div>
   <section id="soum-box" class="soum-box" hidden>
@@ -28,10 +38,6 @@
     <p id="t-sat-base" class="cap sub"></p><div id="sat-base"></div>
     <p id="t-sat-overlay" class="cap sub"></p><div id="sat-overlay"></div>
   </details>
-  <details id="mine-box" class="fold" hidden><summary id="t-mine"></summary><div id="view-mine" class="tool"></div></details>
-  <details id="flood-box" class="fold" hidden><summary id="t-flood-app"></summary><div id="flood-app" class="tool"></div></details>
-  <details id="fire-box" class="fold" hidden><summary id="t-fire-app"></summary><div id="fire-app" class="tool"></div></details>
-  <details id="dust-box" class="fold" hidden><summary id="t-dust-app"></summary><div id="dust-app" class="tool"></div></details>
   <details id="src-box" class="fold"><summary id="t-sources"></summary><ol id="sources" class="src-list"></ol></details>
   <p id="t-footer" class="foot"></p>
 </aside>
@@ -47,6 +53,7 @@
   <div id="legend" class="legendbar"></div>
 </div>
 <div id="busy" class="busy" role="status"><span id="busy-text"></span></div>
+<div id="soon" class="busy soon" role="status" aria-live="polite"><div class="soon-card"><b id="soon-title"></b><span id="soon-text"></span></div></div>
 <div id="coords" class="coords"></div>
 <div id="hint" class="hint"></div>
 <div id="test-flag" class="test-flag" hidden></div>
