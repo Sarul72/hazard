@@ -9,7 +9,8 @@
 | Open-Meteo flood API | `river_discharge`, GloFAS v4, 0.05°, "largest river in a 5 km area", `past_days` 0–92, `forecast_days` up to 210 | GloFAS / Copernicus Emergency Management Service; credit Open-Meteo | Live run succeeded (some points may lack a river, see flags) |
 | NASA GIBS WMTS (EPSG:3857, "best") | satellite imagery and overlays | NASA ESDIS asks for acknowledgement: "We acknowledge the use of imagery provided by services from NASA's Global Imagery Browse Services (GIBS), part of NASA's Earth Science Data and Information System (ESDIS)." | See layer table |
 | NASA FIRMS area API | fire detections (optional, needs free MAP_KEY) | NASA open data; cite NASA FIRMS | URL pattern from documentation knowledge; parser unit-tested on sample CSV |
-| Natural Earth 1:50m via world-atlas 2.0.2 | Mongolia outline (`data/mongolia.geojson`) | Public domain data, ISC package licence | Copied from a verified file |
+| geoBoundaries ADM2 (Runfola et al. 2020) | Mongolia outline (`data/mongolia.geojson`), the outer edge of the aimags merged from the soums by `scripts/build_borders.py` since 2026-11-10 | CC BY 3.0 IGO | Built locally; the aimag border now lies on the national border |
+| Natural Earth 1:50m via world-atlas 2.0.2 | Mongolia outline until 2026-11-10; still the clip of `data/water.geojson` | Public domain data, ISC package licence | Copied from a verified file |
 | Leaflet 1.9.4 | map | BSD-2 (`vendor/leaflet/LICENSE`) | Bundled |
 
 ## GIBS layers

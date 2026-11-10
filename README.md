@@ -47,4 +47,4 @@ python3 -m http.server 8080          # then open http://localhost:8080
 
 Pure static site (ES modules, no build step). The browser reads `data/latest.json` if it is less than 6 h old, otherwise computes live from Open-Meteo and caches for 90 minutes. Open the site through a web server or GitHub Pages; opening `index.html` as a file does not work because of ES modules.
 
-Third-party code: Leaflet 1.9.4 (BSD-2, `vendor/leaflet`). Mongolia outline: Natural Earth (public domain). Imagery: NASA GIBS/ESDIS. Weather: Open-Meteo.com (CC BY 4.0), contains modified Copernicus Atmosphere Monitoring Service information.
+Third-party code: Leaflet 1.9.4 (BSD-2, `vendor/leaflet`). Mongolia outline: outer edge of the geoBoundaries aimags (CC BY 3.0 IGO); Natural Earth (public domain) until 2026-11-10. Imagery: NASA GIBS/ESDIS. Weather: Open-Meteo.com (CC BY 4.0), contains modified Copernicus Atmosphere Monitoring Service information.
