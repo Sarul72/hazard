@@ -22,6 +22,7 @@ import { el } from "./dom.js";
 import { initFloodBox } from "./aoi/floodbox.js";
 import { initDustBox } from "./aoi/dustbox.js";
 import { initFireBox } from "./aoi/firebox.js";
+import { createViewer } from "./aoi/viewer.js";
 
 const $ = (id) => document.getElementById(id);
 const store = {
@@ -36,7 +37,7 @@ const FIRST_IMAGERY = "2000-02-24"; // first MODIS Terra day
 const state = {
   lang: store.get("hw.lang") || "mn", hazard: null, mode: "zones",
   manifest: null, date: utcDate(-1), day: null, dayMissing: false,
-  sel: null, selToken: 0, dayToken: 0, soums: null, soumQuery: "", sat: {},
+  sel: null, selToken: 0, dayToken: 0, soums: null, soumQuery: "", sat: {}, showRisk: true,
   borders: { country: true, aimag: false, soum: false, water: false }, borderLayers: {}, borderData: {},
   dateFolded: store.get("hw.datefold") === "1",
 };
@@ -94,7 +95,8 @@ function renderMenus() {
     ...SOON.map((h) => el("div", { class: "hz soon" },
       el("button", { class: "pick", type: "button", title: t("soon"), onclick: () => showSoon(h) }, mark(h), el("span", { text: t("hz_" + h) })))));
   $("modes").replaceChildren(...["zones", "soums"].map((m) => el("div", { class: "item" + (state.mode === m ? " on" : "") },
-    el("button", { class: "pick", type: "button", "aria-pressed": String(state.mode === m), text: t("mode_" + m), onclick: () => setMode(m) }))));
+    el("button", { class: "pick", type: "button", "aria-pressed": String(state.mode === m), text: t("mode_" + m), onclick: () => setMode(m) }))),
+    el("label", { class: "check risk-switch" }, el("input", { type: "checkbox", checked: state.showRisk, onchange: (e) => setShowRisk(e.target.checked) }), el("span", { text: t("risk_show") })));
 }
 
 function renderLegend() {
@@ -340,7 +342,7 @@ const uFrameNow = () => state.day?.["u_" + state.hazard] ?? null;
 
 function paint() {
   if (state.risk) {
-    state.risk.setFrame(state.mode === "zones" ? frameNow() : null, uFrameNow(), classesNow().map((c) => c.color));
+    state.risk.setFrame(state.mode === "zones" && state.showRisk ? frameNow() : null, uFrameNow(), classesNow().map((c) => c.color));
   }
   paintSoums();
 }
@@ -441,8 +443,17 @@ async function showSoums() {
   const on = state.mode === "soums" && Boolean(state.hazard);
   $("soum-box").hidden = !on;
   if (on) await whileBusy(soumsReady);
-  state.soumLayer?.show(state.mode === "soums" && Boolean(state.hazard));
+  state.soumLayer?.show(state.mode === "soums" && Boolean(state.hazard) && state.showRisk);
   paintSoums();
+}
+
+/** The nationwide risk (zones or soums) can be hidden, so that a detailed result or the image underneath reads clearly. */
+function setShowRisk(on) {
+  state.showRisk = on;
+  document.body.classList.toggle("risk-off", !on);
+  renderMenus();
+  paint();
+  showSoums();
 }
 
 function setMode(m) {
@@ -628,12 +639,18 @@ async function boot() {
   renderStatic();
   initMap();
   state.rect = initRectDraw(state.map, { onDone: onBox, isBlocked: () => $("dlg").open });
-  const resultReady = () => state.downloads?.refresh();
-  state.floodBox = initFloodBox({ box: $("flood-app"), map: state.map, t, getBox: () => state.aoi ?? null, geeUrl: FLOOD_APP_URL, onResult: resultReady });
+  state.viewer = createViewer({ t });
+  // a finished check is shown alone: the nationwide layer would cover it, and the switch brings it back
+  const resultReady = () => {
+    state.downloads?.refresh();
+    const box = { flood: state.floodBox, fire: state.fireBox, dust: state.dustBox }[state.hazard];
+    if (box?.hasResult() && state.showRisk) setShowRisk(false);
+  };
+  state.floodBox = initFloodBox({ box: $("flood-app"), map: state.map, t, getBox: () => state.aoi ?? null, geeUrl: FLOOD_APP_URL, viewer: state.viewer, onResult: resultReady });
   state.floodBox.render();
-  state.fireBox = initFireBox({ box: $("fire-app"), map: state.map, t, getBox: () => state.aoi ?? null, geeUrl: FIRE_APP_URL, onResult: resultReady });
+  state.fireBox = initFireBox({ box: $("fire-app"), map: state.map, t, getBox: () => state.aoi ?? null, geeUrl: FIRE_APP_URL, viewer: state.viewer, onResult: resultReady });
   state.fireBox.render();
-  state.dustBox = initDustBox({ box: $("dust-app"), map: state.map, t, getBox: () => state.aoi ?? null, getDay: () => state.date, geeUrl: DUST_APP_URL, onResult: resultReady,
+  state.dustBox = initDustBox({ box: $("dust-app"), map: state.map, t, getBox: () => state.aoi ?? null, getDay: () => state.date, geeUrl: DUST_APP_URL, viewer: state.viewer, onResult: resultReady,
     setDay: async (d) => { state.dateBar.setValue(d); await setDate(state.dateBar.value); } });
   state.dustBox.render();
   state.panel = createStatsPanel($("stats"), { t, classes: classesNow, classLabel, onClose: closeSelection, onMethods: showMethods, onCsv: () => state.downloads.seriesCsv(), onPlume: showPlume });

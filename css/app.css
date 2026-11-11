@@ -266,6 +266,7 @@ button { cursor: pointer; }
 .dl-msg { margin: 4px 0 2px; font-size: 12px; color: #f5c04a; }
 .dl-msg:empty { display: none; }
 .dl-msg a { color: inherit; }
+body.risk-off #legend,
 body.bare #legend, body.bare #t-view, body.bare #modes, body.bare #soum-box, body.bare #t-footer, body.bare #hint, body.bare #coords { display: none; }
 table.mat th { text-align: left; color: var(--muted); font-weight: 600; padding-right: 6px; }
 table.mat td:not(:first-child) { text-align: right; white-space: nowrap; }
@@ -335,3 +336,19 @@ table.kv tr.clk:hover { background: rgba(255, 255, 255, .08); }
   .legendbar { font-size: 10px; }
   .legendbar span { padding: 2px 6px; }
 }
+
+/* the window that shows a detailed result at its own pixels: dragged by its title, resized at its corner */
+.aoi-view { position: fixed; z-index: 1150; right: 80px; bottom: 120px; width: 460px; height: 400px; min-width: 260px; min-height: 220px; max-width: calc(100vw - 20px); max-height: calc(100vh - 20px); display: flex; flex-direction: column; border-radius: 12px; background: var(--glass-strong); resize: both; overflow: hidden; box-shadow: 0 8px 28px rgba(0, 0, 0, .5); }
+.aoi-view[hidden] { display: none; }
+.av-head { display: flex; align-items: center; gap: 4px; padding: 6px 8px; cursor: move; user-select: none; border-bottom: 1px solid var(--line); }
+.av-title { flex: 1; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.av-btn { width: 26px; height: 26px; border-radius: 7px; border: 1px solid var(--line); background: rgba(255, 255, 255, .06); color: inherit; font-size: 15px; line-height: 1; cursor: pointer; }
+.av-btn:hover { background: rgba(255, 255, 255, .16); }
+.av-body { position: relative; flex: 1; min-height: 0; cursor: crosshair; touch-action: none; }
+.av-body.grab { cursor: grabbing; }
+.av-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.av-c { position: absolute; padding: 1px 5px; border-radius: 5px; background: rgba(0, 0, 0, .62); color: #fff; font-size: 10.5px; font-variant-numeric: tabular-nums; pointer-events: none; }
+.av-c.nw { left: 4px; top: 4px; } .av-c.ne { right: 4px; top: 4px; } .av-c.sw { left: 4px; bottom: 4px; } .av-c.se { right: 18px; bottom: 4px; }
+.av-foot { padding: 5px 9px 7px; font-size: 11px; color: var(--ink2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-top: 1px solid var(--line); }
+.stats-open .aoi-view { right: calc(var(--panel-w) + 80px); }
+@media (max-width: 720px) { .aoi-view, .stats-open .aoi-view { left: 10px; right: 10px; width: auto; bottom: 10px; height: 46vh; } }

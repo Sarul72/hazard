@@ -17,7 +17,7 @@ const km = (x) => (x === null || x === undefined ? "—" : x.toFixed(2));
 const pct = (a, b) => (b > 0 ? Math.round(100 * a / b) + "%" : "—");
 const utc = (ms) => new Date(ms).toISOString().slice(0, 16).replace("T", " ");
 
-export function initFloodBox({ box, map, t, getBox, geeUrl, onResult = () => {} }) {
+export function initFloodBox({ box, map, t, getBox, geeUrl, viewer = null, onResult = () => {} }) {
   const pane = map.createPane("aoiPane");
   pane.style.zIndex = 415;
   pane.style.pointerEvents = "none";
@@ -71,6 +71,8 @@ export function initFloodBox({ box, map, t, getBox, geeUrl, onResult = () => {} 
       else if (r.permanent[i] && st.show.permanent) put(i, COLORS.permanent);
     }
     ctx.putImageData(img, 0, 0);
+    st.canvas = cv;
+    viewer?.refresh("flood");
     const g = r.grid, bounds = [[g.north - g.h * g.dy, g.west], [g.north, g.west + g.w * g.dx]];
     st.overlay = window.L.imageOverlay(cv.toDataURL(), bounds, { pane: "aoiPane", className: "aoi-img", interactive: false }).addTo(map);
   }
@@ -94,6 +96,7 @@ export function initFloodBox({ box, map, t, getBox, geeUrl, onResult = () => {} 
       st.result = { ...r, threshold: st.threshold };
       st.status = fill(t("fa_done"), { s: Math.round((performance.now() - t0) / 1000) });
       paint();
+      openView();
     } catch (e) {
       console.error(e);
       st.error = true;
@@ -102,6 +105,23 @@ export function initFloodBox({ box, map, t, getBox, geeUrl, onResult = () => {} 
     st.running = false;
     render();
     onResult();
+  }
+
+  /** The result in its own window, zoomable to single pixels, with what each pixel holds. */
+  function openView() {
+    const r = st.result;
+    if (!r || !viewer) return;
+    viewer.open({
+      owner: "flood", title: `${t("dd_t_flood")} · ${utc(r.radar.after).slice(0, 10)}`, grid: r.grid, picture: () => st.canvas,
+      label: (i) => {
+        const c = r.code[i];
+        if (c === CODE.confirmed) return t("fa_l_confirmed");
+        if (c === CODE.rural) return t("fa_l_rural");
+        if (c === CODE.city) return t("fa_l_city");
+        if (r.s2water?.[i]) return t("fa_l_s2");
+        return r.permanent[i] ? t("fa_l_permanent") : t("dd_c_none");
+      },
+    });
   }
 
   /** The result for the GIS downloads (js/aoi/files.js): classes, values and what is known of the error. */
@@ -151,7 +171,7 @@ export function initFloodBox({ box, map, t, getBox, geeUrl, onResult = () => {} 
       r && el("div", { class: "aoi-legend" }, ...LAYERS.filter((k) => k !== "s2" || r.s2water).map((k) => el("label", { class: "check" },
         el("input", { type: "checkbox", checked: st.show[k], onchange: (e) => { st.show[k] = e.target.checked; paint(); } }),
         el("i", { style: `background:rgb(${COLORS[k].join(",")})` }), el("span", { text: t("fa_l_" + k) })))),
-      r && el("div", { class: "btnrow" }, el("button", { class: "btn", type: "button", text: t("fa_download_btn"), onclick: download })),
+      r && el("div", { class: "btnrow" }, el("button", { class: "btn", type: "button", text: t("fa_download_btn"), onclick: download }), el("button", { class: "btn", type: "button", text: t("av_open"), onclick: openView })),
       el("p", { class: "note", text: t("fa_warn") }),
       el("p", { class: "note" }, el("a", { href: geeUrl, target: "_blank", rel: "noopener", text: t("fa_gee") })),
       el("p", { class: "note small", text: t("fa_src") }),
@@ -161,9 +181,11 @@ export function initFloodBox({ box, map, t, getBox, geeUrl, onResult = () => {} 
   return {
     render,
     layer,
+    hasResult: () => Boolean(st.result),
+    openView,
     /** The box changed: the area line follows; an old result stays until a new run. */
     refresh() { if (!st.running) render(); },
     /** Leaving the flood view hides the layer; coming back shows it again. */
-    show(on) { if (on) { if (!st.overlay && st.result) paint(); } else { st.overlay?.remove(); st.overlay = null; } },
+    show(on) { if (on) { if (!st.overlay && st.result) paint(); } else { st.overlay?.remove(); st.overlay = null; viewer?.closeIf("flood"); } },
   };
 }

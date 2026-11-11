@@ -15,7 +15,7 @@ const hm = (s) => (s ? s.replace("T", " ") : "—");
 
 /** The day is the site's one day (the day picker): changing it here moves the whole screen, so the area window and this
  * check never speak of different days. */
-export function initDustBox({ box, map, t, getBox, getDay, setDay, geeUrl, onResult = () => {} }) {
+export function initDustBox({ box, map, t, getBox, getDay, setDay, geeUrl, viewer = null, onResult = () => {} }) {
   const pane = map.getPane("aoiPane") ?? map.createPane("aoiPane");
   pane.style.zIndex = 415;
   pane.style.pointerEvents = "none";
@@ -66,6 +66,8 @@ export function initDustBox({ box, map, t, getBox, getDay, setDay, geeUrl, onRes
       px[i * 4] = c[0]; px[i * 4 + 1] = c[1]; px[i * 4 + 2] = c[2]; px[i * 4 + 3] = k === "cloud" ? 140 : 215;
     }
     ctx.putImageData(img, 0, 0);
+    st.canvas = cv;
+    viewer?.refresh("dust");
     const g = r.grid;
     st.overlay = window.L.imageOverlay(cv.toDataURL(), [[g.north - g.h * g.dy, g.west], [g.north, g.west + g.w * g.dx]], { pane: "aoiPane", className: "aoi-img", interactive: false }).addTo(map);
   }
@@ -80,6 +82,7 @@ export function initDustBox({ box, map, t, getBox, getDay, setDay, geeUrl, onRes
       st.result = await computeDust({ box: b, day, step: (k) => { st.status = t("da_step_" + k); render(); } });
       st.status = fill(t("fa_done"), { s: Math.round((performance.now() - t0) / 1000) });
       paint();
+      openView();
     } catch (e) {
       console.error(e);
       st.error = true;
@@ -88,6 +91,17 @@ export function initDustBox({ box, map, t, getBox, getDay, setDay, geeUrl, onRes
     st.running = false;
     render();
     onResult();
+  }
+
+  /** The ground map in its own window, zoomable to single pixels, with the class of each pixel. */
+  function openView() {
+    const r = st.result;
+    if (!r?.land || !viewer) return;
+    const keys = [null, "bare", "sparse", "veg", "snow", "water", "cloud"];
+    viewer.open({
+      owner: "dust", title: `${t("dd_t_dust")} · ${r.day}`, grid: r.grid, picture: () => st.canvas,
+      label: (i) => (keys[r.land[i]] ? t("da_l_" + keys[r.land[i]]) : t("dd_c_nodata")),
+    });
   }
 
   /** The result for the GIS downloads (js/aoi/files.js): ground classes, the conclusion and what is known of the error.
@@ -132,6 +146,7 @@ export function initDustBox({ box, map, t, getBox, getDay, setDay, geeUrl, onRes
       r?.land && el("div", { class: "aoi-legend" }, ...LAYERS.map((k) => el("label", { class: "check" },
         el("input", { type: "checkbox", checked: st.show[k], onchange: (e) => { st.show[k] = e.target.checked; paint(); } }),
         el("i", { style: `background:rgb(${COLORS[k].join(",")})` }), el("span", { text: t("da_l_" + k) })))),
+      r?.land && el("div", { class: "btnrow" }, el("button", { class: "btn", type: "button", text: t("av_open"), onclick: openView })),
       el("p", { class: "note", text: t("da_warn") }),
       el("p", { class: "note" }, el("a", { href: geeUrl, target: "_blank", rel: "noopener", text: t("da_gee") })),
       el("p", { class: "note small", text: t("da_src") }),
@@ -141,7 +156,9 @@ export function initDustBox({ box, map, t, getBox, getDay, setDay, geeUrl, onRes
   return {
     render,
     layer,
+    hasResult: () => Boolean(st.result?.land),
+    openView,
     refresh() { if (!st.running) render(); },
-    show(on) { if (on) { if (!st.overlay && st.result) paint(); } else { st.overlay?.remove(); st.overlay = null; } },
+    show(on) { if (on) { if (!st.overlay && st.result) paint(); } else { st.overlay?.remove(); st.overlay = null; viewer?.closeIf("dust"); } },
   };
 }

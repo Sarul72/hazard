@@ -15,7 +15,7 @@ const pct = (a, b) => (b > 0 ? Math.round(100 * a / b) + "%" : "—");
 const iso = (d) => d.toISOString().slice(0, 10);
 const ago = (n) => iso(new Date(Date.now() - n * 86400000));
 
-export function initFireBox({ box, map, t, getBox, geeUrl, onResult = () => {} }) {
+export function initFireBox({ box, map, t, getBox, geeUrl, viewer = null, onResult = () => {} }) {
   const pane = map.getPane("aoiPane") ?? map.createPane("aoiPane");
   pane.style.zIndex = 415;
   pane.style.pointerEvents = "none";
@@ -70,6 +70,8 @@ export function initFireBox({ box, map, t, getBox, geeUrl, onResult = () => {} }
       if (st.show.modis && r.modis[i] && ((x > 0 && !r.modis[i - 1]) || (x < w - 1 && !r.modis[i + 1]) || (y > 0 && !r.modis[i - w]) || (y < h - 1 && !r.modis[i + w]))) put(i, MODIS, 255);
     }
     ctx.putImageData(img, 0, 0);
+    st.canvas = cv;
+    viewer?.refresh("fire");
     const g = r.grid;
     st.overlay = window.L.imageOverlay(cv.toDataURL(), [[g.north - g.h * g.dy, g.west], [g.north, g.west + g.w * g.dx]], { pane: "aoiPane", className: "aoi-img", interactive: false }).addTo(map);
   }
@@ -92,6 +94,7 @@ export function initFireBox({ box, map, t, getBox, geeUrl, onResult = () => {} }
       st.result = await computeFire({ box: b, before: st.before, after: st.after, autumn: st.autumn, step: (k) => { st.status = t("fi_step_" + k); render(); } });
       st.status = fill(t("fa_done"), { s: Math.round((performance.now() - t0) / 1000) });
       paint();
+      openView();
     } catch (e) {
       console.error(e);
       st.error = true;
@@ -100,6 +103,21 @@ export function initFireBox({ box, map, t, getBox, geeUrl, onResult = () => {} }
     st.running = false;
     render();
     onResult();
+  }
+
+  /** The result in its own window, zoomable to single pixels, with what each pixel holds. */
+  function openView() {
+    const r = st.result;
+    if (!r || !viewer) return;
+    viewer.open({
+      owner: "fire", title: `${t("dd_t_fire")} · ${r.periods.after[0]} – ${r.periods.after[1]}`, grid: r.grid, picture: () => st.canvas,
+      label: (i) => {
+        const k = r.severity[i], parts = [k === 255 ? t("av_cloud") : `${t("fi_c_" + CLASSES[k].key)} (dNBR ${r.dnbr[i].toFixed(2)})`];
+        if (r.modis[i]) parts.push(t("av_modis"));
+        if (r.fire[i]) parts.push(t("fi_l_fire"));
+        return parts.join(" · ");
+      },
+    });
   }
 
   /** The result for the GIS downloads (js/aoi/files.js): severity classes, dNBR and MODIS, and what is known of the error. */
@@ -147,7 +165,7 @@ export function initFireBox({ box, map, t, getBox, geeUrl, onResult = () => {} }
         ...[["burned", null], ["other", CLASSES[2].color], ["modis", MODIS], ["fire", FIRE_PX]].map(([k, c]) => el("label", { class: "check" },
           el("input", { type: "checkbox", checked: st.show[k], onchange: (e) => { st.show[k] = e.target.checked; paint(); } }),
           c && el("i", { style: `background:rgb(${c.join(",")})` }), el("span", { text: t("fi_l_" + k) })))),
-      r && el("div", { class: "btnrow" }, el("button", { class: "btn", type: "button", text: t("fa_download_btn"), onclick: download })),
+      r && el("div", { class: "btnrow" }, el("button", { class: "btn", type: "button", text: t("fa_download_btn"), onclick: download }), el("button", { class: "btn", type: "button", text: t("av_open"), onclick: openView })),
       el("p", { class: "note", text: t("fire_app_warn") }),
       el("p", { class: "note" }, el("a", { href: geeUrl, target: "_blank", rel: "noopener", text: t("fi_gee") })),
       el("p", { class: "note small", text: t("fi_src") }),
@@ -157,7 +175,9 @@ export function initFireBox({ box, map, t, getBox, geeUrl, onResult = () => {} }
   return {
     render,
     layer,
+    hasResult: () => Boolean(st.result),
+    openView,
     refresh() { if (!st.running) render(); },
-    show(on) { if (on) { if (!st.overlay && st.result) paint(); } else { st.overlay?.remove(); st.overlay = null; } },
+    show(on) { if (on) { if (!st.overlay && st.result) paint(); } else { st.overlay?.remove(); st.overlay = null; viewer?.closeIf("fire"); } },
   };
 }
