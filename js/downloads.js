@@ -31,7 +31,7 @@ const single = async (name, data) => ({ base: name.replace(/\.([^.]+)$/, "_$1"),
 /** Error as a share of the score. Near zero the share says nothing, so it stays empty. */
 const relative = (u, score) => (typeof u === "number" && score >= 1 ? Math.round((u / score) * 100) : null);
 
-export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, classLabel, classes, soumsReady, borders, busy, detailLayer = () => null }) {
+export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, classLabel, classes, soumsReady, borders, busy, detailLayers = () => [] }) {
   const detailFiles = initDetailFiles({ t });
   const fill = (k, o) => Object.entries(o).reduce((a, [x, y]) => a.replace(`{${x}}`, y), t(k));
   const baseLayer = () => versionAt(GIBS.layers.find((l) => l.kind === "base" && state.sat[l.key].on), state.date);
@@ -397,14 +397,22 @@ export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, cla
     el("div", {}, el("b", { text: t(key) }), el("small", { text: t(sub) })),
     el("div", { class: "dl-fmt" }, formats.map(([label, job, tip]) => el("button", { type: "button", title: tip ?? null, text: label, onclick: (e) => run(e.currentTarget, () => deliver(context(), job, `${t(key)} (${label})`)) }))));
 
-  /** The row of the detailed check of the hazard on screen, at the top: it is the finest result the page has. */
+  /** A table of a detailed check that is not a GIS file: one CSV, as it is. */
+  function deliverExtra(x) {
+    const url = save(new Blob([x.make()], { type: MIME.csv ?? "text/csv;charset=utf-8" }), x.name);
+    message.replaceChildren(el("a", { href: url, download: x.name, text: fill("dl_ready", { n: x.name }) }));
+  }
+
+  /** The row of a detailed check of the hazard on screen, at the top: it is the finest result the page has. A check
+   * may add tables of its own (`extras`) after the GIS formats. */
   const detailRow = (L) => el("div", { class: "dl-row dl-detail" },
     el("div", {}, el("b", { text: L.title }), el("small", { text: `${L.periodShort.replace("_", " – ")} · ${L.scale} ${t("dd_m")} · ${t("dl_detail_sub")}` })),
-    el("div", { class: "dl-fmt" }, detailFiles.formats().map(([label, kind, tip]) => el("button", { type: "button", title: tip ?? null, text: label, onclick: (e) => run(e.currentTarget, () => deliverDetail(L, kind, `${L.title} (${label})`)) }))));
+    el("div", { class: "dl-fmt" }, detailFiles.formats().map(([label, kind, tip]) => el("button", { type: "button", title: tip ?? null, text: label, onclick: (e) => run(e.currentTarget, () => deliverDetail(L, kind, `${L.title} (${label})`)) })),
+      ...(L.extras ?? []).map((x) => el("button", { type: "button", class: "dl-extra", title: x.title, text: `${x.label} · ${x.title}`, onclick: (e) => run(e.currentTarget, async () => deliverExtra(x)) }))));
 
   function render() {
-    const c = context(), rows = [], L = detailLayer();
-    if (L) rows.push(detailRow(L));
+    const c = context(), rows = [];
+    for (const L of detailLayers()) rows.push(detailRow(L));
     const image = [["JPG", asJpg], ["PNG", asPng], ["PDF", asPdf], ["JPG+JGW", asGisImage, t("dl_gis_tip")], ["GeoTIFF", asMapTif, t("dl_tif_tip")]];
     if (c.day) {
       rows.push(row("dl_map", image));
