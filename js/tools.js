@@ -11,6 +11,7 @@ import { buildField, buildMet, shiftField, windAt, simulate, concGrid, reference
 import { MATERIALS, materialById } from "./materials.js";
 import { arrowLength, createViewCanvas, drawArrow, paintCamps } from "./mapmarks.js";
 import { createMineDaily } from "./minedailybox.js";
+import { EIC_MINE_LAYERS, eicLayer } from "./eic_layers.js";
 
 const TT = {
   mn: {
@@ -29,7 +30,7 @@ const TT = {
     mine_date: "Эхлэх огноо (УБ цаг)", mine_hour: "Эхлэх цаг", mine_dur: "Үргэлжлэх хугацаа", mine_hours: "цаг", mine_radius: "Харах радиус", mine_spread: "Салхины чиглэлийн тодорхойгүй байдал", mine_km: "км",
     mine_run: "Тооцоолох", mine_busy: "Тооцоолж байна…",
     play: "▶ Тоглуулах", pause: "⏸ Зогсоох", speed: "Хурд", t_wind: "Салхи", t_gust: "Давыг", t_dir: "Чиглэл (хаанаас)", t_cams: "CAMS тоос", t_pm10: "CAMS PM10",
-    l_plume: "Тоосны тархалт", l_wind: "Салхины сум", l_homes: "Өвөлжөө, хаваржаа", l_water: "Гол, нуур (JRC, Landsat 1984–2021)", l_aod: "MODIS Deep Blue тоосны аэрозол — бодит хиймэл дагуулын хэмжилт", l_hls: "Sentinel-2 / Landsat 30 м (тухайн өдөр)",
+    l_plume: "Тоосны тархалт", l_wind: "Салхины сум", l_homes: "Өвөлжөө, хаваржаа", l_water: "Гол, нуур (JRC, Landsat 1984–2021)", l_eic_licences: "Ашигт малтмалын хүчинтэй тусгай зөвшөөрөл", l_eic_degraded: "Уурхайн эвдэрсэн газар (тооллого зөвхөн хойд аймгуудад: Сэлэнгэ, Төв, Хэнтий)", l_eic_waterzones: "Усны сан бүхий газар, голын эхийн хамгаалалтын бүс", l_eic_fail: "eic.mn-ээс зураг ирсэнгүй", l_eic_src: "Сүүлийн гурав: Байгаль орчны мэдээллийн сан (eic.mn), газрын зураг нь шууд eic.mn-ээс.", l_aod: "MODIS Deep Blue тоосны аэрозол — бодит хиймэл дагуулын хэмжилт", l_hls: "Sentinel-2 / Landsat 30 м (тухайн өдөр)",
     homes_none: "Айл өрхийн өгөгдөл хараахан бэлэн биш (GitHub Actions «Settlements» ажилласны дараа гарна).", homes_title: "Тархацад өртөж буй айл өрх", homes_total: "Радиус доторх нийт", homes_exposed: "Өртөж буй (индекс ≥ 2)",
     homes_note: "Өгөгдөл: OpenStreetMap, уурхайгаас ≈60 км радиус. Алслагдсан говьд бүх гэр бүртгэгдээгүй байж болно, тиймээс энэ нь доод тооцоо.",
     type_ger: "Гэр", type_house: "Байшин", type_hut: "Майхан/хашаа", type_farmyard: "Мал аж ахуйн талбай", type_place: "Суурин", type_winter: "Өвөлжөө", type_spring: "Хаваржаа",
@@ -58,7 +59,7 @@ const TT = {
     mine_date: "Start date (Ulaanbaatar time)", mine_hour: "Start hour", mine_dur: "Duration", mine_hours: "h", mine_radius: "View radius", mine_spread: "Wind-direction uncertainty", mine_km: "km",
     mine_run: "Compute", mine_busy: "Computing…",
     play: "▶ Play", pause: "⏸ Pause", speed: "Speed", t_wind: "Wind", t_gust: "Gust", t_dir: "Direction (from)", t_cams: "CAMS dust", t_pm10: "CAMS PM10",
-    l_plume: "Dust plume", l_wind: "Wind arrows", l_homes: "Winter and spring camps", l_water: "Lakes and rivers (JRC, Landsat 1984-2021)", l_aod: "MODIS Deep Blue dust aerosol — real satellite measurement", l_hls: "Sentinel-2 / Landsat 30 m (that day)",
+    l_plume: "Dust plume", l_wind: "Wind arrows", l_homes: "Winter and spring camps", l_water: "Lakes and rivers (JRC, Landsat 1984-2021)", l_eic_licences: "Valid mineral licences", l_eic_degraded: "Land degraded by mining (inventoried only in the north: Selenge, Töv, Khentii)", l_eic_waterzones: "Protection zones of water bodies and river sources", l_eic_fail: "eic.mn sent no image", l_eic_src: "The last three: Environmental Information Center of Mongolia (eic.mn), drawn straight from eic.mn.", l_aod: "MODIS Deep Blue dust aerosol — real satellite measurement", l_hls: "Sentinel-2 / Landsat 30 m (that day)",
     homes_none: "Household data not built yet (appears after the GitHub Actions workflow “Settlements” has run).", homes_title: "Households in the plume", homes_total: "Total inside radius", homes_exposed: "Exposed (index ≥ 2)",
     homes_note: "Data: OpenStreetMap, about 60 km around the mine. Remote Gobi may have unmapped gers, so this is a lower bound.",
     type_ger: "Ger", type_house: "House", type_hut: "Hut/tent", type_farmyard: "Livestock yard", type_place: "Settlement", type_winter: "Winter camp", type_spring: "Spring camp",
@@ -245,7 +246,8 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
       sim: null, frames: null, ref: 0, extent: null, W: 150, H: 150, h: 0, playing: false, timer: null, speed: 500,
       cams: null, homes: null, exposure: null, homesAll: undefined, busy: false, picking: false,
       layers: { plume: L.layerGroup(), homes: L.layerGroup(), src: L.layerGroup() },
-      show: { plume: true, wind: true, homes: true, water: false },
+      show: { plume: true, wind: true, homes: true, water: false, licences: false, degraded: false, waterzones: false },
+      eic: {}, eicFail: {}, // EIC's WMS layers (js/eic_layers.js), made when first switched on
       overlay: null, water: undefined, error: null, active: false, met: null, stats: null, range: null, waterHit: null,
     };
     const root = containers.mine;
@@ -441,11 +443,27 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
       st.layers.src.addTo(map);
       windMarks.show(on && st.show.wind && Boolean(st.sim));
       campMarks.show(on && st.show.homes && Boolean(st.sim));
+      // EIC's layers are the mines' setting, so they show with the tool whether or not a plume is computed
+      for (const k of Object.keys(EIC_MINE_LAYERS)) {
+        if (on && st.show[k] && !st.eicFail[k]) (st.eic[k] ??= eicLayer(L, k, () => eicFailed(k))).addTo(map);
+        else st.eic[k]?.remove();
+      }
       if (!on) { for (const g of Object.values(st.layers)) g.remove(); return; }
       for (const [k, g] of Object.entries(st.layers)) {
         if (k === "src") continue;
         if (st.show[k] && st.sim) g.addTo(map); else g.remove();
       }
+    }
+
+    function eicFailed(k) {
+      st.eicFail[k] = true;
+      st.eic[k]?.remove();
+      st.eic[k] = null; // switching it on again asks eic.mn again
+      eicLabels();
+    }
+    function eicLabels() {
+      for (const k of Object.keys(EIC_MINE_LAYERS)) ui.labels[k].textContent = t("l_eic_" + k) + (st.eicFail[k] ? ` — ${t("l_eic_fail")}` : "");
+      ui.eicSrc.textContent = t("l_eic_src");
     }
 
     function setFrame(h) {
@@ -588,6 +606,8 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
       ui.labels = {};
       const mkToggle = (key, onchange) => { const input = el("input", { type: "checkbox", checked: !!st.show[key], onchange: (e) => { st.show[key] = e.target.checked; onchange(); } }); const span = el("span"); ui.labels[key] = span; return el("label", { class: "check" }, input, span); };
       ui.toggles.append(mkToggle("plume", syncLayerVisibility), mkToggle("wind", syncLayerVisibility), mkToggle("homes", syncLayerVisibility), mkToggle("water", () => { syncLayerVisibility(); applySatToggles(); }));
+      ui.eicSrc = el("p", { class: "note small" });
+      ui.toggles.append(...Object.keys(EIC_MINE_LAYERS).map((k) => mkToggle(k, () => { if (st.show[k]) st.eicFail[k] = false; syncLayerVisibility(); eicLabels(); })), ui.eicSrc);
       ui.fields = el("div", { class: "fields" });
       const field = (labelKey, ...ctrl) => { const lab = el("span"); lab.dataset.k = labelKey; return el("label", { class: "inline" }, lab, ...ctrl); };
       ui.fields.append(field("mine_src", ui.mine), field("mine_material", ui.material), field("mine_lat", ui.lat), field("mine_lon", ui.lon, ui.pick), field("mine_date", ui.date), field("mine_hour", ui.hour), field("mine_dur", ui.dur), field("mine_radius", ui.rad), field("mine_spread", ui.spread));
@@ -619,6 +639,7 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
       ui.pick.textContent = st.picking ? t("mine_pick_on") : t("mine_pick");
       ui.run.textContent = t("mine_run"); ui.play.textContent = st.playing ? t("pause") : t("play");
       ui.labels.plume.textContent = t("l_plume"); ui.labels.wind.textContent = t("l_wind"); ui.labels.homes.textContent = t("l_homes"); ui.labels.water.textContent = t("l_water");
+      eicLabels();
       if (st.sim) { renderReadout(); renderResults(); }
       ui.daily?.render();
     }
