@@ -25,6 +25,11 @@ const REF = {
   ap42road: ["US EPA. AP-42, Section 13.2.2, Unpaved Roads: a period with at least 0.254 mm of rain counts as giving no dust.", "https://www.epa.gov/air-emissions-factors-and-quantification/ap-42-fifth-edition-volume-i-chapter-13-miscellaneous-0"],
   calpuff: ["Scire, J.S. et al. (2000). A User's Guide for the CALPUFF Dispersion Model: scavenging coefficients; PM10 1.0E-4 for rain and 3.0E-5 for snow, read from a report that lists them.", "https://gaftp.epa.gov/aqmg/SCRAM/models/other/calpuff/"],
   jrc: ["Pekel, J.-F. et al. (2016). High-resolution mapping of global surface water and its long-term changes. Nature 540. JRC Global Surface Water v1.4, Landsat 1984-2021.", "https://global-surface-water.appspot.com/"],
+  ranjan24: ["Ranjan, A.K., Parida, B.R. (2024). Assessment and estimation of coal dust impact on vegetation using VIs difference model and PRISMA hyperspectral data in mining sites. J. Environ. Manage. 367, 121935.", "https://doi.org/10.1016/j.jenvman.2024.121935"],
+  ma20: ["Ma, B. et al. (2020). Dust dispersion and its effect on vegetation spectra at canopy and pixel scales in an open-pit mining area. Remote Sensing 12(22), 3759.", "https://doi.org/10.3390/rs12223759"],
+  themistocleous23: ["Themistocleous, K., Prodromou, M. (2023). The impact of dust pollution from unpaved roads in the Akamas peninsula, Cyprus, using UAV and Sentinel-2 images. ISPRS Archives XLVIII-1/W2-2023, 505.", "https://doi.org/10.5194/isprs-archives-XLVIII-1-W2-2023-505-2023"],
+  ranjan25: ["Ranjan, A.K. et al. (2025). A new approach for prediction of foliar dust in a coal mining region and its impacts on vegetation physiological processes using multi-source satellite datasets (manuscript, University of Southampton eprint).", "https://eprints.soton.ac.uk/496903/"],
+  gem: ["Global Energy Monitor. Global Coal Mine Tracker: mine positions (WGS 84).", "https://www.gem.wiki/Category:Coal_mines_in_Mongolia"],
   horst: ["Horst, T.W. (1984). Comparison of diffusion-deposition models and plume depletion corrections. Boundary-Layer Meteorology (read from a search summary only).", "https://link.springer.com/article/10.1007/BF00121964"],
   usgscoal: ["USGS Circular 891, Coal Resource Classification System: average specific gravity of coal by rank.", "https://pubs.usgs.gov/circ/c891/table2.htm"],
   usgsquartz: ["USGS. Gemstones: quartz specific gravity 2.65.", "https://pubs.usgs.gov/gip/gemstones/mineral.html"],
@@ -267,6 +272,56 @@ METHODS.plume = {
   ],
 };
 
+METHODS.veg = {
+  mn: {
+    title: "Уурхайн тоосжилт ба ургамал: арга зүй",
+    lead: "Уурхайн орчмын ургамал дээр тогтсон тоосыг хиймэл дагуулаар уншиж, салхины чигтэй тулгаж, тоосны ул мөр хэр хол үргэлжилж буйг тооцно. Салхины секторын ургамлын харьцуулалт.",
+    method: [
+      "Навч дээр тогтсон тоос ойрын хэт улаан ойлтыг бууруулж, NDVI-г багасгадаг; тоос уурхайн карьер, зөөврийн замаас холдох тусам буурдаг (Ranjan & Parida 2024; Ma et al. 2020; Themistocleous & Prodromou 2023).",
+      "Нэг уурхайн орчимд ижил зайн ургамал бүх чигт төстэй, зөвхөн салхи уурхайгаас юу авчирснаар ялгаатай. Тиймээс сектор бүрийн ургамлын NDVI-г ижил зайн бусад секторын медиантай харьцуулахад тогтсон тоос хэмжигдэх ба салхи доод секторууд дутагдлыг үүрнэ.",
+      "Талбай: уурхайгаас 30 км, 100 м тор (600 × 600 нүд). Цагираг: 3–6, 6–10, 10–15, 15–20, 20–30 км; 3 км дотор карьер, овоолго, зам орохгүй. Сектор: 16 (22.5°).",
+      "Sentinel-2 L2A (Planetary Computer): сонгосон жилийн 6-р сарын 15-наас 8-р сарын 31 хүртэлх хамгийн цэлмэг 3 хүртэлх өнгөрөлт, үүлтэй нүдийг эхний өнгөрөлтөөс 20 хоногийн дотор авсан дараагийн өнгөрөлтөөр нөхнө (зуны турш ургамал өөрчлөгдөх тул). NDVI = (B08 − B04)/(B08 + B04), baseline 04.00-ээс хойш 1000-ын шилжилтийг засна. Зөвхөн ургамалтай (NDVI ≥ 0.30, үүл, цас, ус биш) нүд статистикт орно; 200-аас цөөн нүдтэй сектор-цагираг хоосон.",
+      "Салхи: Open-Meteo ERA5 архив, уурхайн цэг дээр тэр хугацааны цаг тутмын салхи. Тоос зөөх цаг: ≥ 6 м/с (сайтын тоосны босго). Салхины давтамж: тоос зөөх цагуудыг хурдаар жинлэж, салхи доод (чиг + 180°) сектороор хуваарилна.",
+      "Дутагдал = секторын дундаж NDVI − цагирагийн медиан. Шуугиан = цагирагийн медиан абсолют хазайлт (MAD); босго = max(0.02, 1.5·MAD). Хүрэх зай = дотроос гадагш завсаргүй босгоос доош байсан сүүлийн цагирагийн гадна ирмэг.",
+      "Ангилал: ул мөртэй ба салхины давтамж ≥ 1/16 бол «тоостой»; ул мөртэй ч салхигүй, эсвэл салхи ≥ 2/16 ч ул мөргүй бол «тодорхойгүй»; бусад «цэвэр». Шалгалт: салхины давтамж ба дотор цагирагийн дутагдлын Spearman ρ; сөрөг утга аргыг тухайн уурхай, жилд баталгаажуулна.",
+      "Өвөлжөө, хаваржаа (кадастр, малчны цэг, ≈1 км-ээр бүдүүлэгжсэн): тоостой секторт, хүрэх зайн дотор, 3 км-ээс цааш байгаа цэгүүдийг тоолно. Сонгосон өдөр, цагийн салхи: тэр цагийн салхи доод секторыг тодруулж, доторх өвөлжөөг тусад нь тоолно.",
+    ],
+    limits: [
+      "NDVI нь хөрсний төрөл, бэлчээрийн даац, зам, суурин, усны ойр зэргээс ч өөрчлөгдөнө. Цагирагийн медиантай харьцуулах нь зайн нөлөөг арилгах ч чиглэлээр ялгаатай бусад шалтгааныг арилгахгүй.",
+      "Зөрүү харьцангуй (NDVI-ийн нэгж), г/м² биш: газар дээрх навчны тоосны хэмжилт Монголын уурхайд олдсонгүй, тул калибрлагдаагүй.",
+      "ERA5 салхи ≈25 км, уурхайн цэгийн нэг утга; уулархаг газарт (Хөшөөт, Могойн гол) орон нутгийн салхи өөр байж болно.",
+      "Sentinel-2 2017 оноос; зун үүлтэй жилд өнгөрөлт цөөн байж болно. Хоёр бүртгэл давхцах тул өвөлжөөний тоонуудыг нэмж болохгүй.",
+    ],
+    refs: ["ranjan24", "ma20", "themistocleous23", "ranjan25", "gem"],
+  },
+  en: {
+    title: "Mine dust and vegetation: method",
+    lead: "The dust settled on the vegetation around a mine is read by satellite and set against the wind, to see how far the mark of the mine's dust runs. The wind-sector vegetation contrast.",
+    method: [
+      "Dust on leaves lowers the near-infrared reflectance and so the NDVI, and it falls off with distance from the pit and the haul roads (Ranjan & Parida 2024; Ma et al. 2020; Themistocleous & Prodromou 2023).",
+      "Around one mine the vegetation at a given distance is alike in every direction except for what the wind brings from the mine. So the NDVI of each sector, compared with the median of the same distance in the other sectors, measures the settled dust, and the downwind sectors should carry the deficit.",
+      "Domain: 30 km around the mine on a 100 m grid (600 × 600 cells). Rings: 3–6, 6–10, 10–15, 15–20, 20–30 km; inside 3 km the pit, dumps and roads are excluded. Sectors: 16 (22.5°).",
+      "Sentinel-2 L2A (Planetary Computer): the clearest passes, at most three, between 15 June and 31 August of the chosen year; cloudy cells are filled from the next passes within 20 days of the clearest one, because the grass changes through the summer. NDVI = (B08 − B04)/(B08 + B04) with the 1000 offset of baseline 04.00 removed. Only vegetation cells (NDVI ≥ 0.30, not cloud, snow or water) enter; a sector-ring with fewer than 200 cells is empty.",
+      "Wind: Open-Meteo ERA5 archive at the mine, hourly, for the same window. Dust-carrying hours: ≥ 6 m/s (the site's dust onset). The wind rose is the share of those hours per downwind sector (direction + 180°), weighted by speed.",
+      "Deficit = sector mean NDVI − ring median. Noise = median absolute deviation (MAD) of the ring; threshold = max(0.02, 1.5·MAD). Reach = the outer edge of the last ring, counted from the inside without a gap, that lies under the threshold.",
+      "Classes: a mark with wind share ≥ 1/16 is dusty; a mark without wind, or wind ≥ 2/16 without a mark, is unclear; otherwise clear. Check: Spearman ρ between wind share and inner-ring deficit; a negative value supports the method for that mine and year.",
+      "Winter and spring camps (cadastre and herder points, rounded to about 1 km): counted in dusty sectors inside their reach and beyond 3 km. The chosen day and hour: that hour's downwind sector is highlighted and its camps counted apart.",
+    ],
+    limits: [
+      "NDVI also changes with soil, grazing pressure, roads, settlements and water. The ring median removes the effect of distance, not every other cause that differs by direction.",
+      "The contrast is relative (NDVI units), not g/m²: no ground measurement of foliar dust at a Mongolian mine was found, so it is not calibrated.",
+      "ERA5 wind is about 25 km and one value at the mine; in hilly country (Khushuut, Mogoin Gol) the local wind may differ.",
+      "Sentinel-2 starts in 2017; a cloudy summer may leave few passes. The two camp registers may overlap, so their counts must not be added.",
+    ],
+    refs: ["ranjan24", "ma20", "themistocleous23", "ranjan25", "gem"],
+  },
+  data: [
+    ["Sentinel-2 L2A (Planetary Computer)", "10–20 м → 100 м", { mn: "Зуны NDVI, үүлний маск (SCL)", en: "Summer NDVI, cloud mask (SCL)" }],
+    ["Open-Meteo (ERA5 archive; forecast service within 85 days)", "≈25 км", { mn: "Зуны салхины давтамж; сонгосон цагийн салхи", en: "Summer wind rose; wind of the chosen hour" }],
+    ["data/camps.bin.gz", "≈1 км", { mn: "Өвөлжөө, хаваржаа", en: "Winter and spring camps" }],
+  ],
+};
+
 METHODS.all = {
   mn: {
     title: "Нэгдсэн эрсдэл: арга зүй, материал",
@@ -346,7 +401,7 @@ export function openMethods(dlg, hazard, { lang, t, manifest }) {
     el("h2", { text: c.title }), el("p", { class: "lead", text: c.lead }),
     el("h3", { text: t("m_method") }), list(c.method),
     rows.length ? el("h3", { text: t("m_material") }) : null,
-    rows.length && !sources && hazard !== "plume" && !m.ownError ? el("p", { class: "dlg-warn", text: t("m_planned") }) : null,
+    rows.length && !sources && hazard !== "plume" && hazard !== "veg" && !m.ownError ? el("p", { class: "dlg-warn", text: t("m_planned") }) : null,
     rows.length ? el("table", {}, el("thead", {}, el("tr", {}, ["m_col_data", "m_col_res", "m_col_role"].map((k) => el("th", { text: t(k) })))), el("tbody", {}, rows.map((r) => el("tr", {}, r.map((v) => el("td", { text: v })))))) : null,
     m.ownError ? null : el("h3", { text: t("m_error") }), m.ownError ? null : list(COMMON_ERROR[lang] ?? COMMON_ERROR.mn),
     el("h3", { text: t("m_limits") }), list(c.limits),
