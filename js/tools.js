@@ -272,9 +272,9 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
     function setMaterial(id) { st.materialId = id; if (ui.material) ui.material.value = id; }
     function setSource(lat, lon, id) { st.lat = lat; st.lon = lon; if (id) st.mineId = id; ui.lat.value = lat.toFixed(4); ui.lon.value = lon.toFixed(4); drawSource(); }
     function showStudyForSource() {
-      const mine = MINES.find((m) => m.id === "uhg");
-      ui.study.hidden = !mine || ui.mine.value !== mine.id || st.mineId !== mine.id ||
-        st.lat !== mine.lat || st.lon !== mine.lon;
+      // The Ukhaa Khudag study block is hidden until the study is redone: its result was too weak to show.
+      // It used to appear only for that mine: !mine || ui.mine.value !== mine.id || st.mineId !== mine.id || position differs.
+      ui.study.hidden = true;
     }
     function drawSource() {
       showStudyForSource();
