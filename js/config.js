@@ -60,6 +60,7 @@ export const PALETTES = {
   fire: ["#fde3d6", "#f9b295", "#ef6f4f", "#c9211e", "#7c0a12"],
   flood: ["#deeefa", "#a6d0ef", "#5aa3dd", "#1c6cb5", "#0b3a78"],
   dust: ["#e4f3dd", "#a6d89a", "#63b562", "#25854a", "#0b572c"],
+  dzud: ["#f2e8d8", "#dcc29a", "#bf935b", "#8c5e2d", "#4f3112"], // browns: pasture and herds, apart from the four above
 };
 
 const channel = (hex, i) => { const v = parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16) / 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
