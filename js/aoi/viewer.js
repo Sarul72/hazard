@@ -1,7 +1,10 @@
 /* A small window that shows the result of a detailed check at its own pixels. The map stops at zoom 12 (25-40 m a screen
  * pixel), finer than nothing of the satellite image but coarser than the 10-60 m of the checks, so the result is looked at
  * here: the window can be dragged by its title and resized at its corner, the picture zooms with the wheel or the buttons
- * down to single pixels and pans by dragging, and the four corners say the latitude and longitude of what is in view. */
+ * down to single pixels and pans by dragging, and the four corners say the latitude and longitude of what is in view.
+ * Behind the result lies the clearest Sentinel-2 colour image of the check's period (js/aoi/backdrop.js), fetched when
+ * the window opens; it can be switched off, and the result made more or less transparent over it. When none of the
+ * shown classes occurs in the area, the window says which one to switch on instead of staying empty. */
 import { el } from "../dom.js";
 
 const MAX_K = 40; // screen pixels per result pixel at the closest zoom
@@ -14,16 +17,39 @@ export function createViewer({ t }) {
   const canvas = el("canvas", { class: "av-canvas" });
   const corner = Object.fromEntries(["nw", "ne", "sw", "se"].map((k) => [k, el("span", { class: "av-c " + k })]));
   const title = el("b", { class: "av-title" });
+  const empty = el("p", { class: "av-empty", hidden: true });
+  let showSat = true, bg = { key: null, img: null, state: "none" }, satButton = null;
+  const alpha = el("input", { type: "range", class: "av-alpha", min: "0.2", max: "1", step: "0.05", value: "0.8", title: t("av_alpha"), "aria-label": t("av_alpha"), oninput: () => draw() });
   const foot = el("div", { class: "av-foot" });
   const btn = (text, tip, on) => el("button", { type: "button", class: "av-btn", text, title: tip, "aria-label": tip, onclick: on });
   const head = el("div", { class: "av-head" }, title,
-    btn("+", t("av_in"), () => zoomAt(1.6)), btn("−", t("av_out"), () => zoomAt(1 / 1.6)), btn("⤢", t("av_fit"), () => { fit(); draw(); }), btn("×", t("av_close"), () => close()));
-  const body = el("div", { class: "av-body" }, canvas, ...Object.values(corner));
+    btn("+", t("av_in"), () => zoomAt(1.6)), btn("−", t("av_out"), () => zoomAt(1 / 1.6)), btn("⤢", t("av_fit"), () => { fit(); draw(); }), alpha, satBtn(), btn("×", t("av_close"), () => close()));
+  const body = el("div", { class: "av-body" }, canvas, ...Object.values(corner), empty);
   const box = el("section", { class: "aoi-view glass", hidden: true, role: "dialog", "aria-label": t("av_open") }, head, body, foot);
   document.body.append(box);
 
   // the shown result: its picture, grid, the name of what a pixel holds, and which check it belongs to
   let cur = null, k = 1, ox = 0, oy = 0, hover = null;
+  // the satellite picture behind it: per result, fetched once; null while loading, false when none was found
+  function satBtn() {
+    satButton = el("button", { type: "button", class: "av-btn av-sat on", text: "🛰", title: t("av_sat"), "aria-label": t("av_sat"), "aria-pressed": "true",
+      onclick: () => { showSat = !showSat; satButton.classList.toggle("on", showSat); satButton.setAttribute("aria-pressed", String(showSat)); draw(); } });
+    return satButton;
+  }
+  async function loadBackdrop(spec) {
+    if (!spec.backdrop || bg.key === spec.grid) return;
+    bg = { key: spec.grid, img: null, state: "loading" };
+    footer();
+    try {
+      const b = await spec.backdrop();
+      if (bg.key !== spec.grid) return;
+      bg = { key: spec.grid, img: b, state: b ? "ready" : "none" };
+    } catch (e) {
+      console.error(e);
+      if (bg.key === spec.grid) bg = { key: spec.grid, img: null, state: "error" };
+    }
+    if (cur?.grid === spec.grid && !box.hidden) draw();
+  }
 
   function size() {
     const r = body.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
@@ -51,7 +77,14 @@ export function createViewer({ t }) {
     ctx.strokeStyle = "rgba(255,255,255,.35)";
     ctx.lineWidth = 1 / (k * dpr);
     ctx.strokeRect(0, 0, g.w, g.h);
+    const sat = showSat && bg.key === cur.grid && bg.img;
+    if (sat) { ctx.imageSmoothingEnabled = k < 1; ctx.drawImage(bg.img.canvas, 0, 0); ctx.imageSmoothingEnabled = false; }
+    ctx.globalAlpha = sat ? Number(alpha.value) : 1;
     ctx.drawImage(cur.picture(), 0, 0);
+    ctx.globalAlpha = 1;
+    const why = cur.empty?.() ?? null;
+    empty.hidden = !why;
+    empty.textContent = why ?? "";
     // the corners of what is in view
     const lon = (x) => g.west + x * g.dx, lat = (y) => g.north - y * g.dy;
     const x0 = ox, y0 = oy, x1 = ox + w / k, y1 = oy + h / k;
@@ -67,6 +100,7 @@ export function createViewer({ t }) {
     const parts = [`1 ${t("av_px")} = ${g.scale} м`, `${t("av_width")} ${km(widthM)}`];
     if (hover) parts.unshift(`${where(hover.lat, hover.lon)} · ${hover.what}`);
     else parts.push(t("av_hint"));
+    if (cur.backdrop && bg.key === cur.grid) parts.push(bg.state === "ready" ? `${t("av_image")}: Sentinel-2 ${bg.img.date}` : bg.state === "loading" ? t("av_image_loading") : t("av_image_none"));
     foot.textContent = parts.join("  ·  ");
   }
 
@@ -131,6 +165,7 @@ export function createViewer({ t }) {
     box.hidden = false;
     if (!same) fit();
     draw();
+    loadBackdrop(spec);
   }
   function close() { box.hidden = true; cur?.onClose?.(); }
 

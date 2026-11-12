@@ -3,6 +3,7 @@
 import { el } from "../dom.js";
 import { CODE, FLOOD, computeFlood, scaleFor } from "./flood.js";
 import { boxAreaKm2 } from "./raster.js";
+import { backdrop } from "./backdrop.js";
 import { geoTiff } from "../formats.js";
 import { save } from "../export.js";
 import { U } from "../ui_text.js";
@@ -15,6 +16,7 @@ const ago = (n) => iso(new Date(Date.now() - n * 86400000));
 const fill = (s, v) => s.replace(/\{(\w+)\}/g, (_, k) => v[k] ?? "");
 const km = (x) => (x === null || x === undefined ? "—" : x.toFixed(2));
 const pct = (a, b) => (b > 0 ? Math.round(100 * a / b) + "%" : "—");
+const addDays = (d, n) => new Date(Date.parse(d + "T00:00:00Z") + n * 86400000).toISOString().slice(0, 10);
 const utc = (ms) => new Date(ms).toISOString().slice(0, 16).replace("T", " ");
 
 export function initFloodBox({ box, map, t, getBox, geeUrl, viewer = null, onResult = () => {} }) {
@@ -61,7 +63,8 @@ export function initFloodBox({ box, map, t, getBox, geeUrl, viewer = null, onRes
     const { w, h } = r.grid, cv = document.createElement("canvas");
     cv.width = w; cv.height = h;
     const ctx = cv.getContext("2d"), img = ctx.createImageData(w, h), px = img.data;
-    const put = (i, c) => { px[i * 4] = c[0]; px[i * 4 + 1] = c[1]; px[i * 4 + 2] = c[2]; px[i * 4 + 3] = 235; };
+    let drawn = 0;
+    const put = (i, c) => { px[i * 4] = c[0]; px[i * 4 + 1] = c[1]; px[i * 4 + 2] = c[2]; px[i * 4 + 3] = 235; drawn++; };
     for (let i = 0; i < w * h; i++) {
       const c = r.code[i];
       if (c === CODE.confirmed && st.show.confirmed) put(i, COLORS.confirmed);
@@ -72,6 +75,7 @@ export function initFloodBox({ box, map, t, getBox, geeUrl, viewer = null, onRes
     }
     ctx.putImageData(img, 0, 0);
     st.canvas = cv;
+    st.drawn = drawn;
     viewer?.refresh("flood");
     const g = r.grid, bounds = [[g.north - g.h * g.dy, g.west], [g.north, g.west + g.w * g.dx]];
     st.overlay = window.L.imageOverlay(cv.toDataURL(), bounds, { pane: "aoiPane", className: "aoi-img", interactive: false }).addTo(map);
@@ -120,6 +124,21 @@ export function initFloodBox({ box, map, t, getBox, geeUrl, viewer = null, onRes
         if (c === CODE.city) return t("fa_l_city");
         if (r.s2water?.[i]) return t("fa_l_s2");
         return r.permanent[i] ? t("fa_l_permanent") : t("dd_c_none");
+      },
+      empty: () => {
+        if (st.drawn) return null;
+        const n = { confirmed: 0, rural: 0, city: 0, permanent: 0, s2: 0 };
+        for (let i = 0; i < r.code.length; i++) {
+          const c = r.code[i];
+          if (c === CODE.confirmed) n.confirmed++; else if (c === CODE.rural) n.rural++; else if (c === CODE.city) n.city++;
+          else if (r.s2water?.[i]) n.s2++; else if (r.permanent[i]) n.permanent++;
+        }
+        const top = Object.entries(n).filter(([k, v]) => v && !st.show[k]).sort((a, b) => b[1] - a[1])[0];
+        return top ? t("av_empty").replace("{c}", t("fa_l_" + top[0])) : t("av_none_flood");
+      },
+      backdrop: () => {
+        const d = r.optical?.date ?? utc(r.radar.after).slice(0, 10);
+        return backdrop(r.grid, addDays(d, r.optical ? 0 : -5), addDays(d, r.optical ? 0 : 10));
       },
     });
   }

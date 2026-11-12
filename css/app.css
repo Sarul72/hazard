@@ -356,3 +356,8 @@ table.kv tr.clk:hover { background: rgba(255, 255, 255, .08); }
 .check .sat-st:empty { display: none; }
 .sat-hint { margin: 4px 0 2px; font-size: 10.5px; line-height: 1.4; color: var(--muted); }
 .linkish { background: none; border: 0; padding: 0; color: var(--accent); font: inherit; cursor: pointer; text-decoration: underline; }
+.av-alpha { width: 64px; accent-color: #9fd3ff; }
+.av-sat { font-size: 13px; opacity: .55; }
+.av-sat.on { opacity: 1; background: rgba(159, 211, 255, .2); }
+.av-empty { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(80%, 300px); margin: 0; padding: 10px 12px; border-radius: 9px; background: rgba(0, 0, 0, .72); color: #fff; font-size: 12.5px; line-height: 1.4; text-align: center; pointer-events: none; }
+.av-empty[hidden] { display: none; }

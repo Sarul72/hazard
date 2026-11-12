@@ -3,6 +3,7 @@
 import { el } from "../dom.js";
 import { CLASSES, FIRE, computeFire, scaleFor } from "./fire.js";
 import { boxAreaKm2 } from "./raster.js";
+import { backdrop } from "./backdrop.js";
 import { geoTiff } from "../formats.js";
 import { save } from "../export.js";
 import { U } from "../ui_text.js";
@@ -57,7 +58,8 @@ export function initFireBox({ box, map, t, getBox, geeUrl, viewer = null, onResu
     const { w, h } = r.grid, cv = document.createElement("canvas");
     cv.width = w; cv.height = h;
     const ctx = cv.getContext("2d"), img = ctx.createImageData(w, h), px = img.data;
-    const put = (i, c, a = 230) => { px[i * 4] = c[0]; px[i * 4 + 1] = c[1]; px[i * 4 + 2] = c[2]; px[i * 4 + 3] = a; };
+    let drawn = 0;
+    const put = (i, c, a = 230) => { px[i * 4] = c[0]; px[i * 4 + 1] = c[1]; px[i * 4 + 2] = c[2]; px[i * 4 + 3] = a; drawn++; };
     for (let i = 0; i < w * h; i++) {
       const k = r.severity[i];
       if (k === 255) continue;
@@ -71,6 +73,7 @@ export function initFireBox({ box, map, t, getBox, geeUrl, viewer = null, onResu
     }
     ctx.putImageData(img, 0, 0);
     st.canvas = cv;
+    st.drawn = drawn;
     viewer?.refresh("fire");
     const g = r.grid;
     st.overlay = window.L.imageOverlay(cv.toDataURL(), [[g.north - g.h * g.dy, g.west], [g.north, g.west + g.w * g.dx]], { pane: "aoiPane", className: "aoi-img", interactive: false }).addTo(map);
@@ -117,6 +120,15 @@ export function initFireBox({ box, map, t, getBox, geeUrl, viewer = null, onResu
         if (r.fire[i]) parts.push(t("fi_l_fire"));
         return parts.join(" · ");
       },
+      empty: () => {
+        if (st.drawn) return null;
+        let burned = 0, other = 0;
+        for (const k of r.severity) { if (k === 255) continue; if (k >= 3) burned++; else other++; }
+        if (!burned && !other) return t("av_none_fire");
+        const top = [["burned", burned], ["other", other]].filter(([key, v]) => v && !st.show[key]).sort((a, b) => b[1] - a[1])[0];
+        return top ? t("av_empty").replace("{c}", t("fi_l_" + top[0])) : null;
+      },
+      backdrop: () => backdrop(r.grid, r.periods.after[0], r.periods.after[1]),
     });
   }
 

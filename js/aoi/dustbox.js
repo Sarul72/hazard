@@ -3,6 +3,7 @@
 import { el } from "../dom.js";
 import { DUST, LAND, computeDust, scaleFor } from "./dust.js";
 import { boxAreaKm2 } from "./raster.js";
+import { backdrop } from "./backdrop.js";
 import { U } from "../ui_text.js";
 
 const COLORS = { bare: [214, 140, 52], sparse: [236, 214, 140], veg: [70, 150, 80], snow: [232, 244, 255], water: [40, 110, 210], cloud: [120, 120, 120] };
@@ -59,14 +60,17 @@ export function initDustBox({ box, map, t, getBox, getDay, setDay, geeUrl, viewe
     cv.width = w; cv.height = h;
     const ctx = cv.getContext("2d"), img = ctx.createImageData(w, h), px = img.data;
     const keys = [null, "bare", "sparse", "veg", "snow", "water", "cloud"];
+    let drawn = 0;
     for (let i = 0; i < w * h; i++) {
       const k = keys[r.land[i]];
       if (!k || !st.show[k]) continue;
       const c = COLORS[k];
       px[i * 4] = c[0]; px[i * 4 + 1] = c[1]; px[i * 4 + 2] = c[2]; px[i * 4 + 3] = k === "cloud" ? 140 : 215;
+      drawn++;
     }
     ctx.putImageData(img, 0, 0);
     st.canvas = cv;
+    st.drawn = drawn;
     viewer?.refresh("dust");
     const g = r.grid;
     st.overlay = window.L.imageOverlay(cv.toDataURL(), [[g.north - g.h * g.dy, g.west], [g.north, g.west + g.w * g.dx]], { pane: "aoiPane", className: "aoi-img", interactive: false }).addTo(map);
@@ -101,6 +105,14 @@ export function initDustBox({ box, map, t, getBox, getDay, setDay, geeUrl, viewe
     viewer.open({
       owner: "dust", title: `${t("dd_t_dust")} · ${r.day}`, grid: r.grid, picture: () => st.canvas,
       label: (i) => (keys[r.land[i]] ? t("da_l_" + keys[r.land[i]]) : t("dd_c_nodata")),
+      empty: () => {
+        if (st.drawn) return null;
+        const n = new Array(keys.length).fill(0);
+        for (const v of r.land) n[v]++;
+        const top = keys.map((k, v) => [k, n[v]]).filter(([k, c]) => k && c && !st.show[k]).sort((a, b) => b[1] - a[1])[0];
+        return top ? t("av_empty").replace("{c}", t("da_l_" + top[0])) : t("dd_c_nodata");
+      },
+      backdrop: () => { const d = [...r.dates].sort(); return backdrop(r.grid, d[0], d[d.length - 1]); },
     });
   }
 

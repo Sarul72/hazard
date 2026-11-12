@@ -128,3 +128,18 @@ export function parseNpy(buf) {
   if (!T) throw new Error("npy type " + descr);
   return { data: new T(buf.slice(off)), shape };
 }
+
+/** A colour picture of `item` on grid `g` (the data API's own rendering of an RGB asset, such as Sentinel-2 "visual"),
+ * as RGBA bytes. Only pixels still transparent in `into` are filled, so several scenes can be laid one after another. */
+export async function rgbOnGrid(g, item, query, into = null) {
+  const out = into ?? new Uint8ClampedArray(g.w * g.h * 4);
+  await Promise.all(blocks(g).map(async (b) => {
+    const px = await pngValues(blockUrl(g, b, item, query, "png"), b.w, b.h);
+    for (let y = 0; y < b.h; y++) for (let x = 0; x < b.w; x++) {
+      const i = (y * b.w + x) * 4, o = ((b.r + y) * g.w + b.c + x) * 4;
+      if (px[i + 3] === 0 || out[o + 3] !== 0 || (px[i] === 0 && px[i + 1] === 0 && px[i + 2] === 0)) continue;
+      out[o] = px[i]; out[o + 1] = px[i + 1]; out[o + 2] = px[i + 2]; out[o + 3] = 255;
+    }
+  }));
+  return out;
+}
