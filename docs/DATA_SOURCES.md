@@ -5,6 +5,7 @@
 | Source | Used for | Terms / credit | Status |
 |---|---|---|---|
 | Open-Meteo forecast API (`api.open-meteo.com/v1/forecast`) | hourly temperature, humidity, wind, precipitation, rain, snow depth; up to 92 past days | Open-Meteo.com, CC BY 4.0; free for non-commercial use with request limits (check open-meteo.com/en/pricing, not reachable here) | Live run succeeded (22/22 points) |
+| eic.mn environmental management plans (Baganuur JSC, 2024 and 2026) and the Baganuur mine annual report 2018 (baganuurmine.mn) | prevailing wind, dust monitoring points and readings, main dust source, for the report check of the vegetation box (`VEG_REPORTS`) | Public documents of the Ministry's environmental information centre and of the company; no coordinates of the points | Read during development, quoted in `js/config.js` |
 | Open-Meteo air quality API | `dust`, `pm10`, `aerosol_optical_depth` | Must credit CAMS and Open-Meteo. Global domain: CAMS global composition forecast, 0.4° (~45 km), 5-day forecast | Live run succeeded |
 | Open-Meteo flood API | `river_discharge`, GloFAS v4, 0.05°, "largest river in a 5 km area", `past_days` 0–92, `forecast_days` up to 210 | GloFAS / Copernicus Emergency Management Service; credit Open-Meteo | Live run succeeded (some points may lack a river, see flags) |
 | NASA GIBS WMTS (EPSG:3857, "best") | satellite imagery and overlays | NASA ESDIS asks for acknowledgement: "We acknowledge the use of imagery provided by services from NASA's Global Imagery Browse Services (GIBS), part of NASA's Earth Science Data and Information System (ESDIS)." | See layer table |
@@ -13,7 +14,7 @@
 | Natural Earth 1:50m via world-atlas 2.0.2 | Mongolia outline until 2026-11-10; still the clip of `data/water.geojson` | Public domain data, ISC package licence | Copied from a verified file |
 | Leaflet 1.9.4 | map | BSD-2 (`vendor/leaflet/LICENSE`) | Bundled |
 | Microsoft Planetary Computer STAC and data API, Sentinel-2 L2A | summer NDVI and SCL of the mine dust and vegetation box (and the detailed checks) | Copernicus Sentinel data, free and open; Planetary Computer API free without a key | Read in the browser; the box was checked headless with stubbed responses only |
-| Open-Meteo archive API (`archive-api.open-meteo.com`), ERA5 | summer wind rose and the wind of a chosen hour at the mine, vegetation box | Open-Meteo.com, CC BY 4.0; contains modified Copernicus Climate Change Service information | Read in the browser |
+| Open-Meteo archive API (`archive-api.open-meteo.com`), ERA5 | hourly wind, precipitation and soil moisture (0–7 cm) at the mine from 15 May: the emission episodes of the vegetation box; the wind of a chosen hour | Open-Meteo.com, CC BY 4.0; contains modified Copernicus Climate Change Service information | Read in the browser |
 | Global Energy Monitor, Global Coal Mine Tracker (gem.wiki) | positions of the coal mines of the vegetation box (Nalaikh from Wikipedia) | CC BY-NC-SA | Read on gem.wiki, 2026-11-12 |
 
 ## GIBS layers
