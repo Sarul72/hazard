@@ -1,0 +1,33 @@
+{
+ "source": "Байгаль орчны мэдээллийн сан (eic.mn), MODIS snow cover",
+ "checked": "2026-11-12",
+ "layers": [
+  "snowimagejanuaryfirst2025",
+  "snowimagejanuarysecond2025",
+  "snowimagejanuarythird2025",
+  "snowimagefebruaryfirst2025",
+  "snowimagefebruarysecond2025",
+  "snowimagefebruarythird2025",
+  "snowimagemarchfirst2025",
+  "snowimagemarchsecond2025",
+  "snowimagemarchthird2025",
+  "snowimageaprilsecond2025",
+  "snowimagenovembersecond2025",
+  "snowimagenovemberthird2025",
+  "snowimagedecemberfirst2025",
+  "snowimagedecembersecond2025",
+  "snowimagedecemberthird2025",
+  "snowimagejanuaryfirst2026",
+  "snowimagejanuarysecond2026",
+  "snowimagejanuarythird2026",
+  "snowimagefebruaryfirst2026",
+  "snowimagefebruarysecond2026",
+  "snowimagefebruarythird2026",
+  "snowimagemarchfirst2026",
+  "snowimagemarchsecond2026",
+  "snowimagemarchthird2026",
+  "snowimageoctobersecond2026",
+  "snowimageoctoberthird2026",
+  "snowimagenovemberfirst2026"
+ ]
+}

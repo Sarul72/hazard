@@ -1,7 +1,7 @@
 /* The dzud tab's plain functions (js/dzud_data.js). */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { chanceOf, classCounts, topSoums, winterFile, winterLabel, winterOf } from "../js/dzud_data.js";
+import { borrowedDensity, chanceOf, classCounts, coldSoFar, snowLayer, topSoums, winterFile, winterLabel, winterOf } from "../js/dzud_data.js";
 
 test("a day belongs to the winter that starts in October", () => {
   assert.equal(winterOf("2026-11-12"), "2026-27");
@@ -37,4 +37,36 @@ test("class counts and the highest-risk soums", () => {
   assert.deepEqual(classCounts(fs), { counts: [1, 0, 1, 1, 1], none: 1 });
   assert.deepEqual(topSoums(fs, 2).map((x) => x.properties.risk), [1.2, 0.7]);
   assert.equal(topSoums(fs).length, 4, "soums with no risk are left out");
+});
+
+test("the cold label says so while the winter is under way", () => {
+  assert.equal(coldSoFar("nov"), true);
+  assert.equal(coldSoFar("dec"), true);
+  assert.equal(coldSoFar("jan"), true);
+  assert.equal(coldSoFar("feb"), false, "November to February is complete from the February stage");
+  assert.equal(coldSoFar("mar"), false);
+  assert.equal(coldSoFar(undefined), false, "a hindcast is the whole winter");
+  assert.equal(coldSoFar("oct"), false, "no winter month yet: no cold to label");
+});
+
+test("aimag centres and Ulaanbaatar districts carry a borrowed herd density", () => {
+  assert.equal(borrowedDensity({ is_centre: true, is_ub: false }), "centre");
+  assert.equal(borrowedDensity({ is_centre: false, is_ub: true }), "ub");
+  assert.equal(borrowedDensity({ is_centre: false, is_ub: false }), null);
+  assert.equal(borrowedDensity({}), null, "files without the flags");
+});
+
+test("the snow image is the chosen day's dekad, or the last one before it in the same snow season", () => {
+  const list = ["snowimagenovembersecond2025", "snowimagedecemberthird2025", "snowimagemarchthird2026",
+    "snowimageoctobersecond2026", "snowimagenovemberfirst2026"];
+  assert.deepEqual(snowLayer("2026-11-05", list), { layer: "snowimagenovemberfirst2026", year: 2026, month: 11, dekad: 1 });
+  assert.equal(snowLayer("2026-11-12", list).layer, "snowimagenovemberfirst2026", "the current dekad is not out yet");
+  assert.equal(snowLayer("2026-10-20", list).layer, "snowimageoctobersecond2026");
+  assert.equal(snowLayer("2026-10-05", list), null, "nothing yet this season");
+  assert.equal(snowLayer("2026-01-15", list).layer, "snowimagedecemberthird2025", "across the new year, same season");
+  assert.equal(snowLayer("2026-04-25", list).layer, "snowimagemarchthird2026");
+  assert.equal(snowLayer("2026-06-01", list), null, "no snow season in summer");
+  assert.equal(snowLayer("2025-11-05", list), null, "none yet that season; a later image is never used");
+  assert.equal(snowLayer("2026-11-21", []), null);
+  assert.equal(snowLayer("2026-12-31", ["snowimagedecemberthird2026"]).dekad, 3);
 });
