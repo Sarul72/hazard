@@ -1,6 +1,6 @@
 /* The wind-sector vegetation contrast (js/minedust_veg.js) against cases worked out by hand. check() is plain
  * JavaScript so it also runs in a browser where Node is not installed. */
-import { VEG, anomalyGrid, attribute, bearingKm, campsExposed, classify, combineRoses, deficits, emissionWeight, episodes, footprintKm2, geometry, hoursSinceRain, innerRingCells, rain24, reaches, sectorOf, sectorRingStats, soilThreshold, spearman, washedBetween, windRose } from "../js/minedust_veg.js";
+import { VEG, anomalyGrid, attribute, lastWash, ndviChange, pairCandidates, bearingKm, campsExposed, classify, combineRoses, deficits, emissionWeight, episodes, footprintKm2, geometry, hoursSinceRain, innerRingCells, rain24, reaches, sectorOf, sectorRingStats, soilThreshold, spearman, washedBetween, windRose } from "../js/minedust_veg.js";
 import { domain } from "../js/minedaily.js";
 
 export function check() {
@@ -146,6 +146,31 @@ export function check() {
   yes("downwind dusted pixels keep their class", at[0] === 2 && at[1] === 3 && at[2] === 4);
   yes("clean, bare and outside stay", at[3] === 5 && at[4] === 1 && at[5] === 0);
   yes("a dusted pixel off the wind is another cause", at[6] === 6);
+
+  // the last washing rain before every hour
+  const pr = new Float32Array(200); pr[20] = 6; pr[120] = 6;
+  const lw = lastWash(pr, 5);
+  yes("before any washing rain: -1", lw[10] === -1);
+  yes("the washing rain hour and after it point to it", lw[20] === 20 && lw[119] === 20 && lw[150] === 120);
+
+  // pairs of passes: a clean one after a washing rain with no emission since, a dusty one later with emission between
+  // and no washing rain between
+  const wt2 = new Float32Array(200); wt2[60] = 50; wt2[61] = 50; wt2[140] = 10;
+  const pl = [{ i: 40, share: 0.9 }, { i: 80, share: 0.8 }, { i: 100, share: 0.95 }, { i: 130, share: 0.9 }, { i: 160, share: 0.9 }];
+  const cand = pairCandidates(pl, { precip: pr, weight: wt2 }, { washMm: 5, minShare: 0.5, maxGapHours: 1000 });
+  yes("best pair: the clean pass at 40, the dusty one at 100", cand[0].a === 0 && cand[0].b === 2);
+  near("its emission weight between the two", cand[0].weight, 100, 1e-6);
+  yes("no pair across the washing rain at 120", !cand.some((c) => pl[c.a].i < 120 && pl[c.b].i > 120));
+  yes("a pass after emission is not clean", !cand.some((c) => c.a === 1 || c.a === 2));
+  yes("after the second rain: the clean pass at 130 and the dusty one at 160", cand.some((c) => c.a === 3 && c.b === 4));
+  yes("a cloudy pass is not used", pairCandidates([{ i: 40, share: 0.3 }, { i: 100, share: 0.9 }], { precip: pr, weight: wt2 }, { washMm: 5, minShare: 0.5 }).length === 0);
+  yes("no rain at all: no clean pass, no pair", pairCandidates(pl, { precip: new Float32Array(200), weight: wt2 }, { washMm: 5 }).length === 0);
+
+  // the change between the clean and the dusty image, on vegetation seen clear in both
+  const dd = ndviChange(Float32Array.from([0.5, 0.5, NaN, 0.5]), Float32Array.from([0.4, NaN, 0.4, 0.55]), Uint8Array.from([1, 1, 1, 0]));
+  near("dusty minus clean", dd.delta[0], -0.1, 1e-6);
+  yes("cloud in either image, or no vegetation in the clean one: no change", Number.isNaN(dd.delta[1]) && Number.isNaN(dd.delta[2]) && Number.isNaN(dd.delta[3]));
+  yes("the mask follows", dd.mask[0] === 1 && dd.mask[1] === 0 && dd.mask[3] === 0);
   return out;
 }
 
