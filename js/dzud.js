@@ -2,13 +2,16 @@
  * heavy losses in its popup. The data stays on ZudRisk's site (js/dzud_data.js), so its monthly outlook update reaches
  * this page without a copy. When ZudRisk has no file for the winter, the screen says so and shows no colour. */
 import { el } from "./dom.js";
-import { DZUD_URL, borrowedDensity, chanceOf, classCounts, coldSoFar, topSoums, winterFile, winterLabel, winterOf } from "./dzud_data.js";
+import { DZUD_URL, EIC_SNOW_WMS, borrowedDensity, chanceOf, classCounts, coldSoFar, snowLayer, topSoums, winterFile, winterLabel, winterOf } from "./dzud_data.js";
 
 const IND = ["cold", "snow", "summer", "pressure"];
+const EIC_URL = "https://eic.mn/dzud/";
 
 /** box: the side panel's container; classes(): the dzud colours; busy(job): the computing screen while a file loads. */
 export function createDzud({ map, box, t, getLang, classes, classLabel, busy, onChange }) {
   const st = { on: false, date: null, index: null, winter: null, geo: null, layer: null, token: 0, error: null, loading: false };
+  // EIC's snow-cover image under the soums: its list of real layers is read once, the image itself straight from eic.mn
+  const snow = { on: false, list: null, pick: null, layer: null, error: false };
   const get = (p) => fetch(DZUD_URL + p).then((r) => { if (!r.ok) throw new Error(`${r.status} ${p}`); return r.json(); });
   const pct = (q) => `${Math.round(100 * q)}%`;
   const num = (v, d = 2) => (v === null || v === undefined ? "–" : Number(v).toFixed(d));
@@ -54,10 +57,42 @@ export function createDzud({ map, box, t, getLang, classes, classLabel, busy, on
     st.layer = null;
     if (!st.on || !st.geo) return;
     st.layer = window.L.geoJSON(st.geo, {
-      style: (f) => ({ color: "#1b1208", weight: 0.5, opacity: 0.6, fillColor: fill(f.properties), fillOpacity: 0.74 }),
+      // with the snow image on, the soums are outlines only, so the image shows through and the popups still open
+      style: (f) => (snow.on ? { color: "#1b1208", weight: 0.8, opacity: 0.8, fill: true, fillOpacity: 0 }
+        : { color: "#1b1208", weight: 0.5, opacity: 0.6, fillColor: fill(f.properties), fillOpacity: 0.74 }),
       onEachFeature: (f, l) => l.bindTooltip(() => tip(f.properties), { sticky: true, direction: "top" })
         .bindPopup(() => popup(f.properties), { maxWidth: 300 }),
     }).addTo(map);
+  }
+
+  function snowList() {
+    snow.list ??= fetch("data/eic_snow.json").then((r) => (r.ok ? r.json() : { layers: [] })).then((j) => j.layers ?? [])
+      .catch(() => []);
+    return snow.list;
+  }
+
+  /** The snow image for the chosen day, or none: off, summer, no image yet that season, or eic.mn not answering. */
+  async function drawSnow() {
+    const want = st.on && snow.on && st.date ? snowLayer(st.date, await snowList()) : null;
+    if (want?.layer === snow.pick?.layer && (snow.layer || !want)) { render(); return; }
+    snow.layer?.remove();
+    snow.layer = null;
+    snow.pick = want;
+    if (want && !snow.error) {
+      if (!map.getPane("dzudSnow")) map.createPane("dzudSnow").style.zIndex = 250; // over the satellite image, under the soums
+      snow.layer = window.L.tileLayer.wms(EIC_SNOW_WMS, { layers: want.layer, format: "image/png", transparent: true,
+        version: "1.1.1", pane: "dzudSnow", opacity: 0.85, attribution: "© EIC Mongolia (eic.mn)" })
+        .once("tileerror", () => { snow.error = true; snow.layer?.remove(); snow.layer = null; render(); })
+        .addTo(map);
+    }
+    render();
+  }
+
+  function setSnow(on) {
+    snow.on = on;
+    if (on) snow.error = false; // switching it on again tries eic.mn again
+    draw();
+    drawSnow();
   }
 
   function focus(pcode) {
@@ -73,6 +108,14 @@ export function createDzud({ map, box, t, getLang, classes, classLabel, busy, on
     if (!box) return;
     const ix = st.ready, w = st.winter, kids = [];
     kids.push(el("p", { class: "note", text: t("dz_lead") }));
+    kids.push(el("label", { class: "check" }, el("input", { type: "checkbox", checked: snow.on, onchange: (e) => setSnow(e.target.checked) }),
+      el("span", { text: t("dz_snow") })));
+    if (snow.on) {
+      const s = snow.pick;
+      kids.push(el("p", { class: "note small" + (snow.error ? " warn" : "") }, snow.error ? t("dz_snow_error")
+        : s ? t("dz_snow_at").replace("{y}", s.year).replace("{m}", t("months")[s.month - 1]).replace("{d}", s.dekad) : t("dz_snow_none"),
+        " ", el("a", { href: EIC_URL, target: "_blank", rel: "noopener", text: t("dz_snow_src") })));
+    }
     if (st.error) kids.push(el("p", { class: "note warn", text: `${t("load_error")}${st.error}` }));
     else if (!w) kids.push(el("p", { class: "note", text: t("busy") }));
     else if (!st.geo && !st.loading) {
@@ -136,8 +179,8 @@ export function createDzud({ map, box, t, getLang, classes, classLabel, busy, on
   }
 
   return {
-    show(on) { st.on = on; if (on) load(); else { st.token++; st.loading = false; st.layer?.remove(); st.layer = null; } if (on) draw(); },
-    setDate(d) { st.date = d; if (st.on) load(); },
+    show(on) { st.on = on; if (on) load(); else { st.token++; st.loading = false; st.layer?.remove(); st.layer = null; } if (on) draw(); drawSnow(); },
+    setDate(d) { st.date = d; if (st.on) { load(); drawSnow(); } },
     relabel() { render(); if (st.on) draw(); },
     /** What the notice under the map says, or null. */
     note() {

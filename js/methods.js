@@ -302,6 +302,7 @@ METHODS.dzud = {
       "Аймгийн түвшинд 2000–2014 оны хорогдлын 46%-ийг эмзэг байдал (малын тоо, өмнөх хорогдол, өвс тэжээлийн бэлтгэл, малчдын нас, техник, ДНБ) тайлбарласан (Nandintsetseg нар, 2018). Эдгээрээс оноонд зөвхөн малын ачаалал орсон; өвс тэжээл, малчдын бэлтгэлийн сумын өгөгдөл алга.",
       "Төмөр зуд (мөсөн бүрхүүл)-ыг сарын өгөгдлөөр шалгахад хорогдолтой холбоогүй гарсан; өдрийн өгөгдлөөр шалгаж байна.",
       "ҮСХ сумын хорогдлыг 2011/12-оос гаргадаг тул түүнээс өмнөх өвлүүдийг зөвхөн аймгаар шалгасан.",
+      "Цасан бүрхүүлийн давхарга нь Байгаль орчны мэдээллийн сангийн (eic.mn) MODIS-ийн арав хоногийн зураг, түүний өнгөөр; оноонд ордоггүй. eic.mn 2020 оноос хойш давхаргын нэрийг гаргасан ч зураг нь 2025 оны 1-р сараас л бий.",
       "Энэ бол судалгааны тооцоо бөгөөд албан ёсны сэрэмжлүүлэг биш.",
     ],
     refs: ["zudrisk", "era5land", "mod13c2", "nso"],
@@ -321,6 +322,7 @@ METHODS.dzud = {
       "At aimag level, 2000-2014, vulnerability (herd size, past losses, hay preparation, herders' age, vehicles, GDP) explained 46 % of losses (Nandintsetseg et al., 2018). Of these the score has only grazing pressure; there are no soum data for hay or herders' preparation.",
       "Iron dzud (an ice crust) tested on monthly data showed no link to losses; a daily test is under way.",
       "NSO publishes soum losses from 2011/12, so earlier winters are tested by aimag only.",
+      "The snow-cover layer is the Environmental Information Center's (eic.mn) dekadal MODIS image, in its colours; it is not part of the score. eic.mn names layers from 2020, but they hold an image only from January 2025.",
       "A research estimate, not an official warning.",
     ],
     refs: ["zudrisk", "era5land", "mod13c2", "nso"],
@@ -331,6 +333,7 @@ METHODS.dzud = {
     ["MODIS MOD13C2", "0.05°", { mn: "Зуны бэлчээр (NDVI)", en: "Summer pasture (NDVI)" }],
     ["ҮСХ / NSO", { mn: "сум", en: "soum" }, { mn: "Малын тоо, хорогдол", en: "Herds, losses" }],
     ["OCHA COD-AB", { mn: "сум", en: "soum" }, { mn: "Сумын хил", en: "Soum boundaries" }],
+    ["EIC (eic.mn), MODIS", { mn: "арав хоног", en: "dekad" }, { mn: "Цасан бүрхүүлийн зураг (давхарга)", en: "Snow-cover image (layer)" }],
   ],
 };
 

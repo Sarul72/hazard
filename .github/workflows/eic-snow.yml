@@ -1,0 +1,33 @@
+# Rebuilds data/eic_snow.json, the list of EIC's snow-cover WMS layers that hold an image (scripts/build-eic-snow.mjs),
+# commits it when it changed, then asks the site workflow to redeploy. EIC adds a new image about every ten days in
+# winter, so once a day is enough. A failed request fails the job and the old list stays online.
+name: EIC snow layers
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 2 * * *" # 10:23 Ulaanbaatar time
+permissions:
+  contents: write
+  actions: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/build-eic-snow.mjs
+      - name: Commit and redeploy when the list changed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/eic_snow.json
+          if git diff --cached --quiet; then echo "unchanged"; exit 0; fi
+          git commit -m "Update EIC snow-cover layers"
+          git pull --rebase origin main
+          git push
+          gh workflow run pages.yml --ref main
