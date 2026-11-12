@@ -396,3 +396,5 @@ table.kv tr.clk:hover { background: rgba(255, 255, 255, .08); }
 .veg-group .check b { font-weight: 650; }
 .veg-key { margin: 4px 0; font-size: 11px; color: var(--ink2); }
 .veg-key i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin: 0 4px 0 2px; vertical-align: -1px; }
+.veg-episodes { max-height: 220px; overflow-y: auto; font-size: 11px; }
+.veg-episodes .check { margin: 2px 0; }
