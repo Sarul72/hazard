@@ -269,6 +269,9 @@ METHODS.plume = {
     ["Open-Meteo (ERA5, forecast)", "≈25 км", { mn: "Цаг тутмын салхи", en: "Hourly wind" }],
     ["Open-Meteo (CAMS)", "≈45 км", { mn: "Эх үүсвэр дэх тоос, харьцуулахад", en: "Dust at the source, for comparison" }],
     ["Кадастр, малчны бүртгэл", "≈1 км болгосон", { mn: "Өртсөн өвөлжөө, хаваржаа", en: "Exposed camps" }],
+    ["EIC (eic.mn): ашигт малтмалын тусгай зөвшөөрөл", { mn: "полигон", en: "polygon" }, { mn: "Уурхайн орчин (давхарга)", en: "Mining setting (layer)" }],
+    ["EIC (eic.mn): уурхайн эвдэрсэн газар", { mn: "полигон, цэг", en: "polygon, point" }, { mn: "Тоосны эх үүсвэр (зөвхөн хойд аймгууд)", en: "Dust sources (north only)" }],
+    ["EIC (eic.mn): усны сан, голын эхийн хамгаалалтын бүс", { mn: "полигон", en: "polygon" }, { mn: "Мэдрэмтгий хүлээн авагч (давхарга)", en: "Sensitive receptors (layer)" }],
   ],
 };
 
