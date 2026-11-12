@@ -208,6 +208,7 @@ button { cursor: pointer; }
 .dlg h2 { margin: 0 30px 6px 0; font-size: 19px; }
 .dlg .lead { color: var(--ink2); margin: 0 0 8px; }
 .dlg h3 { margin: 16px 0 4px; font-size: 13px; letter-spacing: .04em; color: #7fb4f0; }
+.dlg h2.sub { margin-top: 26px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 17px; }
 .dlg ul, .dlg ol { margin: 4px 0; padding-left: 20px; }
 .dlg li { margin: 4px 0; }
 .dlg table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 4px; }
