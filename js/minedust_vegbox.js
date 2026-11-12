@@ -42,7 +42,7 @@ const TT = {
     ep_title: "Ялгаралтын үе", ep_help: "ERA5-ийн цаг тутмын салхи, хур тунадас, хөрсний чийг (0–7 см): сүүлийн ≥2 мм (24 цагийн нийлбэр) бороо зогссоноос хойш 24 цаг өнгөрсөн, хөрсний чийг зуны медианаас илүүгүй, салхи ≥6 м/с цагууд тоос дэгдээнэ; жин (u−6)·u². Зэргэлдээ цагууд (≤6 цагийн завсартай) нэг үе. Зургийн өдрөөс өмнөх, ≥5 мм борооноор угаагдаагүй үеүд л тооцоонд орно.",
     ep_all: "Бүгдийг нэгтгэж харах", ep_none: "Ялгаралтын үе олдсонгүй: салхи сул эсвэл хөрс чийгтэй байсан.", ep_count: "{n} үе, {h} цаг (≥6 м/с салхитай цагуудын {p} %); тооцоонд {k} үе. Зургийн өдөр {d}.",
     ep_line: "№{k} · {a} – {b} · {h} ц · ≤{u} м/с · {dirs} · хөрс {s} · бороо {r} · ρ {rho}", ep_after: "(зургийн дараа)", ep_washed: "(угаагдсан)", ep_norain: "бүртгэгдээгүй", ep_days: "{d} хоногийн өмнө",
-    rp_title: "Тайлантай харьцуулах", rp_wind: "Салхи: ERA5 ялгаралтын үеүдэд тоос {top} зүг рүү.", rp_town: "Хот ({km} км хойд): {dirs} секторын 3–6 км {cls}, NDVI-ийн зөрүү {d}.", rp_dist: "Зай: тоостой чигт 3–6 км-д зөрүү {a}, 10–15 км-д {b}.",
+    veg_results_right: "Үр дүн баруун талын цонхонд «Уурхайн тоосжилт ба ургамал» хэсэгт гарна.", rp_title: "Тайлантай харьцуулах", rp_wind: "Салхи: ERA5 ялгаралтын үеүдэд тоос {top} зүг рүү.", rp_town: "Хот ({km} км хойд): {dirs} секторын 3–6 км {cls}, NDVI-ийн зөрүү {d}.", rp_dist: "Зай: тоостой чигт 3–6 км-д зөрүү {a}, 10–15 км-д {b}.",
     rp_ok: "Таарч байна.", rp_no: "Зөрж байна.", rp_fade: "Зайнаас хамаарч буурч байна: тогтсон тоос, замын тоосны шинж.", rp_nofade: "Зайнаас хамаарч буурахгүй: тоосноос өөр шалтгаан байж болно.", rp_nodusty: "Тоостой чиг илрээгүй тул зайн шалгалт хийгдэхгүй.", rp_links: "Эх сурвалж:",
     veg_classes: "Пиксел бүрийн ангилал (100 м): ургамлын NDVI-ийн зөрүү ижил зайн цагирагийн медианаас.", veg_class_area: "{n}: {a} км²", veg_window: "Томруулж харах", veg_window_title: "Уурхайн тоосжилт ба ургамал",
     veg_camps_px: "Өвөлжөө, хаваржааг байрлалынх нь 1 км² дэх ургамлын ангиллаар (3–30 км):", veg_camps_on: "{n} дээр", veg_camps_total: "3–30 км-д нийт", veg_camps_dusted: "Уурхайн тоостой ургамал дээр (их, дунд, бага) нийт",
@@ -75,7 +75,7 @@ const TT = {
     ep_line: "No. {k} · {a} – {b} · {h} h · ≤{u} m/s · {dirs} · soil {s} · rain {r} · ρ {rho}", ep_after: "(after the image)", ep_washed: "(washed off)", ep_norain: "none recorded", ep_days: "{d} days before",
     veg_pair: "Clean image (after rain washed the leaves, no dust lifted since): {a}. Dusty image: {b}. Emission weight between: {w}.", veg_pair_sel: "Image pair", veg_pair_opt: "{a} → {b} · weight {w}", veg_single: "No pair of a clean image after washing rain and a dusty one after emission this summer: computed from a single image (the older way).",
     veg_classes_pair: "Class of every 100 m pixel: how much the NDVI of the vegetation fell from the clean to the dusty image, against the median of its ring.", cmp_rgb: "True colour", cmp_ndvi: "NDVI", cmp_clean: "Clean", cmp_dusty: "Dusty", ep_help_pair: "The emission episodes between the clean and the dusty image (24 h after the end of rain, dry soil, wind of 6 m/s or more; weight (u−6)·u²). Their downwind sectors attribute the dust to the mine.",
-    rp_title: "Against the mine's reports", rp_wind: "Wind: in the ERA5 emission episodes dust went {top}.", rp_town: "Town ({km} km north): sectors {dirs} at 3–6 km are {cls}, NDVI deficit {d}.", rp_dist: "Distance: in the dusty sectors the deficit is {a} at 3–6 km and {b} at 10–15 km.",
+    veg_results_right: "The results are in the right-hand panel, under “Mine dust and vegetation”.", rp_title: "Against the mine's reports", rp_wind: "Wind: in the ERA5 emission episodes dust went {top}.", rp_town: "Town ({km} km north): sectors {dirs} at 3–6 km are {cls}, NDVI deficit {d}.", rp_dist: "Distance: in the dusty sectors the deficit is {a} at 3–6 km and {b} at 10–15 km.",
     rp_ok: "Agrees.", rp_no: "Disagrees.", rp_fade: "Fading with distance: the mark of settled dust, of a haul-road source.", rp_nofade: "Not fading with distance: a cause other than dust is possible.", rp_nodusty: "No dusty sector, so no distance check.", rp_links: "Sources:",
     veg_classes: "Class of every 100 m pixel: the NDVI of the vegetation against the median of its ring.", veg_class_area: "{n}: {a} km²", veg_window: "Open in a window", veg_window_title: "Mine dust and vegetation",
     veg_camps_px: "Winter and spring camps by the vegetation class of their 1 km² (3–30 km):", veg_camps_on: "On {n}", veg_camps_total: "All within 3–30 km", veg_camps_dusted: "On mine-dusted vegetation (heavy, moderate, light) in all",
@@ -137,7 +137,7 @@ async function getJson(url, tries = 3) {
   }
 }
 
-export function createVegBox({ map, getLang, campsFor, requestSat, onMethods, viewer = null, onResult = () => {}, busy = () => {} }) {
+export function createVegBox({ map, getLang, campsFor, requestSat, onMethods, viewer = null, onResult = () => {}, busy = () => {}, onPanel = () => {} }) {
   const L = window.L;
   const t = (k) => (TT[getLang()] && TT[getLang()][k]) ?? TT.mn[k] ?? k;
   const pane = map.getPane("mineVeg") ?? map.createPane("mineVeg");
@@ -147,7 +147,7 @@ export function createVegBox({ map, getLang, campsFor, requestSat, onMethods, vi
   const st = {
     mineId: VEG_MINES[0].id, year: thisYear - 1, running: false, status: "", error: false, res: null, active: false,
     date: addDays(iso(Date.now()), -1), hour: 12, hourRes: null, hourBusy: false, hourToken: 0, runToken: 0,
-    show: { wind: true, camps: true, aod: false, veg: true }, pick: [],
+    show: { wind: true, camps: true, aod: false, veg: true }, pick: [], open: {},
     px: Object.fromEntries(PX.map((c) => [c.key, c.on])), canvas: null, drawn: 0,
     overlay: null, wedges: L.layerGroup(), hourWedge: L.layerGroup(),
   };
@@ -616,29 +616,67 @@ export function createVegBox({ map, getLang, campsFor, requestSat, onMethods, vi
   }
   /** The emission episodes: a master checkbox for all the countable ones, one checkbox each; the picked set drives
    * the result. */
-  function episodesBlock(r) {
-    const countable = r.eps.filter((ep) => !ep.after && !ep.washed), picked = countable.filter((ep) => st.pick[ep.k]).length;
-    const all = el("input", { type: "checkbox", checked: countable.length > 0 && picked === countable.length, disabled: !countable.length, onchange: (e) => { for (const ep of r.eps) st.pick[ep.k] = e.target.checked && !ep.after && !ep.washed; applyPick(); } });
-    all.indeterminate = picked > 0 && picked < countable.length;
-    return el("div", { class: "veg-group" },
-      el("b", { text: t("ep_title") }),
-      el("p", { class: "note small", text: t(r.mode === "pair" ? "ep_help_pair" : "ep_help") }),
-      el("p", { class: "md-line", text: r.eps.length ? fill(t("ep_count"), { n: r.eps.length, h: r.episodeHours, p: r.windyHours ? Math.round((100 * r.episodeHours) / r.windyHours) : 0, k: countable.length, d: r.passDate }) : t("ep_none") }),
-      r.eps.length ? el("label", { class: "check" }, all, el("b", { text: t("ep_all") })) : null,
-      el("div", { class: "veg-episodes" }, ...[...r.eps].reverse().map((ep) => el("label", { class: "check" + (ep.after || ep.washed ? " off" : "") },
-        el("input", { type: "checkbox", checked: Boolean(st.pick[ep.k]), onchange: (e) => { st.pick[ep.k] = e.target.checked; applyPick(); } }),
-        el("span", { text: episodeLine(ep) })))));
-  }
-  function group(key, lines, extra = null) {
+  /** A left-side layer switch: a check box and its name, with the controls that belong to it. */
+  function toggle(key, extra = null) {
     const input = el("input", { type: "checkbox", checked: st.show[key], onchange: (e) => { st.show[key] = e.target.checked; if (key === "aod") requestSat?.({ key: "aod_maiac", on: st.show.aod, date: st.date }); paint(); } });
-    return el("div", { class: "veg-group" }, el("label", { class: "check" }, input, el("b", { text: t("g_" + key) })), extra, ...lines.map((x) => el("p", { class: "md-line", text: x })));
+    return el("div", { class: "veg-group" }, el("label", { class: "check" }, input, el("b", { text: t("g_" + key) })), extra);
+  }
+  /** A collapsible group of result lines for the right-hand panel; it remembers whether it was open. */
+  function section(key, title, lines, extra = null) {
+    const d = el("details", { class: "st-fold", open: st.open[key] !== false, ontoggle: (e) => { st.open[key] = e.target.open; } },
+      el("summary", { text: title }), ...lines.filter(Boolean).map((x) => (typeof x === "string" ? el("p", { class: "st-say", text: x }) : x)), extra);
+    return d;
+  }
+  /** The result in the right-hand panel, under its own collapsible heading: every number and sentence of it. */
+  function resultNode() {
+    const r = st.res;
+    if (!r) return null;
+    const ex = r.exposed, hs = fin(st.hourRes?.sector) ? campsInSector(r.camps, r.mine, st.hourRes.sector, r.reach[st.hourRes.sector]) : null;
+    const camp = (c) => `${c.parcels} ${t("veg_parcels")}, ${c.herders} ${t("veg_herders")}.`;
+    const sum = (ks) => ({ parcels: ks.reduce((a, k) => a + r.campsByClass[k].parcels, 0), herders: ks.reduce((a, k) => a + r.campsByClass[k].herders, 0) });
+    const sub = r.mode === "pair" ? `${r.clean} → ${r.dusty}` : String(r.year);
+    const countable = r.eps.filter((ep) => !ep.after && !ep.washed).length;
+    return el("details", { class: "st-sec", open: st.open.main !== false, ontoggle: (e) => { st.open.main = e.target.open; } },
+      el("summary", {}, el("span", { class: "st-kicker", text: t("veg_title") }), el("span", { class: "st-title", text: `${mineName(r.mine)} · ${sub}` })),
+      section("veg", t("g_veg"), [...vegLines(), t(r.mode === "pair" ? "veg_classes_pair" : "veg_classes")],
+        el("dl", { class: "st-rows" }, ...PX.filter((c) => c.paint).map((c) => el("div", { class: "st-row" }, el("dt", {}, el("i", { class: "veg-sw", style: `background:rgb(${c.color.join(",")})` }), t("px_" + c.key)), el("dd", { text: `${r.areas[c.code].toFixed(0)} км²` }))))),
+      section("camps", t("g_camps"), r.camps === null ? [t("veg_camps_none")] : [
+        t("veg_camps_px"),
+        ...[2, 3, 4, 6, 5, 1].map((k) => `${fill(t("veg_camps_on"), { n: t("px_" + PX[k].key) })}: ${camp(r.campsByClass[k])}`),
+        `${t("veg_camps_dusted")}: ${camp(sum([2, 3, 4]))}`,
+        `${t("veg_camps_total")}: ${camp(sum([1, 2, 3, 4, 5, 6]))}`,
+        `${t("veg_camps_all")}: ${camp(ex)}`,
+        hs ? `${t("veg_camps_hour")} (${dir16(st.hourRes.sector)}): ${camp(hs)}` : null,
+        t("veg_camps_hint"),
+      ]),
+      section("wind", t("g_wind"), windLines()),
+      section("eps", t("ep_title"), [
+        t(r.mode === "pair" ? "ep_help_pair" : "ep_help"),
+        r.eps.length ? fill(t("ep_count"), { n: r.eps.length, h: r.episodeHours, p: r.windyHours ? Math.round((100 * r.episodeHours) / r.windyHours) : 0, k: countable, d: r.passDate }) : t("ep_none"),
+        ...r.eps.filter((ep) => st.pick[ep.k]).map(episodeLine),
+      ]),
+      VEG_REPORTS[r.mine.id] ? section("report", t("rp_title"), reportLines(),
+        el("p", { class: "st-say" }, t("rp_links") + " ", ...VEG_REPORTS[r.mine.id].links.flatMap((l, i) => [i ? "; " : null, el("a", { href: l.u, target: "_blank", rel: "noopener", text: l.t })]))) : null,
+      section("aod", t("g_aod"), [t("veg_aod_line")]),
+      el("p", { class: "st-note", text: t("veg_limits") }),
+      el("button", { class: "st-btn wide", type: "button", text: t("veg_window"), onclick: openView }));
   }
   function render() {
     const r = st.res, years = []; for (let y = 2017; y <= thisYear; y++) years.push(y);
     const hourForm = r && el("div", { class: "md-form" },
       el("label", {}, el("span", { text: t("veg_date") }), el("input", { class: "field", type: "date", value: st.date, min: "1940-01-01", max: addDays(iso(Date.now()), 14), onchange: (e) => { if (e.target.value) { st.date = e.target.value; loadHour(); } } })),
       el("label", {}, el("span", { text: t("veg_hour") }), el("select", { class: "field", onchange: (e) => { st.hour = Number(e.target.value); loadHour(); } }, ...Array.from({ length: 24 }, (_, h) => el("option", { value: h, text: String(h).padStart(2, "0") + ":00", selected: h === st.hour })))));
-    const ex = r?.exposed, hs = r && fin(st.hourRes?.sector) ? campsInSector(r.camps, r.mine, st.hourRes.sector, r.reach[st.hourRes.sector]) : null;
+    let epsPick = null;
+    if (r) {
+      const countable = r.eps.filter((ep) => !ep.after && !ep.washed), picked = countable.filter((ep) => st.pick[ep.k]).length;
+      const all = el("input", { type: "checkbox", checked: countable.length > 0 && picked === countable.length, disabled: !countable.length, onchange: (e) => { for (const ep of r.eps) st.pick[ep.k] = e.target.checked && !ep.after && !ep.washed; applyPick(); } });
+      all.indeterminate = picked > 0 && picked < countable.length;
+      epsPick = r.eps.length ? el("div", { class: "veg-group" }, el("b", { text: t("ep_title") }),
+        el("label", { class: "check" }, all, el("b", { text: t("ep_all") })),
+        el("div", { class: "veg-episodes" }, ...[...r.eps].reverse().map((ep) => el("label", { class: "check" + (ep.after || ep.washed ? " off" : "") },
+          el("input", { type: "checkbox", checked: Boolean(st.pick[ep.k]), onchange: (e) => { st.pick[ep.k] = e.target.checked; applyPick(); } }),
+          el("span", { text: `№${ep.k + 1} · ${hhmm(ep.start)} · ${ep.hours} ${getLang() === "mn" ? "ц" : "h"}${ep.after ? " " + t("ep_after") : ep.washed ? " " + t("ep_washed") : ""}` }))))) : null;
+    }
     box.replaceChildren(...[
       el("h4", { class: "md-title", text: t("veg_title") }),
       el("p", { class: "note", text: t("veg_help") }),
@@ -648,33 +686,22 @@ export function createVegBox({ map, getLang, campsFor, requestSat, onMethods, vi
       el("div", { class: "btnrow" }, el("button", { class: "btn aoi-run", type: "button", text: t("veg_run"), disabled: st.running, onclick: run }), el("button", { class: "btn small", type: "button", text: t("veg_method"), onclick: () => onMethods?.("veg") })),
       st.status && el("p", { class: "aoi-status" + (st.error ? " err" : ""), role: "status", text: st.status.v && typeof st.status.v === "object" ? fill(t(st.status.k), st.status.v) : t(st.status.k) + (typeof st.status.v === "string" ? st.status.v : "") }),
       r && el("section", { class: "veg-panel" },
-        el("p", { class: "md-line" }, el("b", { text: `${mineName(r.mine)} · ${r.year}` })),
         r.mode === "pair" && st.prep?.cands.length > 1 && el("label", { class: "md-form veg-pair" }, el("span", { text: t("veg_pair_sel") }),
           el("select", { class: "field", disabled: st.running, onchange: (e) => choosePair(Number(e.target.value)) }, ...st.prep.cands.map((c, i) => el("option", { value: i, selected: i === st.pairIdx,
             text: fill(t("veg_pair_opt"), { a: st.prep.list[c.a].date, b: st.prep.list[c.b].date, w: Math.round(c.weight).toLocaleString() }) })))),
-        group("wind", windLines(), hourForm),
-        group("camps", r.camps === null ? [t("veg_camps_none")] : [
-          t("veg_camps_px"),
-          ...[2, 3, 4, 6, 5, 1].map((k) => `${fill(t("veg_camps_on"), { n: t("px_" + PX[k].key) })}: ${r.campsByClass[k].parcels} ${t("veg_parcels")}, ${r.campsByClass[k].herders} ${t("veg_herders")}.`),
-          `${t("veg_camps_dusted")}: ${[2, 3, 4].reduce((a, k) => a + r.campsByClass[k].parcels, 0)} ${t("veg_parcels")}, ${[2, 3, 4].reduce((a, k) => a + r.campsByClass[k].herders, 0)} ${t("veg_herders")}.`,
-          `${t("veg_camps_total")}: ${[1, 2, 3, 4, 5, 6].reduce((a, k) => a + r.campsByClass[k].parcels, 0)} ${t("veg_parcels")}, ${[1, 2, 3, 4, 5, 6].reduce((a, k) => a + r.campsByClass[k].herders, 0)} ${t("veg_herders")}.`,
-          `${t("veg_camps_all")}: ${ex.parcels} ${t("veg_parcels")}, ${ex.herders} ${t("veg_herders")}.`,
-          hs ? `${t("veg_camps_hour")} (${dir16(st.hourRes.sector)}): ${hs.parcels} ${t("veg_parcels")}, ${hs.herders} ${t("veg_herders")}.` : null,
-          t("veg_camps_hint"),
-        ].filter(Boolean)),
-        group("aod", [t("veg_aod_line")]),
-        group("veg", vegLines(), el("div", {},
+        toggle("veg", el("div", {},
           el("p", { class: "veg-key" }, el("i", { style: "background:rgba(150,90,30,.8)" }), t("cls_dusty"), " ", el("i", { style: "background:rgba(230,200,80,.6)" }), t("cls_unclear"), " ", el("i", { style: "background:rgba(60,160,80,.4)" }), t("cls_clear")),
-          el("p", { class: "note small", text: t(r.mode === "pair" ? "veg_classes_pair" : "veg_classes") }),
           el("div", { class: "aoi-legend" }, ...PX.filter((c) => c.paint).map((c) => el("label", { class: "check" },
             el("input", { type: "checkbox", checked: st.px[c.key], onchange: (e) => { st.px[c.key] = e.target.checked; classCanvas(r); paint(); } }),
-            el("i", { style: `background:rgb(${c.color.join(",")})` }), el("span", { text: fill(t("veg_class_area"), { n: t("px_" + c.key), a: r.areas[c.code].toFixed(0) }) })))),
+            el("i", { style: `background:rgb(${c.color.join(",")})` }), el("span", { text: t("px_" + c.key) })))),
           el("div", { class: "btnrow" }, el("button", { class: "btn small", type: "button", text: t("veg_window"), onclick: openView })))),
-        episodesBlock(r),
-        VEG_REPORTS[r.mine.id] && el("div", { class: "veg-group" }, el("b", { text: t("rp_title") }), ...reportLines().map((x) => el("p", { class: "md-line", text: x })),
-          el("p", { class: "md-line" }, t("rp_links") + " ", ...VEG_REPORTS[r.mine.id].links.flatMap((l, i) => [i ? "; " : null, el("a", { href: l.u, target: "_blank", rel: "noopener", text: l.t })])))),
-      el("p", { class: "note small", text: t("veg_limits") }),
+        toggle("wind", hourForm),
+        toggle("camps"),
+        toggle("aod"),
+        epsPick),
+      r && el("p", { class: "note small", text: t("veg_results_right") }),
     ].filter(Boolean));
+    if (st.active) onPanel(resultNode());
   }
   render();
 
@@ -686,6 +713,7 @@ export function createVegBox({ map, getLang, campsFor, requestSat, onMethods, vi
     show(on) {
       st.active = on;
       paint();
+      onPanel(on ? resultNode() : null); // the result section of the right-hand panel comes and goes with the box
       if (!on) viewer?.closeIf("veg");
       if (on && !st.res) { const m = mine(); map.setView([m.lat, m.lon], 9); }
       if (st.show.aod && st.res) requestSat?.(on ? { key: "aod_maiac", on: true, date: st.date } : { key: "aod_maiac", on: false }); // the overlay comes and goes with the box
