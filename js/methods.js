@@ -322,6 +322,9 @@ METHODS.veg = {
   ],
 };
 
+// The two mine tools of the dust tab show inside the dust methods as parts of their own.
+METHODS.dust.parts = ["plume", "veg"];
+
 METHODS.all = {
   mn: {
     title: "Нэгдсэн эрсдэл: арга зүй, материал",
@@ -390,23 +393,31 @@ METHODS.dzud = {
 };
 
 export function openMethods(dlg, hazard, { lang, t, manifest }) {
-  const m = METHODS[hazard], c = m[lang] ?? m.mn;
   const list = (items) => el("ul", {}, items.map((s) => el("li", { text: s })));
-  const refs = m.ownError ? c.refs : [...c.refs, "gum", "olofsson", "weatherhead"];
-  const sources = manifest?.sources?.[hazard];
   const local = (v) => (typeof v === "string" ? v : v[lang] ?? v.mn);
-  const rows = sources ? sources.map((s) => [s.name, s.resolution, s.role]) : m.data.map(([a, b, r]) => [a, local(b), local(r)]);
+  /** The sections of one method: its own, or one of the parts shown under another hazard (`sub`). */
+  function section(key, sub) {
+    const m = METHODS[key], c = m[lang] ?? m.mn;
+    const refs = m.ownError ? c.refs : [...c.refs, "gum", "olofsson", "weatherhead"];
+    const sources = !sub && manifest?.sources?.[key];
+    const rows = sources ? sources.map((s) => [s.name, s.resolution, s.role]) : m.data.map(([a, b, r]) => [a, local(b), local(r)]);
+    return [
+      sub ? el("h2", { class: "sub", text: c.title }) : el("h2", { text: c.title }), el("p", { class: "lead", text: c.lead }),
+      el("h3", { text: t("m_method") }), list(c.method),
+      rows.length ? el("h3", { text: t("m_material") }) : null,
+      rows.length && !sources && key !== "plume" && key !== "veg" && !m.ownError ? el("p", { class: "dlg-warn", text: t("m_planned") }) : null,
+      rows.length ? el("table", {}, el("thead", {}, el("tr", {}, ["m_col_data", "m_col_res", "m_col_role"].map((k) => el("th", { text: t(k) })))), el("tbody", {}, rows.map((r) => el("tr", {}, r.map((v) => el("td", { text: v })))))) : null,
+      m.ownError || sub ? null : el("h3", { text: t("m_error") }), m.ownError || sub ? null : list(COMMON_ERROR[lang] ?? COMMON_ERROR.mn),
+      el("h3", { text: t("m_limits") }), list(c.limits),
+      el("h3", { text: t("m_refs") }),
+      el("ol", { class: "refs" }, refs.map((k) => el("li", {}, el("a", { href: REF[k][1], target: "_blank", rel: "noopener", text: REF[k][0] })))),
+    ];
+  }
   dlg.replaceChildren(...[
     el("button", { class: "dlg-x", type: "button", "aria-label": t("close"), text: "✕", onclick: () => dlg.close() }),
-    el("h2", { text: c.title }), el("p", { class: "lead", text: c.lead }),
-    el("h3", { text: t("m_method") }), list(c.method),
-    rows.length ? el("h3", { text: t("m_material") }) : null,
-    rows.length && !sources && hazard !== "plume" && hazard !== "veg" && !m.ownError ? el("p", { class: "dlg-warn", text: t("m_planned") }) : null,
-    rows.length ? el("table", {}, el("thead", {}, el("tr", {}, ["m_col_data", "m_col_res", "m_col_role"].map((k) => el("th", { text: t(k) })))), el("tbody", {}, rows.map((r) => el("tr", {}, r.map((v) => el("td", { text: v })))))) : null,
-    m.ownError ? null : el("h3", { text: t("m_error") }), m.ownError ? null : list(COMMON_ERROR[lang] ?? COMMON_ERROR.mn),
-    el("h3", { text: t("m_limits") }), list(c.limits),
-    el("h3", { text: t("m_refs") }),
-    el("ol", { class: "refs" }, refs.map((k) => el("li", {}, el("a", { href: REF[k][1], target: "_blank", rel: "noopener", text: REF[k][0] })))),
+    ...section(hazard, false),
+    // the tools of the hazard (the mine models under dust) follow as parts of their own, each with its title
+    ...(METHODS[hazard].parts ?? []).flatMap((k) => section(k, true)),
   ].filter(Boolean));
   dlg.showModal();
 }
