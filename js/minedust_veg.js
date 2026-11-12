@@ -289,6 +289,58 @@ export function attribute(codes, sector, rose, n = VEG.sectors) {
   return out;
 }
 
+/* ------------------------------------------------------------------------------- the clean and the dusty image
+ * One summer image mixes the mine's dust with everything else that makes grass differ by direction. Two images of the
+ * same summer split them: a clean one, taken after a washing rain with no emission hour since, and a dusty one taken
+ * later, with emission hours between the two and no washing rain between. The change of NDVI from the first to the
+ * second holds the dust that settled in between; the grass grows or dries alike in every direction at one distance,
+ * so the ring median of the change removes it, and what is left downwind of the episodes between is the mine's. */
+
+/** Index of the last hour, up to each hour, in which washing rain fell (rain in the hour, 24 h sum of washMm or more);
+ * -1 before any. */
+export function lastWash(precip, washMm = EPI.washMm) {
+  const r = rain24(precip), out = new Int32Array(precip.length);
+  let last = -1;
+  for (let h = 0; h < precip.length; h++) {
+    if (precip[h] > 0 && r[h] >= washMm) last = h;
+    out[h] = last;
+  }
+  return out;
+}
+
+/** Pairs of passes (indices into `list`, each `{ i: hour index of the pass, share: clear share }`) where pass a is
+ * clean (a washing rain before it and no emission weight since that rain) and pass b is dusty (later, within
+ * maxGapHours, the same last washing rain, emission weight between them). Sorted by the emission weight between,
+ * times the smaller clear share. */
+export function pairCandidates(list, { precip, weight }, { washMm = EPI.washMm, minShare = 0.5, maxGapHours = 40 * 24 } = {}) {
+  const lw = lastWash(precip, washMm), cum = new Float64Array(weight.length + 1);
+  for (let h = 0; h < weight.length; h++) cum[h + 1] = cum[h] + (weight[h] > 0 ? weight[h] : 0);
+  const between = (h0, h1) => cum[Math.min(h1, weight.length - 1) + 1] - cum[Math.max(h0, -1) + 1]; // weight in (h0, h1]
+  const out = [];
+  list.forEach((pa, a) => {
+    if (!(pa.share >= minShare) || pa.i < 0 || pa.i >= weight.length) return;
+    const rain = lw[pa.i];
+    if (rain < 0 || between(rain, pa.i) > 0) return; // never washed, or dust lifted since the rain
+    list.forEach((pb, b) => {
+      if (b === a || !(pb.share >= minShare) || pb.i <= pa.i || pb.i - pa.i > maxGapHours || pb.i >= weight.length) return;
+      if (lw[pb.i] !== rain) return; // washed again between
+      const w = between(pa.i, pb.i);
+      if (w > 0) out.push({ a, b, weight: w, score: w * Math.min(pa.share, pb.share) });
+    });
+  });
+  return out.sort((x, y) => y.score - x.score);
+}
+
+/** NDVI of the dusty image minus the clean one, on the clean image's vegetation seen clear in both; NaN elsewhere. */
+export function ndviChange(clean, dusty, vegClean) {
+  const delta = new Float32Array(clean.length).fill(NaN), mask = new Uint8Array(clean.length);
+  for (let i = 0; i < clean.length; i++) {
+    if (!vegClean[i] || !Number.isFinite(clean[i]) || !Number.isFinite(dusty[i])) continue;
+    delta[i] = dusty[i] - clean[i]; mask[i] = 1;
+  }
+  return { delta, mask };
+}
+
 /** NDVI of each vegetation pixel minus the median of its ring, for the map; NaN elsewhere. */
 export function anomalyGrid(ndvi, veg, geo, ringMedian) {
   const out = new Float32Array(ndvi.length).fill(NaN);
