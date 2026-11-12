@@ -12,6 +12,9 @@
 | geoBoundaries ADM2 (Runfola et al. 2020) | Mongolia outline (`data/mongolia.geojson`), the outer edge of the aimags merged from the soums by `scripts/build_borders.py` since 2026-11-10 | CC BY 3.0 IGO | Built locally; the aimag border now lies on the national border |
 | Natural Earth 1:50m via world-atlas 2.0.2 | Mongolia outline until 2026-11-10; still the clip of `data/water.geojson` | Public domain data, ISC package licence | Copied from a verified file |
 | Leaflet 1.9.4 | map | BSD-2 (`vendor/leaflet/LICENSE`) | Bundled |
+| Microsoft Planetary Computer STAC and data API, Sentinel-2 L2A | summer NDVI and SCL of the mine dust and vegetation box (and the detailed checks) | Copernicus Sentinel data, free and open; Planetary Computer API free without a key | Read in the browser; the box was checked headless with stubbed responses only |
+| Open-Meteo archive API (`archive-api.open-meteo.com`), ERA5 | summer wind rose and the wind of a chosen hour at the mine, vegetation box | Open-Meteo.com, CC BY 4.0; contains modified Copernicus Climate Change Service information | Read in the browser |
+| Global Energy Monitor, Global Coal Mine Tracker (gem.wiki) | positions of the coal mines of the vegetation box (Nalaikh from Wikipedia) | CC BY-NC-SA | Read on gem.wiki, 2026-11-12 |
 
 ## GIBS layers
 
