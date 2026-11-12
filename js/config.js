@@ -200,3 +200,28 @@ export const VEG_MINES = [
   { id: "mogoingol", mn: "Могойн гол (Цэцэрлэг сум, Хөвсгөл)", en: "Mogoin Gol (Tsetserleg, Khövsgöl)", lat: 49.3584, lon: 97.8296, src: "Global Energy Monitor (exact)" },
   { id: "aduunchuluun", mn: "Адуунчулуун (Чойбалсан, Дорнод)", en: "Aduunchuluun (Choibalsan, Dornod)", lat: 48.1272, lon: 114.5378, src: "Global Energy Monitor (exact)" },
 ];
+
+/** What a mine's own public reports say, for the vegetation box to set its result against. Sectors are the 16 of
+ * js/minedust_veg.js (0 = north, clockwise). Only Baganuur has usable public numbers so far: the environmental
+ * management plans on eic.mn and the company's annual report. */
+export const VEG_REPORTS = {
+  baganuur: {
+    downwind: [6, 7, 8], // the prevailing wind is from the north-west (26-38 % of the year) and from the north in July (36 %): dust goes SE, SSE, S
+    town: { sectors: [0, 1, 2], km: 4.5 }, // the district centre lies about 4.5 km north of the industrial site
+    mn: {
+      wind: "Тайлан: салхины ноёлох чиг жилийн турш баруун хойноос 26–38 %, 7-р сард хойноос 36 % (БОМТ 2024, 2026); тоос зүүн өмнөд, өмнөд зүг рүү.",
+      town: "Тайлан: дүүргийн 2 цэг (гэр хороолол, төв) ба цаг уурын станцын орчимд дулааны улиралд тоос ихэвчлэн стандартын дотор, нэг удаа 0.264 мг/м³; хүйтний улиралд 0.116–0.281 мг/м³ хэтэрсэн (жилийн тайлан 2018). Уурхайн талбай дүүргээс 4.5 км урд.",
+      source: "Тайлан: тоосжилтын гол эх үүсвэр нь технологийн замын тоос; 2018 онд 72.9 мян. км зам усалсан (жилийн тайлан 2018). Хяналтын цэг: Уул-1, Уул-2 хэсгийн офис, захиргаа орчмын гэр хороолол, дүүргийн төв, цаг уурын станцын орчим; улирал бүр буюу жилд 6 удаа.",
+    },
+    en: {
+      wind: "Report: the prevailing wind is from the north-west 26–38 % of the year and from the north in July, 36 % (EMP 2024, 2026); dust goes SE, SSE and S.",
+      town: "Report: at the two district points (ger area, centre) and by the meteorological station, warm-season dust was mostly within the standard, once 0.264 mg/m³; in the cold season 0.116–0.281 mg/m³ above it (annual report 2018). The industrial site lies 4.5 km south of the district.",
+      source: "Report: haul-road dust is the main source; 72.9 thousand km of road were watered in 2018 (annual report 2018). Points: Uul-1 and Uul-2 offices, the ger area by the administration, the district centre, the meteorological station; quarterly or six times a year.",
+    },
+    links: [
+      { t: "БОМТ 2026, eic.mn", u: "https://eic.mn/envmng/upload/2026/tamngdocument/17/20260122_2181.pdf" },
+      { t: "БОМТ 2024, eic.mn", u: "https://eic.mn/envmng/upload/2024/tamngdocument/17/20240604_5943.pdf" },
+      { t: "Жилийн тайлан 2018, baganuurmine.mn", u: "http://www.baganuurmine.mn/wp-content/uploads/2019/05/Baganuur-report2018_FINAL-spreads.pdf" },
+    ],
+  },
+};
