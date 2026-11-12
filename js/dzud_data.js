@@ -61,9 +61,9 @@ export function borrowedDensity(p) {
   return null;
 }
 
-const MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october",
+export const MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october",
   "november", "december"];
-const DEKADS = ["first", "second", "third"];
+export const DEKADS = ["first", "second", "third"];
 /** EIC's map server for its dzud database: MODIS snow cover by dekad, as WMS images (no CORS, so images only). */
 export const EIC_SNOW_WMS = "https://eic.mn/cgi-bin/mapserver?map=/var/www/html/disaster/dzudinfo/maps/dzud.map";
 export const SNOW_NAME = /^snowimage([a-z]+?)(first|second|third)(\d{4})$/;
