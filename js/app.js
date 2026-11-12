@@ -733,12 +733,12 @@ async function boot() {
     onWater: (on) => { if (state.borders.water !== on) { state.borders.water = on; applyBorders(); renderBorders(); } },
     campsFor: async (box) => { const a = await loadCamps(); return a ? campsInside(a, box) : null; } });
   state.vegBox = createVegBox({ map: state.map, getLang: () => state.lang, requestSat, onMethods: showMethods, busy, viewer: state.viewer,
-    onResult: () => { if (state.showRisk) setShowRisk(false); }, // the nationwide layer would cover the result
+    onResult: () => { state.downloads?.refresh(); if (state.showRisk) setShowRisk(false); }, // the nationwide layer would cover the result
     campsFor: async (box) => { const a = await loadCamps(); return a ? campsInside(a, box) : null; } });
   $("view-veg").replaceChildren(state.vegBox.el);
   state.dateBar = initDateBar($("datebar"), { onChange: setDate, text: t, monthName: (m) => t("months")[m - 1] });
   state.downloads = initDownloads({ box: $("dl-menu"), state, t, frameNow, uFrameNow, classOf, classLabel, classes: classesNow, soumsReady, borders: activeBorders, busy,
-    detailLayer: () => ({ flood: state.floodBox, fire: state.fireBox, dust: state.dustBox })[state.hazard]?.layer() ?? null });
+    detailLayers: () => [({ flood: state.floodBox, fire: state.fireBox, dust: state.dustBox })[state.hazard]?.layer(), state.hazard === "dust" ? state.vegBox?.layer() : null].filter(Boolean) });
   renderSat();
   renderScreen();
   renderDateFold();
