@@ -9,6 +9,7 @@ import { API, TZ, VEG_MINES } from "./config.js";
 import { domain } from "./minedaily.js";
 import { search, passes, bandOnGrid } from "./aoi/stac.js";
 import { CLOUDY_SCL } from "./aoi/raster.js";
+import { backdrop } from "./aoi/backdrop.js";
 import { VEG, anomalyGrid, campsExposed, campsInSector, classify, deficits, footprintKm2, geometry, innerRingCells, reaches, sectorOf, sectorRingStats, spearman, windRose } from "./minedust_veg.js";
 import { arrowLength, createViewCanvas, drawArrow, paintCamps } from "./mapmarks.js";
 
@@ -31,6 +32,8 @@ const TT = {
     veg_rho: "Шалгалт: салхины давтамж ба дотор цагирагийн NDVI зөрүүний Spearman ρ = {rho}.", veg_rho_ok: "Сөрөг: салхи их чигт ургамал бага, арга энэ уурхайд ажиллаж байна.", veg_rho_weak: "Сул эсвэл сөрөг биш: ул мөрийг салхинаас биш өөр шалтгаанаар тайлбарлаж болно; болгоомжтой уншина уу.",
     veg_limits: "NDVI нь хөрс, бэлчээр, зам зэргээс ч өөрчлөгдөнө. Тор 100 м. Зөрүү харьцангуй, г/м² биш. Тоос их жилд ургамал бага байх ч бусад шалтгаан байж болно.",
     cls_dusty: "тоостой", cls_unclear: "тодорхойгүй", cls_clear: "цэвэр", veg_km: "км",
+    px_heavy: "Их тоостой ургамал (NDVI −0.10-аас доош)", px_mid: "Дунд тоостой ургамал (−0.10…−0.05)", px_light: "Бага тоостой ургамал (−0.05…−0.02)", px_clean: "Цэвэр ургамал (−0.02-оос дээш)", px_bare: "Ургамалгүй, ус, үүл", px_none: "Торны гадна",
+    veg_classes: "Пиксел бүрийн ангилал (100 м): ургамлын NDVI-ийн зөрүү ижил зайн цагирагийн медианаас.", veg_class_area: "{n}: {a} км²", veg_window: "Томруулж харах", veg_window_title: "Уурхайн тоосжилт ба ургамал",
     dirs16: ["хойд", "хойд-зүүн хойд", "зүүн хойд", "зүүн-зүүн хойд", "зүүн", "зүүн-зүүн өмнөд", "зүүн өмнөд", "өмнөд-зүүн өмнөд", "өмнөд", "өмнөд-баруун өмнөд", "баруун өмнөд", "баруун-баруун өмнөд", "баруун", "баруун-баруун хойд", "баруун хойд", "хойд-баруун хойд"],
   },
   en: {
@@ -51,6 +54,8 @@ const TT = {
     veg_rho: "Check: Spearman ρ between wind share and inner-ring NDVI deficit = {rho}.", veg_rho_ok: "Negative: less vegetation where the wind blows more; the method holds for this mine.", veg_rho_weak: "Weak or not negative: the mark may come from something other than the wind; read with care.",
     veg_limits: "NDVI also changes with soil, grazing and roads. 100 m cells. The contrast is relative, not g/m². Less vegetation in a dusty year can have other causes.",
     cls_dusty: "dusty", cls_unclear: "unclear", cls_clear: "clear", veg_km: "km",
+    px_heavy: "Heavily dusted vegetation (NDVI below −0.10)", px_mid: "Moderately dusted vegetation (−0.10 to −0.05)", px_light: "Lightly dusted vegetation (−0.05 to −0.02)", px_clean: "Clean vegetation (above −0.02)", px_bare: "No vegetation, water or cloud", px_none: "Outside the grid",
+    veg_classes: "Class of every 100 m pixel: the NDVI of the vegetation against the median of its ring.", veg_class_area: "{n}: {a} km²", veg_window: "Open in a window", veg_window_title: "Mine dust and vegetation",
     dirs16: ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"],
   },
 };
@@ -67,6 +72,20 @@ const ndviQuery = (item) => ({
 });
 const fromNdvi = (v) => -1 + (v * 2) / 255;
 const CLS_COLOR = ["rgba(120,200,120,.35)", "rgba(230,200,80,.45)", "rgba(190,90,30,.55)"];
+/** The class of every pixel of the result, from the NDVI anomaly of a vegetation pixel against the median of its ring. */
+export const PX = [
+  { code: 0, key: "none", color: [0, 0, 0], on: false, paint: false },
+  { code: 1, key: "bare", color: [120, 120, 120], on: false, paint: true },
+  { code: 2, key: "heavy", color: [110, 50, 15], on: true, paint: true },
+  { code: 3, key: "mid", color: [170, 100, 40], on: true, paint: true },
+  { code: 4, key: "light", color: [215, 165, 95], on: true, paint: true },
+  { code: 5, key: "clean", color: [70, 150, 80], on: true, paint: true },
+];
+export function pixelClass(anomaly, inRing, isVeg) {
+  if (!inRing) return 0;
+  if (!isVeg || !Number.isFinite(anomaly)) return 1;
+  return anomaly <= -0.10 ? 2 : anomaly <= -0.05 ? 3 : anomaly <= -0.02 ? 4 : 5;
+}
 
 /** One band of every frame of a pass on the grid: later frames fill what earlier ones did not cover. */
 async function band(g, items, query, decode) {
@@ -90,7 +109,7 @@ async function getJson(url, tries = 3) {
   }
 }
 
-export function createVegBox({ map, getLang, campsFor, requestSat, onMethods, onResult = () => {}, busy = () => {} }) {
+export function createVegBox({ map, getLang, campsFor, requestSat, onMethods, viewer = null, onResult = () => {}, busy = () => {} }) {
   const L = window.L;
   const t = (k) => (TT[getLang()] && TT[getLang()][k]) ?? TT.mn[k] ?? k;
   const pane = map.getPane("mineVeg") ?? map.createPane("mineVeg");
@@ -101,6 +120,7 @@ export function createVegBox({ map, getLang, campsFor, requestSat, onMethods, on
     mineId: VEG_MINES[0].id, year: thisYear - 1, running: false, status: "", error: false, res: null, active: false,
     date: addDays(iso(Date.now()), -1), hour: 12, hourRes: null, hourBusy: false, hourToken: 0, runToken: 0,
     show: { wind: true, camps: true, aod: false, veg: true },
+    px: Object.fromEntries(PX.map((c) => [c.key, c.on])), canvas: null, drawn: 0,
     overlay: null, wedges: L.layerGroup(), hourWedge: L.layerGroup(),
   };
   const mine = () => VEG_MINES.find((m) => m.id === st.mineId) ?? VEG_MINES[0];
@@ -187,7 +207,12 @@ export function createVegBox({ map, getLang, campsFor, requestSat, onMethods, on
       const exposed = campsExposed(camps ?? [], m, reach, cls);
       const res = { mine: m, year: st.year, dom, geo, ndvi, veg, stats, def, rose, reach, cls, rho, camps, exposed, area: footprintKm2(reach, cls), anomaly: anomalyGrid(ndvi, veg, geo, def.ringMedian),
         measured: innerRingCells(stats, nr), passes: used.map((p) => iso(p.t0)), cloud: Math.round(100 * seen / N), vegN };
-      res.image = anomalyCanvas(res).toDataURL(); // drawn once, not on every paint
+      res.codes = new Uint8Array(N);
+      for (let i = 0; i < N; i++) res.codes[i] = pixelClass(res.anomaly[i], geo.ring[i] >= 0, veg[i] === 1);
+      res.areas = new Float64Array(PX.length); const cellKm2 = (VEG.cellM / 1000) ** 2;
+      for (let i = 0; i < N; i++) res.areas[res.codes[i]] += cellKm2;
+      res.grid = { west: e.w, north: e.n, dx: grid.dx, dy: grid.dy, w: dom.w, h: dom.h, scale: VEG.cellM };
+      classCanvas(res); // drawn once per set of switched-on classes
       st.res = res;
       window.vegResult = res; // the last result, for checks in the browser console
       st.status = { k: "veg_done", v: { s: Math.round((performance.now() - t0) / 1000) } };
@@ -195,6 +220,7 @@ export function createVegBox({ map, getLang, campsFor, requestSat, onMethods, on
       // the whole 30 km domain in view, clear of the side panel on a wide screen
       map.fitBounds([[e.s, e.w], [e.n, e.e]], { paddingTopLeft: [window.innerWidth > 1000 ? 360 : 10, 70], paddingBottomRight: [10, 110] });
       onResult();
+      openView();
       loadHour();
     } catch (err) {
       console.error(err);
@@ -232,18 +258,38 @@ export function createVegBox({ map, getLang, campsFor, requestSat, onMethods, on
   }
 
   /* ---------------------------------------------------------------- map */
-  function anomalyCanvas(r) {
+  /** The picture of the classes that are switched on, for the map and the window; drawn again when a class is toggled. */
+  function classCanvas(r) {
     const { w, h } = r.dom, cv = document.createElement("canvas");
     cv.width = w; cv.height = h;
     const ctx = cv.getContext("2d"), img = ctx.createImageData(w, h), px = img.data;
-    for (let k = 0; k < r.anomaly.length; k++) {
-      const a = r.anomaly[k];
-      if (!fin(a)) continue;
-      if (a <= -0.02) { const al = Math.min(1, (-a - 0.02) / 0.13) * 0.8; px[k * 4] = 150; px[k * 4 + 1] = 90; px[k * 4 + 2] = 30; px[k * 4 + 3] = Math.round(255 * Math.max(0.2, al)); }
-      else if (a > 0.02) { px[k * 4] = 60; px[k * 4 + 1] = 160; px[k * 4 + 2] = 80; px[k * 4 + 3] = 64; }
+    let drawn = 0;
+    for (let k = 0; k < r.codes.length; k++) {
+      const c = PX[r.codes[k]];
+      if (!c.paint || !st.px[c.key]) continue;
+      px[k * 4] = c.color[0]; px[k * 4 + 1] = c.color[1]; px[k * 4 + 2] = c.color[2]; px[k * 4 + 3] = c.key === "bare" ? 110 : c.key === "clean" ? 150 : 225;
+      drawn++;
     }
     ctx.putImageData(img, 0, 0);
+    st.canvas = cv; st.drawn = drawn;
+    r.image = cv.toDataURL();
+    viewer?.refresh("veg");
     return cv;
+  }
+  /** The classes in their own window, zoomable to single pixels, with the class of each pixel (js/aoi/viewer.js). */
+  function openView() {
+    const r = st.res;
+    if (!r || !viewer) return;
+    viewer.open({
+      owner: "veg", title: `${t("veg_window_title")} · ${mineName(r.mine)} · ${r.year}`, grid: r.grid, picture: () => st.canvas,
+      label: (i) => t("px_" + PX[r.codes[i]].key) + (fin(r.anomaly[i]) ? ` (${r.anomaly[i] >= 0 ? "+" : ""}${r.anomaly[i].toFixed(3)})` : ""),
+      empty: () => {
+        if (st.drawn) return null;
+        const top = PX.filter((c) => c.paint && !st.px[c.key] && r.areas[c.code] > 0).sort((a, b) => r.areas[b.code] - r.areas[a.code])[0];
+        return top ? t("px_" + top.key) : null;
+      },
+      backdrop: () => { const d = [...r.passes].sort(); return backdrop(r.grid, d[0], d[d.length - 1]); },
+    });
   }
   /** A ring sector as a polygon from the inner edge to `outKm`. */
   function wedge(m, s, outKm, style) {
@@ -322,7 +368,13 @@ export function createVegBox({ map, getLang, campsFor, requestSat, onMethods, on
           t("veg_camps_hint"),
         ].filter(Boolean)),
         group("aod", [t("veg_aod_line")]),
-        group("veg", vegLines(), el("p", { class: "veg-key" }, el("i", { style: "background:rgba(150,90,30,.8)" }), t("cls_dusty"), " ", el("i", { style: "background:rgba(230,200,80,.6)" }), t("cls_unclear"), " ", el("i", { style: "background:rgba(60,160,80,.4)" }), t("cls_clear")))),
+        group("veg", vegLines(), el("div", {},
+          el("p", { class: "veg-key" }, el("i", { style: "background:rgba(150,90,30,.8)" }), t("cls_dusty"), " ", el("i", { style: "background:rgba(230,200,80,.6)" }), t("cls_unclear"), " ", el("i", { style: "background:rgba(60,160,80,.4)" }), t("cls_clear")),
+          el("p", { class: "note small", text: t("veg_classes") }),
+          el("div", { class: "aoi-legend" }, ...PX.filter((c) => c.paint).map((c) => el("label", { class: "check" },
+            el("input", { type: "checkbox", checked: st.px[c.key], onchange: (e) => { st.px[c.key] = e.target.checked; classCanvas(r); paint(); } }),
+            el("i", { style: `background:rgb(${c.color.join(",")})` }), el("span", { text: fill(t("veg_class_area"), { n: t("px_" + c.key), a: r.areas[c.code].toFixed(0) }) })))),
+          el("div", { class: "btnrow" }, el("button", { class: "btn small", type: "button", text: t("veg_window"), onclick: openView }))))),
       el("p", { class: "note small", text: t("veg_limits") }),
     ].filter(Boolean));
   }
@@ -334,6 +386,7 @@ export function createVegBox({ map, getLang, campsFor, requestSat, onMethods, on
     show(on) {
       st.active = on;
       paint();
+      if (!on) viewer?.closeIf("veg");
       if (on && !st.res) { const m = mine(); map.setView([m.lat, m.lon], 9); }
       if (st.show.aod && st.res) requestSat?.(on ? { key: "aod_maiac", on: true, date: st.date } : { key: "aod_maiac", on: false }); // the overlay comes and goes with the box
     },
