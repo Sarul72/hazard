@@ -189,6 +189,7 @@ export function createVegBox({ map, getLang, campsFor, requestSat, onMethods, on
         measured: innerRingCells(stats, nr), passes: used.map((p) => iso(p.t0)), cloud: Math.round(100 * seen / N), vegN };
       res.image = anomalyCanvas(res).toDataURL(); // drawn once, not on every paint
       st.res = res;
+      window.vegResult = res; // the last result, for checks in the browser console
       st.status = { k: "veg_done", v: { s: Math.round((performance.now() - t0) / 1000) } };
       paint();
       // the whole 30 km domain in view, clear of the side panel on a wide screen
