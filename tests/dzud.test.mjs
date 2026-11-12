@@ -1,7 +1,7 @@
 /* The dzud tab's plain functions (js/dzud_data.js). */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { chanceOf, classCounts, topSoums, winterFile, winterLabel, winterOf } from "../js/dzud_data.js";
+import { borrowedDensity, chanceOf, classCounts, coldSoFar, topSoums, winterFile, winterLabel, winterOf } from "../js/dzud_data.js";
 
 test("a day belongs to the winter that starts in October", () => {
   assert.equal(winterOf("2026-11-12"), "2026-27");
@@ -37,4 +37,21 @@ test("class counts and the highest-risk soums", () => {
   assert.deepEqual(classCounts(fs), { counts: [1, 0, 1, 1, 1], none: 1 });
   assert.deepEqual(topSoums(fs, 2).map((x) => x.properties.risk), [1.2, 0.7]);
   assert.equal(topSoums(fs).length, 4, "soums with no risk are left out");
+});
+
+test("the cold label says so while the winter is under way", () => {
+  assert.equal(coldSoFar("nov"), true);
+  assert.equal(coldSoFar("dec"), true);
+  assert.equal(coldSoFar("jan"), true);
+  assert.equal(coldSoFar("feb"), false, "November to February is complete from the February stage");
+  assert.equal(coldSoFar("mar"), false);
+  assert.equal(coldSoFar(undefined), false, "a hindcast is the whole winter");
+  assert.equal(coldSoFar("oct"), false, "no winter month yet: no cold to label");
+});
+
+test("aimag centres and Ulaanbaatar districts carry a borrowed herd density", () => {
+  assert.equal(borrowedDensity({ is_centre: true, is_ub: false }), "centre");
+  assert.equal(borrowedDensity({ is_centre: false, is_ub: true }), "ub");
+  assert.equal(borrowedDensity({ is_centre: false, is_ub: false }), null);
+  assert.equal(borrowedDensity({}), null, "files without the flags");
 });

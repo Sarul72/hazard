@@ -48,3 +48,15 @@ export function topSoums(features, n = 10) {
   return features.filter((f) => f.properties.risk !== null && f.properties.risk !== undefined)
     .sort((a, b) => b.properties.risk - a.properties.risk).slice(0, n);
 }
+
+/** True while the outlook's winter is under way (November to January stages): its cold is the mean of the months so
+ * far, not yet November to February. October has no winter month, February and later and a hindcast have all four. */
+export const coldSoFar = (stage) => stage === "nov" || stage === "dec" || stage === "jan";
+
+/** ZudRisk gives an aimag centre its aimag's herd density and an Ulaanbaatar district the city's, since a town's own
+ * census over its small area would mislead: "centre", "ub" or null. */
+export function borrowedDensity(p) {
+  if (p.is_centre) return "centre";
+  if (p.is_ub) return "ub";
+  return null;
+}

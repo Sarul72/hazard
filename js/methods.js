@@ -292,14 +292,14 @@ METHODS.dzud = {
     lead: "Сум бүрийн зудын эрсдэл, өвөл бүрээр: 2000/01-ээс хойших өвлүүдийн ретро тооцоо, ирэх өвлийн урьдчилсан төлөв. Тооцоог ZudRisk хийж, энэ хуудас түүний нийтэлсэн өгөгдлийг уншина.",
     method: [
       "Дөрвөн үзүүлэлт: өвлийн хүйтэн (11–2 сарын агаарын температур), цасны зузаан (ERA5-Land), өмнөх зуны бэлчээр (7–8 сарын MODIS NDVI), малын нягт (ҮСХ-ны тооллого, хонин толгой / км²).",
-      "Үзүүлэлт бүрийг тухайн сумын 2001–2020 оны дундажтай харьцуулж z-оноо болгоно. Жинг бодит хорогдолтой харьцуулахаас өмнө тогтоосон; жинлэсэн нийлбэр нь эрсдэлийн оноо, түүнийг таван ангилалд хуваана.",
+      "Үзүүлэлт бүрийг тухайн сумын 2001–2020 оны дундажтай харьцуулж z-оноо болгоно. Жинг бодит хорогдолтой харьцуулахаас өмнө тогтоосон (цас 0.41, хүйтэн 0.35, ачаалал 0.29, зун 0.24). Тухайн үед байгаа үзүүлэлтүүдийн жинлэсэн дундаж нь эрсдэлийн оноо, түүнийг таван ангилалд хуваана (−1, −0.5, 0.5, 1 хил).",
       "Магадлал: оноог «том малын 5%-иас дээш хорогдох» магадлал болгон логистик регрессээр шат бүрт тохируулсан (2011/12–2024/25 оны сум-өвлүүд, нэг өвлийг хасаж шалгасан). Brier skill 0 буюу түүнээс бага шатанд магадлал харуулахгүй.",
       "Урьдчилсан төлөв нь сар бүр шинэчлэгдэнэ (10-р сараас 3-р сар): тухайн өдөр хүртэл ирсэн өгөгдлийг л ашиглана. 10-р сарын шатанд өвлийн сар ажиглагдаагүй тул хүйтэн, цас тооцоонд ороогүй.",
       "Шалгалт (2026-11-12): урьдчилан тогтоосон өвлүүдэд сумаар Spearman ρ 0.596 (n=1683), 2011/12-оос хорогдолтой бүх сум-өвөлд 0.434 (n=4688), 2000/01-ээс бүх аймаг-өвөлд 0.547 (n=525).",
     ],
     limits: [
       "ERA5-Land бол загварын үр дүн, хэмжилт биш. Цасны зузаан ба нягтыг газар дээр шалгаагүй.",
-      "Өвс тэжээлийн нөөц, малчдын бэлтгэл хорогдлын хэлбэлзлийн тал орчмыг тайлбарладаг (Nandintsetseg нар, 2018) боловч сумаар өгөгдөл алга тул оноонд ороогүй.",
+      "Аймгийн түвшинд 2000–2014 оны хорогдлын 46%-ийг эмзэг байдал (малын тоо, өмнөх хорогдол, өвс тэжээлийн бэлтгэл, малчдын нас, техник, ДНБ) тайлбарласан (Nandintsetseg нар, 2018). Эдгээрээс оноонд зөвхөн малын ачаалал орсон; өвс тэжээл, малчдын бэлтгэлийн сумын өгөгдөл алга.",
       "Төмөр зуд (мөсөн бүрхүүл)-ыг сарын өгөгдлөөр шалгахад хорогдолтой холбоогүй гарсан; өдрийн өгөгдлөөр шалгаж байна.",
       "ҮСХ сумын хорогдлыг 2011/12-оос гаргадаг тул түүнээс өмнөх өвлүүдийг зөвхөн аймгаар шалгасан.",
       "Энэ бол судалгааны тооцоо бөгөөд албан ёсны сэрэмжлүүлэг биш.",
@@ -311,14 +311,14 @@ METHODS.dzud = {
     lead: "Dzud risk for every soum, winter by winter: hindcasts since 2000/01 and the outlook of the coming winter. ZudRisk computes it; this page reads the data ZudRisk publishes.",
     method: [
       "Four indicators: winter cold (Nov-Feb air temperature) and snow depth from ERA5-Land, the previous summer's pasture (July-August MODIS NDVI), and grazing pressure (NSO census, sheep units per km²).",
-      "Each is a z-score against the soum's own 2001-2020. The weights were fixed before any comparison with losses; their weighted sum is the risk score, cut into five classes.",
+      "Each is a z-score against the soum's own 2001-2020. The weights were fixed before any comparison with losses (snow 0.41, cold 0.35, pressure 0.29, summer 0.24). The weighted mean of the indicators available is the risk score, cut into five classes at −1, −0.5, 0.5 and 1.",
       "Chance: the score is calibrated as the chance of adult losses of 5 % or more by logistic regression, per outlook stage, on the soum-winters 2011/12-2024/25, each winter held out in turn. A stage whose Brier skill is 0 or below shows no chance.",
       "The outlook updates each month from October to March and uses only the data in by then. The October stage has no winter month yet, so cold and snow are not in it.",
       "Tests (2026-11-12): pre-registered winters by soum, Spearman ρ 0.596 (n=1683); every soum-winter with losses since 2011/12, 0.434 (n=4688); every aimag-winter since 2000/01, 0.547 (n=525).",
     ],
     limits: [
       "ERA5-Land is a model reanalysis, not a measurement. Snow depth and density were not checked on the ground.",
-      "Hay reserves and herders' preparation explain about half the variation in losses (Nandintsetseg et al., 2018), but there are no soum data for them, so the score leaves them out.",
+      "At aimag level, 2000-2014, vulnerability (herd size, past losses, hay preparation, herders' age, vehicles, GDP) explained 46 % of losses (Nandintsetseg et al., 2018). Of these the score has only grazing pressure; there are no soum data for hay or herders' preparation.",
       "Iron dzud (an ice crust) tested on monthly data showed no link to losses; a daily test is under way.",
       "NSO publishes soum losses from 2011/12, so earlier winters are tested by aimag only.",
       "A research estimate, not an official warning.",

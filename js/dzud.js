@@ -2,7 +2,7 @@
  * heavy losses in its popup. The data stays on ZudRisk's site (js/dzud_data.js), so its monthly outlook update reaches
  * this page without a copy. When ZudRisk has no file for the winter, the screen says so and shows no colour. */
 import { el } from "./dom.js";
-import { DZUD_URL, chanceOf, classCounts, topSoums, winterFile, winterLabel, winterOf } from "./dzud_data.js";
+import { DZUD_URL, borrowedDensity, chanceOf, classCounts, coldSoFar, topSoums, winterFile, winterLabel, winterOf } from "./dzud_data.js";
 
 const IND = ["cold", "snow", "summer", "pressure"];
 
@@ -41,10 +41,11 @@ export function createDzud({ map, box, t, getLang, classes, classLabel, busy, on
       el("table", {}, el("tbody", {}, IND.map((k) => el("tr", {}, el("td", { text: t("dz_ind_" + k) }),
         el("td", { text: early(k) ? t("dz_not_yet") : `z ${num(p["z_" + k])}` }))))),
       el("p", { class: "small", text: [
-        p.cold_c === null || p.cold_c === undefined ? null : `${t("dz_cold_c")}: ${num(p.cold_c, 1)} °C`,
+        p.cold_c === null || p.cold_c === undefined ? null : `${t(coldSoFar(p.stage) ? "dz_cold_c_sofar" : "dz_cold_c")}: ${num(p.cold_c, 1)} °C`,
         p.snow_m === null || p.snow_m === undefined ? null : `${t("dz_snow_cm")}: ${num(p.snow_m * 100, 0)} cm`,
         p.su_per_km2 === null || p.su_per_km2 === undefined ? null : `${t("dz_su")}: ${num(p.su_per_km2, 0)}`,
       ].filter(Boolean).join(" · ") }),
+      borrowedDensity(p) ? el("p", { class: "small", text: t("dz_density_" + borrowedDensity(p)) }) : null,
       el("p", { class: "small" }, el("a", { href: DZUD_URL, target: "_blank", rel: "noopener", text: t("dz_more") })));
   }
 
@@ -85,11 +86,14 @@ export function createDzud({ map, box, t, getLang, classes, classLabel, busy, on
       kids.push(el("ul", { class: "dz-counts" }, ...counts.map((n, i) => ({ n, i })).reverse().map(({ n, i }) =>
         el("li", {}, el("i", { style: `background:${classes()[i].color}` }), el("span", { text: classLabel(i) }), el("b", { text: String(n) }))),
         none ? el("li", {}, el("i", { style: "background:#555555" }), el("span", { text: t("no_data") }), el("b", { text: String(none) })) : null));
-      kids.push(el("h3", { text: t("dz_top") }), el("ol", { class: "soum-list" }, topSoums(st.geo.features).map((f) => {
+      const top = topSoums(st.geo.features);
+      kids.push(el("h3", { text: t("dz_top") }), el("ol", { class: "soum-list" }, top.map((f) => {
         const p = f.properties, q = chanceOf(ix?.calibration, p.stage, p.risk);
         return el("li", {}, el("button", { type: "button", onclick: () => focus(p.pcode) },
-          el("i", { style: `background:${fill(p)}` }), el("span", { text: name(p) }), el("b", { text: q === null ? num(p.risk) : pct(q) })));
+          el("i", { style: `background:${fill(p)}` }), el("span", { text: name(p) + (borrowedDensity(p) ? " *" : "") }), el("b", { text: q === null ? num(p.risk) : pct(q) })));
       })));
+      // a town's herd density is its aimag's or the city's, so its place in this list rests on a borrowed figure
+      if (top.some((f) => borrowedDensity(f.properties))) kids.push(el("p", { class: "note small", text: t("dz_density_star") }));
     }
     const pool = ix?.pooled;
     if (pool) {
