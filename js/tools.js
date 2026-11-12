@@ -21,6 +21,7 @@ const TT = {
     poly_hover: "Курсорын доорх оноо", poly_few: "Хамгийн багадаа 3 орой хэрэгтэй.", poly_failed: "Өгөгдөл татаж чадсангүй: ",
     uhg_title: "Ухаа худагийн хиймэл дагуулын судалгаа",
     uhg_result: "2023–2025 оны зургадугаар саруудад салхины хоёр талыг харьцуулсан 36 өдрийн AOD-ийн дундаж зөрүү +0.010 байв (доод тал − дээд тал).",
+    uhg_activity: "2001–2025 оны 25 зургадугаар сарын шалгалтаар олборлолт их, бага жилүүдийн салхины хоёр талын зөрүү ялгагдаагүй (их − бага −0.005; 95%: −0.018…+0.008). Олборлолт эхлэхээс өмнө ч зөрүү +0.006 байв.",
     uhg_open: "Зураг, график, өгөгдөл",
     mine_title: "Уул уурхайн шороон тоос", mine_help: "Уурхай, огноо, үргэлжлэх хугацаа сонгоод «Тооцоолох». Салхи, тоосны тархалт цагаар хөдөлнө.",
     mine_src: "Уурхай", mine_lat: "Өргөрөг", mine_lon: "Уртраг", mine_pick: "Газраас сонгох", mine_pick_on: "Газрын зураг дээр дарна уу…",
@@ -48,6 +49,7 @@ const TT = {
     poly_hover: "Score under cursor", poly_few: "At least 3 vertices are needed.", poly_failed: "Could not load data: ",
     uhg_title: "Ukhaa Khudag satellite study",
     uhg_result: "Across 36 paired days in June 2023, 2024 and 2025, the mean downwind minus upwind AOD was +0.010.",
+    uhg_activity: "Across 25 Junes (2001–2025) the downwind–upwind contrast did not differ between high- and low-output years (high − low −0.005; 95%: −0.018 to +0.008); it was already +0.006 before mining began.",
     uhg_open: "Maps, charts and data (Mongolian)",
     mine_title: "Mine dust plume", mine_help: "Pick a mine, a date and a duration, then Compute. Wind and dust spread animate hour by hour.",
     mine_src: "Mine", mine_lat: "Latitude", mine_lon: "Longitude", mine_pick: "Pick on map", mine_pick_on: "Click the map…",
@@ -593,6 +595,8 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
       ui.studyLink = el("a", { class: "btn small", style: "color:inherit", href: "docs/uhg/" });
       ui.study = el("section", { class: "fold", hidden: true }, ui.studyTitle, ui.studyNote, el("div", { class: "btnrow" }, ui.studyLink));
       ui.title.after(ui.study);
+      ui.studyActivity = el("p", { class: "note" });
+      ui.studyNote.after(ui.studyActivity);
       ui.mine.addEventListener("change", showStudyForSource);
       map.on("click", (e) => { if (st.picking && st.active) { st.picking = false; map.getContainer().style.cursor = ""; ui.pick.textContent = t("mine_pick"); ui.mine.value = ""; setSource(e.latlng.lat, e.latlng.lng, null); } });
       ui.hour.value = String(st.hour); ui.lat.value = st.lat.toFixed(4); ui.lon.value = st.lon.toFixed(4);
@@ -604,6 +608,7 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
       ui.mine.replaceChildren(...MINES.map((m) => el("option", { value: m.id, text: getLang() === "mn" ? m.mn : m.en, selected: m.id === st.mineId })), el("option", { value: "", text: "—", selected: !st.mineId }));
       ui.studyTitle.textContent = t("uhg_title");
       ui.studyNote.textContent = t("uhg_result");
+      ui.studyActivity.textContent = t("uhg_activity");
       ui.studyLink.textContent = t("uhg_open");
       showStudyForSource();
       for (const s of ui.fields.querySelectorAll("span[data-k]")) s.textContent = t(s.dataset.k) + (s.dataset.k === "mine_dur" ? ` (${t("mine_hours")})` : s.dataset.k === "mine_radius" ? ` (${t("mine_km")})` : "") + ": ";
