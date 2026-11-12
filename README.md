@@ -9,6 +9,8 @@
 * Өгөгдлийн хэлбэр, тооцооны алхам / Data format and pipeline: [docs/GEE_DATA_FORMAT.md](docs/GEE_DATA_FORMAT.md)
 * Автомат шинэчлэлт асаах / Turn on the daily update: [docs/GEE_SETUP.md](docs/GEE_SETUP.md)
 
+«Шороон шуурга» хэсэгт хоёр хураагддаг цонх байна: «Салхи ба тоосжилтийн загвар» (уурхайн тоосны тархалт, өдөр бүрийн тархалт) ба «Уурхайн тоосжилт ба ургамал» (ургамал бүрхүүлтэй бүсийн нүүрсний уурхайн орчимд навч дээр тогтсон тоосыг Sentinel-2 NDVI-аар салхины чигээр уншиж, тоосны ул мөрийн хүрээ, өртсөн өвөлжөө, хаваржааг тоолно; [docs/METHODS.md](docs/METHODS.md)). / The dust tab holds two collapsible boxes: the wind and dust model (plume, day by day) and mine dust and vegetation (the dust settled on the plants around coal mines in grass cover, read from Sentinel-2 NDVI by wind sector, with the camps inside the footprint).
+
 Доорх хэсэг өмнөх хувилбарын (22 аймгийн төв) тайлбар бөгөөд уурхайн тоосны хэрэгсэлд хамаарна. / The text below describes the earlier 22-centre version and still applies to the mine dust tool.
 
 | What is real satellite data | What is a model |
