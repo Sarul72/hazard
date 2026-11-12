@@ -1,6 +1,6 @@
 /* The wind-sector vegetation contrast (js/minedust_veg.js) against cases worked out by hand. check() is plain
  * JavaScript so it also runs in a browser where Node is not installed. */
-import { VEG, anomalyGrid, bearingKm, campsExposed, classify, deficits, footprintKm2, geometry, innerRingCells, reaches, sectorOf, sectorRingStats, spearman, windRose } from "../js/minedust_veg.js";
+import { VEG, anomalyGrid, attribute, bearingKm, campsExposed, classify, combineRoses, deficits, emissionWeight, episodes, footprintKm2, geometry, hoursSinceRain, innerRingCells, rain24, reaches, sectorOf, sectorRingStats, soilThreshold, spearman, washedBetween, windRose } from "../js/minedust_veg.js";
 import { domain } from "../js/minedaily.js";
 
 export function check() {
@@ -87,6 +87,65 @@ export function check() {
   const an = anomalyGrid(ndvi, veg, geo, Float32Array.from([0.6, 0.6, 0.6, 0.6, 0.6]));
   near("anomaly of a vegetation pixel", an[cells[0]], -0.1, 1e-6);
   yes("no anomaly outside vegetation or rings", Number.isNaN(an[centre]) && Number.isNaN(an[cells[250]]));
+
+  // emission episodes: rolling rain, hours since rain, the soil quantile, the weight gate
+  const p = new Float32Array(72); p[10] = 1.5; p[11] = 1; // 2.5 mm over hours 10-11
+  const r24 = rain24(p);
+  near("24 h sum at hour 11", r24[11], 2.5, 1e-6);
+  near("24 h sum still holds at hour 33", r24[33], 2.5, 1e-6);
+  near("24 h sum drops to 1 at hour 34 and 0 at hour 35", r24[34] + r24[35], 1, 1e-6);
+  const since = hoursSinceRain(p, 2);
+  yes("before any rain: Infinity", since[5] === Infinity);
+  yes("the hour the qualifying rain fell: 0; 1.5 mm alone at hour 10 does not qualify", since[11] === 0 && since[10] === Infinity);
+  yes("hours since the rain fell, not since the rolling sum fell", since[12] === 1 && since[35] === 24);
+  const p2 = new Float32Array(72); p2[10] = 3; p2[40] = 0.2; // a later drizzle inside no qualifying 24 h sum does not reset
+  yes("a drizzle after the rain does not reset the count", hoursSinceRain(p2, 2)[50] === 40);
+  near("soil threshold is the median", soilThreshold(Float32Array.from([0.3, NaN, 0.1, 0.2]), 0.5), 0.2, 1e-6);
+  yes("soil threshold NaN without values", Number.isNaN(soilThreshold(Float32Array.from([NaN, NaN]), 0.5)));
+  const sp = new Float32Array(72).fill(8), soil = new Float32Array(72).fill(0.15); soil[60] = 0.4;
+  const wt = emissionWeight({ speed: sp, precip: p, soil });
+  yes("windy hour before the rain counts", Math.abs(wt[5] - 2 * 64) < 1e-6);
+  yes("windy hour 9 h and 23 h after rain does not", wt[20] === 0 && wt[34] === 0);
+  yes("24 h after rain it counts again", Math.abs(wt[35] - 128) < 1e-6);
+  const nanDir = emissionWeight({ speed: Float32Array.from([8, 8]), dir: Float32Array.from([NaN, 90]), precip: Float32Array.from([0, 0]), soil: Float32Array.from([0.1, 0.1]) });
+  yes("an hour without a wind direction carries no weight", nanDir[0] === 0 && Math.abs(nanDir[1] - 128) < 1e-6);
+  yes("wet soil blocks the hour", wt[60] === 0 && Math.abs(wt[61] - 128) < 1e-6);
+  const noSoil = emissionWeight({ speed: sp, precip: p, soil: new Float32Array(72).fill(NaN) });
+  yes("unknown soil: no soil condition", Math.abs(noSoil[60] - 128) < 1e-6);
+  yes("calm hour: 0", emissionWeight({ speed: Float32Array.from([5.9]), precip: Float32Array.from([0]), soil: Float32Array.from([0.1]) })[0] === 0);
+
+  // runs of weighted hours join across a gap of six zero hours, not seven; under two weighted hours they are dropped
+  const times = Array.from({ length: 40 }, (_, h) => `2025-07-01T${String(h % 24).padStart(2, "0")}:00`);
+  const w = new Float32Array(40), dirs = new Float32Array(40).fill(0), spd = new Float32Array(40).fill(8), sm = new Float32Array(40).fill(0.1), sr = new Float32Array(40).fill(100);
+  w[0] = 1; w[1] = 1; w[8] = 1; w[9] = 1; w[17] = 1; w[30] = 1;
+  const ep = episodes({ time: times, speed: spd, dir: dirs, soil: sm, sinceRain: sr }, w);
+  yes("one episode: 0-9 joined over six zeros; 17 alone and 30 alone dropped", ep.length === 1 && ep[0].i0 === 0 && ep[0].i1 === 9 && ep[0].hours === 4);
+  w[16] = 1; // 10..15 is a gap of six: joins
+  const ep2 = episodes({ time: times, speed: spd, dir: dirs, soil: sm, sinceRain: sr }, w);
+  yes("a gap of six joins", ep2.length === 1 && ep2[0].i1 === 17);
+  w[16] = 0; w[17] = 0; w[18] = 1; w[19] = 1; // 10..17 is a gap of eight: a new episode
+  const ep3 = episodes({ time: times, speed: spd, dir: dirs, soil: sm, sinceRain: sr }, w);
+  yes("a gap of eight splits", ep3.length === 2 && ep3[1].i0 === 18 && ep3[1].i1 === 19);
+  near("north wind: the episode's rose points south", ep3[0].rose[8], 1, 1e-6);
+  yes("the episode keeps its weight, top speed, soil and hours since rain", ep3[0].weight === 4 && ep3[0].umax === 8 && Math.abs(ep3[0].soil - 0.1) < 1e-6 && ep3[0].sinceRain === 100 && ep3[0].start === times[0] && ep3[0].end === times[9]);
+
+  // washed: a 24 h sum of 5 mm between the episode's end and the pass
+  const pw = new Float32Array(100); pw[50] = 5;
+  yes("rain of 5 mm after the episode washes it", washedBetween(pw, 40, 80, 5) === true);
+  yes("rain before the episode does not", washedBetween(pw, 60, 80, 5) === false);
+  yes("4 mm does not wash", washedBetween(Float32Array.from(pw, (v) => v * 0.8), 40, 80, 5) === false);
+
+  // the combined rose of the picked episodes, by weight
+  const eA = { weight: 3, rose: pad([1]) }, eB = { weight: 1, rose: pad([0, 0, 0, 0, 1]) };
+  const cr = combineRoses([eA, eB], [true, true]);
+  near("three quarters north", cr[0], 0.75, 1e-6); near("one quarter east", cr[4], 0.25, 1e-6);
+  yes("nothing picked: all zero", combineRoses([eA, eB], [false, false]).every((v) => v === 0));
+
+  // attribution: a dusted pixel off the wind becomes 6, a clean or bare pixel stays
+  const at = attribute(Uint8Array.from([2, 3, 4, 5, 1, 0, 2]), Int8Array.from([0, 0, 4, 4, 4, 4, 8]), pad([0.5, 0, 0, 0, 0.0625]), 16);
+  yes("downwind dusted pixels keep their class", at[0] === 2 && at[1] === 3 && at[2] === 4);
+  yes("clean, bare and outside stay", at[3] === 5 && at[4] === 1 && at[5] === 0);
+  yes("a dusted pixel off the wind is another cause", at[6] === 6);
   return out;
 }
 
