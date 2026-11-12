@@ -23,6 +23,7 @@ import { initFloodBox } from "./aoi/floodbox.js";
 import { initDustBox } from "./aoi/dustbox.js";
 import { initFireBox } from "./aoi/firebox.js";
 import { createViewer } from "./aoi/viewer.js";
+import { createDzud } from "./dzud.js";
 
 const $ = (id) => document.getElementById(id);
 const store = {
@@ -30,7 +31,8 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, v); } catch { /* private mode: ignore */ } },
 };
 
-const HAZARDS = ["all", "flood", "fire", "dust"];
+const HAZARDS = ["all", "flood", "fire", "dust"]; // computed here on the 0.1° grid (data/gee)
+const DZUD = "dzud"; // read from ZudRisk by soum and winter (js/dzud.js), not from the grid
 const FIRST_IMAGERY = "2000-02-24"; // first MODIS Terra day
 
 // hazard null is the opening screen: the satellite image alone, with nothing computed or loaded until a hazard is chosen.
@@ -44,6 +46,7 @@ const state = {
 };
 
 const t = (k) => U[state.lang][k] ?? U.mn[k] ?? k;
+const isDzud = () => state.hazard === DZUD;
 const layerName = (k) => (T[state.lang] && T[state.lang][k]) ?? T.mn[k] ?? k;
 const classesNow = () => classesFor(state.hazard);
 const classOf = (v) => classesNow().find((c) => v < c.max) ?? null;
@@ -79,22 +82,26 @@ function renderStatic() {
   state.fireBox?.render();
   $("t-dust-app").textContent = t("dust_app"); // dust is checked on this page (js/aoi), the GEE App stays linked
   state.dustBox?.render();
+  $("t-dzud-app").textContent = t("dzud_app");
   renderSources();
   $("soum-q").placeholder = t("soum_search");
   $("hint").textContent = t("hint");
   if (state.manifest?.synthetic) { $("test-flag").hidden = false; $("test-flag").textContent = t("synthetic"); }
 }
 
-/** The hazards run across the top of the screen. The last three are not computed yet: they say so and do nothing else. */
+/** The hazards run across the top of the screen. Crops and pasture are not computed yet: they say so and do nothing else.
+ * Dzud keeps its place after them and opens ZudRisk's soum risk. */
 function renderMenus() {
   const mark = (h) => { const s = el("span", { class: "ico", "aria-hidden": "true" }); s.innerHTML = HAZARD_ICON[h]; return s; };
+  const pick = (h) => el("div", { class: "hz" + (state.hazard === h ? " on" : "") },
+    el("button", { class: "pick", type: "button", "aria-pressed": String(state.hazard === h), onclick: () => setHazard(h) }, mark(h), el("span", { text: t(h) })),
+    el("button", { class: "info", type: "button", title: `${t(h)}: ${t("method_of")}`, "aria-label": `${t(h)}: ${t("method_of")}`, text: "i", onclick: () => showMethods(h) }));
   $("hazards").replaceChildren(
-    ...HAZARDS.map((h) => el("div", { class: "hz" + (state.hazard === h ? " on" : "") },
-      el("button", { class: "pick", type: "button", "aria-pressed": String(state.hazard === h), onclick: () => setHazard(h) }, mark(h), el("span", { text: t(h) })),
-      el("button", { class: "info", type: "button", title: `${t(h)}: ${t("method_of")}`, "aria-label": `${t(h)}: ${t("method_of")}`, text: "i", onclick: () => showMethods(h) }))),
+    ...HAZARDS.map(pick),
     el("span", { class: "hz-sep", "aria-hidden": "true" }),
-    ...SOON.map((h) => el("div", { class: "hz soon" },
-      el("button", { class: "pick", type: "button", title: t("soon"), onclick: () => showSoon(h) }, mark(h), el("span", { text: t("hz_" + h) })))));
+    ...SOON.map((h) => (h === DZUD ? pick(h) : el("div", { class: "hz soon" },
+      el("button", { class: "pick", type: "button", title: t("soon"), onclick: () => showSoon(h) }, mark(h), el("span", { text: t("hz_" + h) }))))));
+  $("t-view").hidden = $("modes").hidden = isDzud(); // dzud is by soum only, from its own data
   $("modes").replaceChildren(...["zones", "soums"].map((m) => el("div", { class: "item" + (state.mode === m ? " on" : "") },
     el("button", { class: "pick", type: "button", "aria-pressed": String(state.mode === m), text: t("mode_" + m), onclick: () => setMode(m) }))),
     el("label", { class: "check risk-switch" }, el("input", { type: "checkbox", checked: state.showRisk, onchange: (e) => setShowRisk(e.target.checked) }), el("span", { text: t("risk_show") })));
@@ -180,7 +187,7 @@ const HAZARD_ICON = {
   pasture: solid('<path fill-rule="evenodd" d="M15.3 2.82L15.09 2.82L14.54 3.17L14.34 3.37L14.34 3.51L14.13 3.65L13.99 4.2L13.93 4.2L13.93 4.82L13.99 4.82L14.06 5.16L14.54 5.64L14.89 5.78L14.89 5.92L14.75 5.98L14.75 6.12L14.61 6.26L14.41 6.05L14.27 6.05L14.2 5.92L13.65 5.71L13.65 5.64L13.03 5.57L13.03 5.5L11.86 5.64L10.9 6.19L10.76 6.4L10.76 6.67L10.97 6.88L10.97 7.02L11.38 7.43L11.52 7.43L11.59 7.57L12 7.7L12 7.77L13.31 7.84L13.31 7.77L13.79 7.7L13.93 7.57L14.06 7.57L14.13 7.43L14.27 7.43L14.34 9.7L14.41 9.7L14.47 10.11L14.54 10.11L14.61 10.38L14.75 10.45L14.75 10.59L14.82 10.59L14.89 10.18L14.96 10.18L15.03 9.9L15.16 9.83L15.16 9.7L15.3 9.56L15.44 9.56L15.51 9.42L15.99 9.28L15.99 9.22L18.32 9.22L18.32 9.28L18.6 9.28L18.81 9.49L18.94 9.49L19.15 9.77L19.29 9.83L19.29 9.97L19.49 10.18L19.56 10.66L19.7 10.59L19.77 10.25L19.91 10.11L19.98 9.42L20.04 9.42L20.04 7.5L20.32 7.57L20.46 7.7L20.8 7.7L20.8 7.77L21.69 7.7L21.69 7.63L22.04 7.57L22.11 7.43L22.24 7.43L22.38 7.22L22.52 7.22L23 6.53L23 6.19L22.86 5.98L22.73 5.98L22.66 5.85L22.24 5.71L22.24 5.64L21.83 5.57L21.83 5.5L21.42 5.5L21.42 5.43L20.59 5.5L20.59 5.57L20.04 5.71L19.7 6.05L19.56 6.05L19.49 6.12L19.36 5.98L19.36 5.78L19.49 5.78L19.98 5.37L19.98 5.23L20.18 5.02L20.18 4.75L20.25 4.75L20.18 3.99L20.11 3.99L19.98 3.58L19.7 3.37L19.7 3.23L19.56 3.23L19.43 3.03L19.15 2.96L19.15 2.89L18.94 2.89L19.08 3.51L19.15 3.51L19.15 3.99L19.08 3.99L19.08 4.27L19.01 4.27L18.94 4.54L18.6 4.88L18.05 4.88L18.05 4.82L15.71 4.88L15.64 4.75L15.51 4.75L15.3 4.54L15.16 4.06L15.09 4.06L15.09 3.3L15.16 3.3ZM15.51 7.22L15.85 7.22L16.06 7.43L16.06 7.84L15.85 8.05L15.37 7.98L15.3 7.7L15.23 7.7L15.3 7.36ZM18.46 7.22L18.88 7.22L19.08 7.43L19.08 7.84L18.88 8.05L18.46 8.05L18.26 7.77L18.26 7.43ZM13.65 8.6L13.24 8.67L13.24 8.73L12.76 8.73L12.76 8.8L6.36 8.8L6.36 8.87L5.33 8.94L5.33 9.01L4.85 9.08L4.85 9.15L4.64 9.15L4.23 9.42L3.96 9.49L3.82 9.7L3.68 9.7L3.06 10.32L3.06 10.45L2.79 10.73L2.58 11.28L2.51 11.28L2.51 11.48L2.38 11.62L2.38 11.9L2.31 11.9L2.31 12.17L2.24 12.17L2.24 12.58L2.17 12.58L2.17 14.58L1.41 15.33L1.41 15.47L1.27 15.54L1.21 15.82L1.14 15.82L1.07 16.3L1 16.3L1.07 17.4L1.21 17.53L1.21 17.74L1.34 17.95L1.62 17.88L1.69 17.74L1.96 17.67L2.17 17.47L2.31 17.47L2.72 17.05L2.72 16.92L2.86 16.85L3.06 16.3L3.13 16.3L3.2 15.75L3.13 15.75L3.13 15.27L2.99 15.06L2.99 12.79L3.06 12.79L3.06 12.38L3.13 12.38L3.2 11.97L3.68 11.14L4.16 10.66L4.3 10.66L4.58 10.38L4.85 10.32L4.37 11.14L4.23 11.76L4.16 11.76L4.03 12.65L3.96 12.65L3.96 13.34L3.89 13.34L3.89 14.58L3.96 14.58L3.96 15.61L4.03 15.61L3.96 20.35L4.03 20.35L4.09 20.83L4.44 21.11L5.88 21.11L5.88 21.04L6.02 21.04L6.22 20.7L6.22 19.05L6.29 19.05L6.36 18.43L6.43 18.43L6.57 18.02L6.78 17.88L6.78 17.74L6.98 17.53L7.12 17.53L7.26 17.33L7.39 17.33L7.46 17.19L7.74 17.12L7.88 16.98L8.49 16.85L8.49 16.78L8.77 16.78L8.77 16.71L9.25 16.71L9.25 16.64L10.56 16.64L10.56 16.71L11.38 16.78L11.38 16.85L11.66 16.85L12 17.05L12.34 17.12L12.41 17.26L12.69 17.33L12.82 17.53L12.96 17.53L13.03 17.74L13.24 17.88L13.31 18.22L13.38 18.22L13.38 18.57L13.44 18.57L13.44 20.56L13.51 20.56L13.51 20.77L13.93 21.11L15.57 21.11L15.57 21.04L15.71 21.04L15.71 20.9L15.85 20.83L15.85 20.63L15.92 20.63L15.99 17.95L16.06 17.95L16.13 17.47L16.19 17.47L16.47 16.78L16.74 16.5L16.74 16.37L17.57 15.54L17.57 15.4L17.77 15.27L17.77 15.13L17.91 15.06L17.91 14.92L18.05 14.85L18.12 14.58L18.26 14.51L18.32 14.23L18.39 14.23L18.39 14.03L18.6 13.75L18.74 13.13L18.81 13.13L19.01 11.97L19.08 11.97L19.08 11.62L18.46 12.03L17.57 12.1L17.57 12.17L16.06 12.1L16.06 12.03L15.78 12.03L15.78 11.97L15.57 11.97L15.44 11.83L15.03 11.69L14.34 11.07L14.34 10.93L14.13 10.8L14.13 10.66L13.99 10.52L13.99 10.32L13.86 10.18L13.79 9.7L13.72 9.7ZM7.88 10.25L8.49 10.32L8.49 10.38L9.04 10.52L10.21 11.69L10.35 11.69L10.42 11.83L10.83 11.97L10.83 12.03L11.31 12.1L11.31 12.17L12.82 12.31L13.38 12.79L13.51 13.27L13.58 13.27L13.58 13.96L13.51 13.96L13.38 14.44L12.89 14.92L12.28 15.06L12.28 15.13L11.45 14.99L11.24 14.78L11.11 14.78L11.04 14.65L10.9 14.65L10.83 14.51L10.42 14.37L10.42 14.3L10.21 14.3L10.21 14.23L9.25 14.23L9.25 14.3L8.97 14.3L8.97 14.37L8.43 14.58L8.08 14.92L7.94 14.92L7.88 15.06L7.6 15.13L7.6 15.2L6.64 15.27L6.64 15.2L6.29 15.13L6.16 14.92L6.02 14.92L5.88 14.78L5.88 14.65L5.74 14.58L5.47 14.1L5.47 13.89L5.33 13.68L5.33 13.2L5.26 13.2L5.33 12.45L5.47 12.24L5.47 12.03L5.61 11.9L5.67 11.62L5.81 11.55L5.81 11.42L6.5 10.73L6.78 10.66L6.84 10.52L7.05 10.52L7.19 10.38L7.88 10.32ZM16.4 10.18L15.92 10.18L15.71 10.45L15.71 10.66L16.06 11L16.4 10.93L16.54 10.8L16.54 10.66L16.61 10.66L16.61 10.45ZM18.46 10.18L17.91 10.18L17.77 10.38L17.77 10.73L17.91 10.93L18.12 10.93L18.12 11L18.46 10.93L18.53 10.73L18.6 10.73L18.6 10.38ZM10.49 17.26L9.32 17.26L9.32 17.33L8.56 17.4L8.56 17.47L8.36 17.47L8.36 17.53L8.15 17.53L8.01 17.67L7.74 17.74L7.67 17.88L7.53 17.88L7.39 18.02L7.39 18.15L7.6 18.36L7.6 18.5L8.01 18.77L8.08 19.53L8.29 19.67L8.56 19.67L8.56 19.6L8.77 19.46L8.77 19.05L9.46 19.05L9.46 19.39L9.59 19.6L9.73 19.6L9.73 19.67L10.14 19.6L10.21 19.32L10.28 19.32L10.28 18.77L10.35 18.7L10.83 18.29L10.97 17.81L11.04 17.81L10.97 17.33L10.49 17.33Z"/>'),
   dzud: outline('<path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9"/><path d="M9.6 4.6 12 6.4l2.4-1.8M9.6 19.4 12 17.6l2.4 1.8M3.9 10.2l2.8.9-.6 2.9M20.1 10.2l-2.8.9.6 2.9"/>'),
 };
-const SOON = ["crop", "pasture", "dzud"];
+const SOON = ["crop", "pasture", DZUD]; // the order of the bar; dzud is live (renderMenus)
 
 /** "Coming soon": the screen softens as while computing, with the name and two words, and clears by itself. */
 let soonTimer = 0;
@@ -226,7 +233,7 @@ function renderRail() {
   $("rail").replaceChildren(...[
     button(ICON.menu, t(state.menuOpen ? "menu_close" : "rail_menu"), () => setMenu(!state.menuOpen), state.menuOpen ? "on" : ""),
     results && !state.sideOpen && button(ICON.settings, t("rail_settings"), () => setSide(true)),
-    results && button(draw ? ICON.draw : ICON.move, t(draw ? "rail_draw" : "rail_move"), () => { state.rect.toggle(); renderRail(); }, draw ? "on" : ""),
+    results && !isDzud() && button(draw ? ICON.draw : ICON.move, t(draw ? "rail_draw" : "rail_move"), () => { state.rect.toggle(); renderRail(); }, draw ? "on" : ""),
     results && button("i", t("rail_method"), () => showMethods(state.hazard)),
     button(ICON.download, t("rail_download"), () => { if (state.menuOpen) setMenu(false); state.downloads.toggle(); }),
     button(ICON.home, t("rail_home"), fitMongolia),
@@ -238,7 +245,10 @@ function renderRail() {
 function renderScreen() {
   const results = Boolean(state.hazard);
   document.body.classList.toggle("bare", !results);
-  state.rect.setActive(results);
+  state.rect.setActive(results && !isDzud()); // a drawn box has no meaning for a soum-by-winter map
+  $("dzud-box").hidden = !isDzud();
+  document.body.classList.toggle("dzud", isDzud()); // no box to draw, so no drawing hint
+  if (!isDzud()) $("dzud-box").open = false;
   const dust = state.hazard === "dust"; // the mine tool belongs to dust
   $("mine-box").hidden = !dust;
   if (!dust) $("mine-box").open = false;
@@ -276,6 +286,7 @@ function renderAllText() {
   state.dateBar?.relabel();
   state.tools?.relabel();
   renderSelection();
+  state.dzud?.relabel();
   updateNotice();
 }
 
@@ -392,6 +403,7 @@ function updateNotice() {
 }
 function hazardNote() {
   if (!state.hazard) return null;
+  if (isDzud()) return state.dzud.note();
   if (!state.manifest) return t("no_manifest");
   if (state.dayMissing) return t("no_day").replace("{d}", state.date);
   if (state.loadError) return t("load_error") + state.loadError;
@@ -406,6 +418,8 @@ async function setDate(d) {
   syncSat();
   renderDateFold();
   state.downloads?.refresh();
+  state.dzud?.setDate(d); // it reads only when its tab is open
+  if (isDzud()) { paint(); return; } // clears a grid hazard left on the map; dzud draws its own layer
   if (!state.manifest || !state.hazard) return;
   const my = ++state.dayToken;
   let day = null;
@@ -449,8 +463,11 @@ function leaveResults() {
 }
 
 async function setHazard(h) {
-  const entering = !state.hazard && h;
+  // dzud reads no grid day, so going between it and a grid hazard loads the day again, as from the opening screen
+  const entering = h && (!state.hazard || (state.hazard === DZUD) !== (h === DZUD));
+  if (h === DZUD && state.sel) closeSelection(); // a grid area's statistics do not apply to dzud
   state.hazard = h;
+  state.dzud.show(h === DZUD);
   renderScreen();
   // a picked hazard opens the left menu on its detailed check, the settings of the computation
   if (h) {
@@ -463,8 +480,10 @@ async function setHazard(h) {
   if (state.hazard !== h) return;
   if (entering) await enterResults();
   else { paint(); if (state.sel) loadSelection(); }
-  state.tools?.setHazard(h);
+  if (h === DZUD) state.dzud.setDate(state.date); // also when the grid manifest failed and enterResults stopped early
+  else state.tools?.setHazard(h);
   state.downloads.refresh();
+  updateNotice();
 }
 
 /** Soum boundaries load once, when they are first needed. */
@@ -484,10 +503,10 @@ function soumsReady() {
 }
 
 async function showSoums() {
-  const on = state.mode === "soums" && Boolean(state.hazard);
+  const on = state.mode === "soums" && Boolean(state.hazard) && !isDzud();
   $("soum-box").hidden = !on;
   if (on) await whileBusy(soumsReady);
-  state.soumLayer?.show(state.mode === "soums" && Boolean(state.hazard) && state.showRisk);
+  state.soumLayer?.show(on && state.showRisk);
   paintSoums();
 }
 
@@ -550,6 +569,7 @@ function pickSoum(f, fly) {
 
 /* ------------------------------------------------------------- selection */
 async function loadSelection() {
+  if (isDzud()) return;
   const my = ++state.selToken, s = state.sel, m = state.manifest;
   s.long = null; s.months = null; s.high = null; s.longError = false;
   renderSelection();
@@ -571,7 +591,7 @@ async function loadSelection() {
 
 function renderSelection() {
   const s = state.sel;
-  if (!s) return;
+  if (!s || isDzud()) return;
   const m = state.manifest, fr = frameNow();
   const day = fr ? dayReport({ frame: fr, uframe: uFrameNow(), cells: s.cells, grid: m.grid, classes: CLASSES, uModel: m.uncertainty?.[state.hazard]?.u_model }) : null;
   state.panel.render({
@@ -697,6 +717,8 @@ async function boot() {
   state.dustBox = initDustBox({ box: $("dust-app"), map: state.map, t, getBox: () => state.aoi ?? null, getDay: () => state.date, geeUrl: DUST_APP_URL, viewer: state.viewer, onResult: resultReady,
     setDay: async (d) => { state.dateBar.setValue(d); await setDate(state.dateBar.value); } });
   state.dustBox.render();
+  state.dzud = createDzud({ map: state.map, box: $("dzud-app"), t, getLang: () => state.lang, classes: classesNow,
+    classLabel: (i) => classLabel(CLASSES[i].key), busy: whileBusy, onChange: updateNotice });
   state.panel = createStatsPanel($("stats"), { t, classes: classesNow, classLabel, onClose: closeSelection, onMethods: showMethods, onCsv: () => state.downloads.seriesCsv(), onPlume: showPlume });
   state.tools = initTools({ map: state.map, getLang: () => state.lang, requestSat, containers: { poly: el("div"), mine: $("view-mine") }, onMethods: showMethods, busy,
     onWater: (on) => { if (state.borders.water !== on) { state.borders.water = on; applyBorders(); renderBorders(); } },

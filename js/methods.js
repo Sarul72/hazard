@@ -34,6 +34,10 @@ const REF = {
   mjgg: ["Environmental conditions in the mining areas of the Umnugovi province of Mongolia. Mongolian Journal of Geography and Geoecology.", "https://mongoliajol.info/index.php/MJGG/article/view/4093"],
   gum: ["JCGM 100:2008. Evaluation of measurement data: Guide to the expression of uncertainty in measurement (GUM).", "https://www.bipm.org/en/committees/jc/jcgm/publications"],
   olofsson: ["Olofsson, P., et al. (2014). Good practices for estimating area and assessing accuracy of land change. Remote Sens. Environ. 148, 42-57.", "https://eprints.nottingham.ac.uk/44846/"],
+  zudrisk: ["ZudRisk: dzud risk per soum for Mongolia from public data (2026). Methods, data sources and validation in its README and docs/research/data-sources.md.", "https://github.com/Sarul72/ZudRisk"],
+  era5land: ["Muñoz-Sabater, J., et al. (2021). ERA5-Land: a state-of-the-art global reanalysis dataset for land applications. Earth Syst. Sci. Data 13, 4349-4383.", "https://doi.org/10.5194/essd-13-4349-2021"],
+  mod13c2: ["Didan, K. (2021). MODIS/Terra Vegetation Indices Monthly L3 Global 0.05Deg CMG V061 (MOD13C2). NASA LP DAAC.", "https://doi.org/10.5067/MODIS/MOD13C2.061"],
+  nso: ["National Statistics Office of Mongolia (1212.mn): livestock census and adult livestock losses by soum and aimag.", "https://www.1212.mn"],
   weatherhead: ["Weatherhead, E.C., et al. (2000). Detecting the recovery of total column ozone. J. Geophys. Res. 105(D17), 22201-22210, eq. 2; after Weatherhead, E.C., et al. (1998). Factors affecting the detection of trends. J. Geophys. Res. 103, 17149-17161.", "https://doi.org/10.1029/98JD00995"],
 };
 
@@ -281,20 +285,70 @@ METHODS.all = {
   data: [],
 };
 
+/* Dzud is ZudRisk's estimate, read from its site; the figures are ZudRisk's own tests, 2026-11-12. */
+METHODS.dzud = {
+  mn: {
+    title: "Зуд: арга зүй, материал",
+    lead: "Сум бүрийн зудын эрсдэл, өвөл бүрээр: 2000/01-ээс хойших өвлүүдийн ретро тооцоо, ирэх өвлийн урьдчилсан төлөв. Тооцоог ZudRisk хийж, энэ хуудас түүний нийтэлсэн өгөгдлийг уншина.",
+    method: [
+      "Дөрвөн үзүүлэлт: өвлийн хүйтэн (11–2 сарын агаарын температур), цасны зузаан (ERA5-Land), өмнөх зуны бэлчээр (7–8 сарын MODIS NDVI), малын нягт (ҮСХ-ны тооллого, хонин толгой / км²).",
+      "Үзүүлэлт бүрийг тухайн сумын 2001–2020 оны дундажтай харьцуулж z-оноо болгоно. Жинг бодит хорогдолтой харьцуулахаас өмнө тогтоосон; жинлэсэн нийлбэр нь эрсдэлийн оноо, түүнийг таван ангилалд хуваана.",
+      "Магадлал: оноог «том малын 5%-иас дээш хорогдох» магадлал болгон логистик регрессээр шат бүрт тохируулсан (2011/12–2024/25 оны сум-өвлүүд, нэг өвлийг хасаж шалгасан). Brier skill 0 буюу түүнээс бага шатанд магадлал харуулахгүй.",
+      "Урьдчилсан төлөв нь сар бүр шинэчлэгдэнэ (10-р сараас 3-р сар): тухайн өдөр хүртэл ирсэн өгөгдлийг л ашиглана. 10-р сарын шатанд өвлийн сар ажиглагдаагүй тул хүйтэн, цас тооцоонд ороогүй.",
+      "Шалгалт (2026-11-12): урьдчилан тогтоосон өвлүүдэд сумаар Spearman ρ 0.596 (n=1683), 2011/12-оос хорогдолтой бүх сум-өвөлд 0.434 (n=4688), 2000/01-ээс бүх аймаг-өвөлд 0.547 (n=525).",
+    ],
+    limits: [
+      "ERA5-Land бол загварын үр дүн, хэмжилт биш. Цасны зузаан ба нягтыг газар дээр шалгаагүй.",
+      "Өвс тэжээлийн нөөц, малчдын бэлтгэл хорогдлын хэлбэлзлийн тал орчмыг тайлбарладаг (Nandintsetseg нар, 2018) боловч сумаар өгөгдөл алга тул оноонд ороогүй.",
+      "Төмөр зуд (мөсөн бүрхүүл)-ыг сарын өгөгдлөөр шалгахад хорогдолтой холбоогүй гарсан; өдрийн өгөгдлөөр шалгаж байна.",
+      "ҮСХ сумын хорогдлыг 2011/12-оос гаргадаг тул түүнээс өмнөх өвлүүдийг зөвхөн аймгаар шалгасан.",
+      "Энэ бол судалгааны тооцоо бөгөөд албан ёсны сэрэмжлүүлэг биш.",
+    ],
+    refs: ["zudrisk", "era5land", "mod13c2", "nso"],
+  },
+  en: {
+    title: "Dzud: methods and materials",
+    lead: "Dzud risk for every soum, winter by winter: hindcasts since 2000/01 and the outlook of the coming winter. ZudRisk computes it; this page reads the data ZudRisk publishes.",
+    method: [
+      "Four indicators: winter cold (Nov-Feb air temperature) and snow depth from ERA5-Land, the previous summer's pasture (July-August MODIS NDVI), and grazing pressure (NSO census, sheep units per km²).",
+      "Each is a z-score against the soum's own 2001-2020. The weights were fixed before any comparison with losses; their weighted sum is the risk score, cut into five classes.",
+      "Chance: the score is calibrated as the chance of adult losses of 5 % or more by logistic regression, per outlook stage, on the soum-winters 2011/12-2024/25, each winter held out in turn. A stage whose Brier skill is 0 or below shows no chance.",
+      "The outlook updates each month from October to March and uses only the data in by then. The October stage has no winter month yet, so cold and snow are not in it.",
+      "Tests (2026-11-12): pre-registered winters by soum, Spearman ρ 0.596 (n=1683); every soum-winter with losses since 2011/12, 0.434 (n=4688); every aimag-winter since 2000/01, 0.547 (n=525).",
+    ],
+    limits: [
+      "ERA5-Land is a model reanalysis, not a measurement. Snow depth and density were not checked on the ground.",
+      "Hay reserves and herders' preparation explain about half the variation in losses (Nandintsetseg et al., 2018), but there are no soum data for them, so the score leaves them out.",
+      "Iron dzud (an ice crust) tested on monthly data showed no link to losses; a daily test is under way.",
+      "NSO publishes soum losses from 2011/12, so earlier winters are tested by aimag only.",
+      "A research estimate, not an official warning.",
+    ],
+    refs: ["zudrisk", "era5land", "mod13c2", "nso"],
+  },
+  ownError: true, // the grid's error budget (COMMON_ERROR) does not apply
+  data: [
+    ["ERA5-Land (ECMWF)", "≈9 км", { mn: "Өвлийн хүйтэн, цасны зузаан", en: "Winter cold, snow depth" }],
+    ["MODIS MOD13C2", "0.05°", { mn: "Зуны бэлчээр (NDVI)", en: "Summer pasture (NDVI)" }],
+    ["ҮСХ / NSO", { mn: "сум", en: "soum" }, { mn: "Малын тоо, хорогдол", en: "Herds, losses" }],
+    ["OCHA COD-AB", { mn: "сум", en: "soum" }, { mn: "Сумын хил", en: "Soum boundaries" }],
+  ],
+};
+
 export function openMethods(dlg, hazard, { lang, t, manifest }) {
   const m = METHODS[hazard], c = m[lang] ?? m.mn;
   const list = (items) => el("ul", {}, items.map((s) => el("li", { text: s })));
-  const refs = [...c.refs, "gum", "olofsson", "weatherhead"];
+  const refs = m.ownError ? c.refs : [...c.refs, "gum", "olofsson", "weatherhead"];
   const sources = manifest?.sources?.[hazard];
-  const rows = sources ? sources.map((s) => [s.name, s.resolution, s.role]) : m.data.map(([a, b, r]) => [a, b, r[lang] ?? r.mn]);
+  const local = (v) => (typeof v === "string" ? v : v[lang] ?? v.mn);
+  const rows = sources ? sources.map((s) => [s.name, s.resolution, s.role]) : m.data.map(([a, b, r]) => [a, local(b), local(r)]);
   dlg.replaceChildren(...[
     el("button", { class: "dlg-x", type: "button", "aria-label": t("close"), text: "✕", onclick: () => dlg.close() }),
     el("h2", { text: c.title }), el("p", { class: "lead", text: c.lead }),
     el("h3", { text: t("m_method") }), list(c.method),
     rows.length ? el("h3", { text: t("m_material") }) : null,
-    rows.length && !sources && hazard !== "plume" ? el("p", { class: "dlg-warn", text: t("m_planned") }) : null,
+    rows.length && !sources && hazard !== "plume" && !m.ownError ? el("p", { class: "dlg-warn", text: t("m_planned") }) : null,
     rows.length ? el("table", {}, el("thead", {}, el("tr", {}, ["m_col_data", "m_col_res", "m_col_role"].map((k) => el("th", { text: t(k) })))), el("tbody", {}, rows.map((r) => el("tr", {}, r.map((v) => el("td", { text: v })))))) : null,
-    el("h3", { text: t("m_error") }), list(COMMON_ERROR[lang] ?? COMMON_ERROR.mn),
+    m.ownError ? null : el("h3", { text: t("m_error") }), m.ownError ? null : list(COMMON_ERROR[lang] ?? COMMON_ERROR.mn),
     el("h3", { text: t("m_limits") }), list(c.limits),
     el("h3", { text: t("m_refs") }),
     el("ol", { class: "refs" }, refs.map((k) => el("li", {}, el("a", { href: REF[k][1], target: "_blank", rel: "noopener", text: REF[k][0] })))),

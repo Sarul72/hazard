@@ -25,7 +25,7 @@ export function check() {
   }
   yes("the classes keep their limits in every colour", Object.keys(PALETTES).every((h) => classesFor(h).every((k, i) => k.min === CLASSES[i].min && k.max === CLASSES[i].max)));
   yes("the opening screen falls back to the combined colours", classesFor(null)[0].color === PALETTES.all[0]);
-  yes("the hazards differ", new Set(Object.values(PALETTES).map((p) => p[3])).size === 4);
+  yes("the hazards differ", new Set(Object.values(PALETTES).map((p) => p[3])).size === Object.keys(PALETTES).length);
   return out;
 }
 
