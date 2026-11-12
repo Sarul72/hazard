@@ -5,14 +5,14 @@ import { CLASSES, DUST_APP_URL, FIRE_APP_URL, FLOOD_APP_URL, GIBS, MONGOLIA_BBOX
 import { SOURCES } from "./sources.js";
 import { T } from "./i18n.js";
 import { U } from "./ui_text.js";
-import { firstDate, makeLayer, newestImageDate, utcDate, versionAt } from "./gibs.js";
+import { firstDate, hasDay, lastDay, makeLayer, newestImageDate, periodStart, utcDate, versionAt } from "./gibs.js";
 import { initTools } from "./tools.js";
 import { decode, loadCube, loadDaily, loadManifest } from "./dataset.js";
 import { campsInside, loadCamps } from "./camps.js";
 import { initDownloads } from "./downloads.js";
 import { createRiskLayer } from "./riskmap.js";
 import { initRectDraw } from "./rectdraw.js";
-import { initDateBar } from "./datebar.js";
+import { addDays, initDateBar } from "./datebar.js";
 import { boxCells, cellsMean } from "./stats.js";
 import { dayReport, highDaySeries, longReport, monthSeries } from "./area.js";
 import { createStatsPanel } from "./statspanel.js";
@@ -40,6 +40,7 @@ const state = {
   sel: null, selToken: 0, dayToken: 0, soums: null, soumQuery: "", sat: {}, showRisk: true,
   borders: { country: true, aimag: false, soum: false, water: false }, borderLayers: {}, borderData: {},
   dateFolded: store.get("hw.datefold") === "1",
+  imgNote: null, bootFallback: null, satToken: 0, // what the imagery itself needs to say about its date
 };
 
 const t = (k) => U[state.lang][k] ?? U.mn[k] ?? k;
@@ -304,23 +305,62 @@ function setBase(key) {
   applySat(key);
 }
 
-/** A satellite that has not passed yet today answers with black, so the choice opens on its newest full day. */
+/** A satellite that has not passed yet today answers with black, so the choice opens on its newest full day; a product
+ * published days later (MAIAC, 8-day) opens on its latest day. One date for the whole screen, so the picker moves too. */
 async function pickBase(key) {
   setBase(key);
   state.downloads?.refresh();
-  if (state.hazard || state.date !== utcDate(0)) return;
-  const d = await newestImageDate(GIBS.layers.find((l) => l.key === key));
-  if (d !== state.date && state.sat[key].on) { state.dateBar.setValue(d); await setDate(d); }
+  if (state.hazard) return;
+  const def = GIBS.layers.find((l) => l.key === key);
+  let d = state.date;
+  if (def.steady) { if ((await hasDay(def, d)) === false) d = (await lastDay(def, d)) ?? d; }
+  else if (d === utcDate(0)) d = await newestImageDate(def);
+  if (d !== state.date && state.sat[key].on) { state.dateBar.setValue(d); await setDate(state.dateBar.value); }
 }
 
 function renderSat() {
   const mk = (l) => {
     const st = state.sat[l.key], base = l.kind === "base", now = versionAt(l, state.date);
     const input = el("input", { type: base ? "radio" : "checkbox", name: base ? "base" : null, checked: st.on, disabled: !now, onchange: (e) => { if (base) pickBase(l.key); else { st.on = e.target.checked; applySat(l.key); } } });
-    return el("label", { class: "check" + (now ? "" : " off") }, input, el("span", {}, layerName("layer_" + l.key), el("small", { text: now ? `${now.sensor} · ${now.res}` : t("sat_from").replace("{d}", firstDate(l)) })));
+    return el("label", { class: "check" + (now ? "" : " off") }, input, el("span", {}, layerName("layer_" + l.key), el("small", { text: now ? `${now.sensor} · ${now.res}` : t("sat_from").replace("{d}", firstDate(l)) }), el("span", { class: "sat-st", id: "sat-st-" + l.key })));
   };
-  $("sat-base").replaceChildren(...GIBS.layers.filter((l) => l.kind === "base").map(mk));
+  $("sat-base").replaceChildren(...GIBS.layers.filter((l) => l.kind === "base").map(mk), el("p", { class: "sat-hint", text: t("sat_seams") }));
   $("sat-overlay").replaceChildren(...GIBS.layers.filter((l) => l.kind === "overlay").map(mk));
+  checkSat();
+}
+
+/** Each layer reaches NASA GIBS on its own schedule (true colour within hours, MAIAC and IMERG about two days later), while
+ * the screen shows one date. So every layer says when that date is not published for it yet, with its latest day. */
+let satTimer = 0;
+function checkSat() {
+  clearTimeout(satTimer);
+  satTimer = setTimeout(runSatCheck, 250);
+}
+async function runSatCheck() {
+  const date = state.date, token = ++state.satToken, notes = [];
+  const jump = (d) => (e) => { e.preventDefault(); state.dateBar.setValue(d); setDate(state.dateBar.value); };
+  await Promise.all(GIBS.layers.map(async (l) => {
+    const box = $("sat-st-" + l.key);
+    if (!box || !versionAt(l, date)) return;
+    const ok = await hasDay(l, date);
+    if (token !== state.satToken) return;
+    if (ok === false) {
+      const last = await lastDay(l, date);
+      if (token !== state.satToken) return;
+      box.replaceChildren(t("sat_missing"), last ? " · " : "", last ? el("button", { type: "button", class: "linkish", text: t("sat_jump").replace("{d}", last), onclick: jump(last) }) : "");
+      if (l.kind === "base" && state.sat[l.key].on) notes.push(t("img_base_missing").replace("{s}", layerName("layer_" + l.key)).replace("{d}", date).replace("{l}", last ?? "—"));
+    } else if (ok && l.period) {
+      const a = periodStart(l, date);
+      box.textContent = t("sat_period").replace("{a}", a).replace("{b}", addDays(a, l.period - 1));
+    } else box.textContent = "";
+  }));
+  if (token !== state.satToken) return;
+  const base = GIBS.layers.find((l) => l.kind === "base" && state.sat[l.key].on);
+  let note = notes[0] ?? (state.bootFallback === date ? t("img_fallback").replace("{d}", date) : null);
+  if (!note && base && !base.steady && date === utcDate(0) && (await newestImageDate(base)) !== date) note = t("img_partial");
+  if (token !== state.satToken) return;
+  state.imgNote = note;
+  updateNotice();
 }
 
 /** Used by the mine tool: set the imagery date and/or switch one overlay. */
@@ -348,15 +388,19 @@ function paint() {
 }
 
 function updateNotice() {
-  if (!state.hazard) return notice(null);
-  if (!state.manifest) return notice(t("no_manifest"));
-  if (state.dayMissing) return notice(t("no_day").replace("{d}", state.date));
-  if (state.loadError) return notice(t("load_error") + state.loadError);
-  notice(state.movedDay ? t("moved_day").replace("{d}", state.date) : null);
+  notice(hazardNote() ?? state.imgNote);
+}
+function hazardNote() {
+  if (!state.hazard) return null;
+  if (!state.manifest) return t("no_manifest");
+  if (state.dayMissing) return t("no_day").replace("{d}", state.date);
+  if (state.loadError) return t("load_error") + state.loadError;
+  return state.movedDay ? t("moved_day").replace("{d}", state.date) : null;
 }
 
 async function setDate(d) {
   state.date = d;
+  if (d !== state.bootFallback) state.bootFallback = null; // the "today is not in yet" note belongs to the opening day only
   state.movedDay = false;
   state.dustBox?.refresh(); // its day is the day picker's
   syncSat();
@@ -667,7 +711,7 @@ async function boot() {
   state.ready = loadBasics();
   state.dateBar.setRange(FIRST_IMAGERY, utcDate(0));
   const newest = await newestImageDate(GIBS.layers.find((l) => l.key === "truecolor_terra"));
-  if (!state.hazard) { state.dateBar.setValue(newest); await setDate(state.dateBar.value); }
+  if (!state.hazard) { state.bootFallback = newest !== utcDate(0) ? newest : null; state.dateBar.setValue(newest); await setDate(state.dateBar.value); }
   await state.ready;
 }
 

@@ -352,3 +352,7 @@ table.kv tr.clk:hover { background: rgba(255, 255, 255, .08); }
 .av-foot { padding: 5px 9px 7px; font-size: 11px; color: var(--ink2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-top: 1px solid var(--line); }
 .stats-open .aoi-view { right: calc(var(--panel-w) + 80px); }
 @media (max-width: 720px) { .aoi-view, .stats-open .aoi-view { left: 10px; right: 10px; width: auto; bottom: 10px; height: 46vh; } }
+.check .sat-st { display: block; color: var(--warn); font-size: 10.5px; }
+.check .sat-st:empty { display: none; }
+.sat-hint { margin: 4px 0 2px; font-size: 10.5px; line-height: 1.4; color: var(--muted); }
+.linkish { background: none; border: 0; padding: 0; color: var(--accent); font: inherit; cursor: pointer; text-decoration: underline; }

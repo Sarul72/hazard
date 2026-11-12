@@ -9,7 +9,8 @@ import { decode } from "./dataset.js";
 import { boxCells } from "./stats.js";
 import { dayReport } from "./area.js";
 import { el } from "./dom.js";
-import { versionAt } from "./gibs.js";
+import { periodStart, versionAt } from "./gibs.js";
+import { addDays } from "./datebar.js";
 import { U } from "./ui_text.js";
 import { cellRows, drawMap, save, toJpeg, toPng } from "./export.js";
 import { initDetailFiles } from "./aoi/files.js";
@@ -35,6 +36,8 @@ export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, cla
   const fill = (k, o) => Object.entries(o).reduce((a, [x, y]) => a.replace(`{${x}}`, y), t(k));
   const baseLayer = () => versionAt(GIBS.layers.find((l) => l.kind === "base" && state.sat[l.key].on), state.date);
   const stamp = () => state.date.replaceAll("-", "");
+  // An 8-day composite is not one day's image: its labels name the whole period.
+  const imgDate = () => { const b = baseLayer(); if (!b?.period) return state.date; const a = periodStart(b, state.date); return `${a}…${addDays(a, b.period - 1)}`; };
   const fileBase = (c) => `mongolia_${c.day ? state.hazard : "image"}_${stamp()}${c.s ? "_area" : ""}`;
 
   /** Everything the files are made from: the selection if there is one, otherwise the view. Without results, only the image. */
@@ -62,7 +65,7 @@ export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, cla
     };
   }
 
-  const imageFacts = () => ({ project: "Mongolia Hazard Watch", product: "Satellite image, no risk calculation", sensor: baseLayer().sensor, obs_date: state.date, source: "NASA GIBS" });
+  const imageFacts = () => ({ project: "Mongolia Hazard Watch", product: "Satellite image, no risk calculation", sensor: baseLayer().sensor, obs_date: imgDate(), source: "NASA GIBS" });
 
   const summaryEn = (c) => {
     const f = facts(c);
@@ -100,7 +103,7 @@ export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, cla
   }
 
   function imageLines(c) {
-    const b = baseLayer(), lines = [{ text: fill("x_image", { s: b.sensor, d: state.date }), strong: true }, { text: fill("x_image_src", { r: b.res }) }, ...plumeLines(c)];
+    const b = baseLayer(), lines = [{ text: fill("x_image", { s: b.sensor, d: imgDate() }), strong: true }, { text: fill("x_image_src", { r: b.res }) }, ...plumeLines(c)];
     if (c.plume) lines.push({ text: t("x_not_official"), warn: true });
     return lines;
   }
@@ -110,7 +113,7 @@ export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, cla
     return drawMap({
       map: state.map, base, date: state.date, clean,
       title: t(risky ? "title" : "x_image_title"),
-      subtitle: risky ? [`${t(state.hazard)} · ${state.date}`, c.s ? c.s.label : t("x_view")] : [`${base.sensor} · ${state.date}`],
+      subtitle: risky ? [`${t(state.hazard)} · ${state.date}`, c.s ? c.s.label : t("x_view")] : [`${base.sensor} · ${imgDate()}`],
       risk: risky && state.mode === "zones" ? { canvas: state.risk.canvas, box: state.risk.box } : null,
       soums: risky && state.mode === "soums" && state.soums ? state.soums.features.map((f) => { const v = state.soumLayer.score(f); return { geometry: f.geometry, color: v === null || v === undefined ? "#555" : classOf(v).color }; }) : null,
       borders: borders(), plume: c.plume, selection: c.s ? { box: c.s.box, geom: c.s.geom } : null,
@@ -131,15 +134,15 @@ export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, cla
   const asGisImage = async (c) => ({ base: `${fileBase(c)}_gis`, files: await placedImage(c, "jpg", true) });
   async function asPdf(c) {
     const { canvas } = await mapCanvas(c), jpeg = await bytesOf(await toJpeg(canvas));
-    return single(`${fileBase(c)}.pdf`, pdfFromJpeg(jpeg, canvas.width, canvas.height, { title: t(c.day ? "title" : "x_image_title"), subject: c.day ? summaryHere(c) : `${baseLayer().sensor}, ${state.date}` }));
+    return single(`${fileBase(c)}.pdf`, pdfFromJpeg(jpeg, canvas.width, canvas.height, { title: t(c.day ? "title" : "x_image_title"), subject: c.day ? summaryHere(c) : `${baseLayer().sensor}, ${imgDate()}` }));
   }
   /** The map as one georeferenced file, with no companions to lose. */
   async function asMapTif(c) {
     const name = `${fileBase(c)}_map`, { canvas, bounds } = await mapCanvas(c, !c.day);
     const rgba = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
-    const about = c.day ? summaryEn(c) : `Mongolia Hazard Watch: satellite image, ${baseLayer().sensor}, ${state.date}. Source: NASA GIBS.`;
+    const about = c.day ? summaryEn(c) : `Mongolia Hazard Watch: satellite image, ${baseLayer().sensor}, ${imgDate()}. Source: NASA GIBS.`;
     const tif = geoTiffRgb({ w: canvas.width, h: canvas.height, rgba, box: bounds, description: about, meta: c.day ? facts(c) : imageFacts() });
-    const notes = c.day ? sidecar(c, `Mongolia Hazard Watch: ${U.en[state.hazard]} map, ${state.date}`) : arcgisXml({ title: `Mongolia Hazard Watch: satellite image, ${state.date}`, summary: about, description: detail(imageFacts()), credits: "NASA GIBS" });
+    const notes = c.day ? sidecar(c, `Mongolia Hazard Watch: ${U.en[state.hazard]} map, ${state.date}`) : arcgisXml({ title: `Mongolia Hazard Watch: satellite image, ${imgDate()}`, summary: about, description: detail(imageFacts()), credits: "NASA GIBS" });
     return { base: `${name}_tif`, files: [await entry(`${name}.tif`, tif), await entry(`${name}.tif.xml`, notes)] };
   }
 
@@ -417,7 +420,7 @@ export function initDownloads({ box, state, t, frameNow, uFrameNow, classOf, cla
       if (c.s) rows.push(row("dl_report", [["JSON", asReport]]));
       rows.push(row(c.s ? "dl_all" : "dl_view", [["ZIP", asBundle]]));
     }
-    const scope = c.day ? `${t(state.hazard)} · ${state.date} · ${c.s ? t("x_sel") : t("x_view")}` : `${baseLayer().sensor} · ${state.date}`;
+    const scope = c.day ? `${t(state.hazard)} · ${state.date} · ${c.s ? t("x_sel") : t("x_view")}` : `${baseLayer().sensor} · ${imgDate()}`;
     message.textContent = "";
     box.replaceChildren(el("p", { class: "dl-scope", text: scope }), el("p", { class: "dl-note", text: t(c.day && !c.s ? "dl_pick" : "dl_note") }), ...rows, message);
   }

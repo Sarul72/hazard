@@ -151,6 +151,11 @@ export const GIBS = {
       { from: "2022-01-14", id: "VIIRS_NOAA20_CorrectedReflectance_TrueColor", sensor: "VIIRS NOAA-20" },
       { from: "2015-11-24", id: "VIIRS_SNPP_CorrectedReflectance_TrueColor", sensor: "VIIRS Suomi NPP" },
     ] },
+    // Atmospherically corrected, Terra and Aqua gridded together: no swath seams, so days compare like for like.
+    // Clouds and heavy aerosol are masked (black). Published about two days after the overpass.
+    { key: "maiac_brf", kind: "base", id: "MODIS_Combined_MAIAC_L2G_BidirectionalReflectance_Bands143", ext: "jpg", tms: "GoogleMapsCompatible_Level7", sensor: "MODIS MAIAC Terra+Aqua", res: "1 km", steady: true },
+    // MOD09A1: best observation of each 500 m cell over 8 days (periods restart on 1 January).
+    { key: "sr_8day", kind: "base", id: "MODIS_Terra_L3_SurfaceReflectance_Bands143_8Day", ext: "jpg", tms: "GoogleMapsCompatible_Level8", sensor: "MODIS Terra MOD09A1", res: "500 m", period: 8, steady: true },
     { key: "fire_viirs", kind: "overlay", type: "wms", res: "375 m", versions: [
       { from: "2024-01-17", id: "VIIRS_NOAA21_Thermal_Anomalies_375m_All", sensor: "VIIRS NOAA-21" },
       { from: "2020-01-01", id: "VIIRS_NOAA20_Thermal_Anomalies_375m_All", sensor: "VIIRS NOAA-20" },
@@ -158,13 +163,16 @@ export const GIBS = {
     ] },
     { key: "fire_modis", kind: "overlay", type: "wms", id: "MODIS_Combined_Thermal_Anomalies_All", sensor: "MODIS Terra+Aqua", res: "1 km" },
     { key: "aod_deepblue", kind: "overlay", id: "MODIS_Terra_AOD_Deep_Blue_Combined", ext: "png", tms: "GoogleMapsCompatible_Level6", sensor: "MODIS Terra Deep Blue AOD", res: "10 km" },
-    { key: "aod_modis", kind: "overlay", id: "MODIS_Combined_Value_Added_AOD", ext: "png", tms: "GoogleMapsCompatible_Level6", sensor: "MODIS Terra+Aqua MAIAC AOD", res: "1 km" },
+    // MAIAC AOD itself (MCD19A2), Terra and Aqua together: published about two days after the overpass.
+    { key: "aod_maiac", kind: "overlay", id: "MODIS_Combined_MAIAC_L2G_AerosolOpticalDepth", ext: "png", tms: "GoogleMapsCompatible_Level7", sensor: "MODIS MAIAC Terra+Aqua AOD", res: "1 km" },
+    // Dark Target and Deep Blue merged (MCDAODHD), 10 km at the sensor; GIBS draws it on a 2 km grid. Not MAIAC.
+    { key: "aod_modis", kind: "overlay", id: "MODIS_Combined_Value_Added_AOD", ext: "png", tms: "GoogleMapsCompatible_Level6", sensor: "MODIS Terra+Aqua DT/DB AOD (MCDAODHD)", res: "10 km" },
     { key: "dust_airs", kind: "overlay", id: "AIRS_L2_Dust_Score_Day", ext: "png", tms: "GoogleMapsCompatible_Level6", sensor: "AIRS dust score (day)", res: "45 km" },
     { key: "precip_imerg", kind: "overlay", id: "IMERG_Precipitation_Rate", ext: "png", tms: "GoogleMapsCompatible_Level6", sensor: "GPM IMERG", res: "10 km" },
     { key: "flood_modis", kind: "overlay", id: "MODIS_Combined_Flood_2-Day", ext: "png", tms: "GoogleMapsCompatible_Level9", sensor: "MODIS Aqua+Terra LANCE flood, 2-day", res: "250 m", opacity: 0.55 },
     { key: "flood_viirs", kind: "overlay", id: "VIIRS_Combined_Flood_2-Day", ext: "png", tms: "GoogleMapsCompatible_Level9", sensor: "VIIRS LANCE flood, 2-day", res: "375 m", opacity: 0.55 },
-    { key: "hls_s30", kind: "overlay", id: "HLS_S30_Nadir_BRDF_Adjusted_Reflectance", ext: "png", tms: "GoogleMapsCompatible_Level12", sensor: "HLS Sentinel-2", res: "30 m", opacity: 1 },
-    { key: "hls_l30", kind: "overlay", id: "HLS_L30_Nadir_BRDF_Adjusted_Reflectance", ext: "png", tms: "GoogleMapsCompatible_Level12", sensor: "HLS Landsat 8/9", res: "30 m", opacity: 1 },
+    { key: "hls_s30", kind: "overlay", sparse: true, id: "HLS_S30_Nadir_BRDF_Adjusted_Reflectance", ext: "png", tms: "GoogleMapsCompatible_Level12", sensor: "HLS Sentinel-2", res: "30 m", opacity: 1 },
+    { key: "hls_l30", kind: "overlay", sparse: true, id: "HLS_L30_Nadir_BRDF_Adjusted_Reflectance", ext: "png", tms: "GoogleMapsCompatible_Level12", sensor: "HLS Landsat 8/9", res: "30 m", opacity: 1 },
   ],
 };
 
