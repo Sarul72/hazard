@@ -1,7 +1,7 @@
 /* The dust check in the side menu: day, the run, the plain conclusion, the numbers and the ground map.
  * The area is the box the user drew (or the soum picked); the method is in js/aoi/dust.js. */
 import { el } from "../dom.js";
-import { DUST, LAND, computeDust, scaleFor } from "./dust.js";
+import { DUST, LAND, computeDust, officialWind, scaleFor } from "./dust.js";
 import { boxAreaKm2 } from "./raster.js";
 import { backdrop } from "./backdrop.js";
 import { U } from "../ui_text.js";
@@ -36,6 +36,8 @@ export function initDustBox({ box, map, t, getBox, getDay, setDay, geeUrl, viewe
     else out.push(t("da_r_noground"));
     if (w) {
       out.push(fill(t("da_r_wind"), { a: hm(w.from), b: hm(w.to), n: w.onset, s: w.strong, x: w.severe, m: f1(w.maxWind), at: hm(w.maxWindTime), g: f1(w.maxGust) }));
+      const ow = officialWind(w);
+      out.push(`${fill(t("da_w286_" + ow), { p: f1(w.pointWind), at: hm(w.pointWindTime), g: f1(w.maxGust) })} ${t("da_w286_note")}`);
       out.push(fill(t("da_r_wet"), { mm: f1(w.rainMm), days: w.wetDays.length ? w.wetDays.join(", ") : t("da_none"), snow: Math.round((w.snowM ?? 0) * 100), soil: w.soil === null ? "—" : w.soil.toFixed(2) }));
       out.push(w.cams ? fill(t("da_r_cams"), { v: Math.round(w.cams.max), at: hm(w.cams.time), who: DUST.who }) : t("da_r_nocams"));
       out.push(fill(t("da_r_src"), { s: t(r.weatherSource === "era5" ? "da_src_era5" : "da_src_fc") }));
@@ -134,7 +136,7 @@ export function initDustBox({ box, map, t, getBox, getDay, setDay, geeUrl, viewe
         .map(([code, key, label, color, on]) => ({ code, key, mn: t(label), en: en(label), color, vector: on, paint: on })),
       bands: [],
       meta: { day: r.day, image_dates: r.dates.join(" "), verdict: r.verdict.key, bare_pct: sh ? Math.round(100 * sh.share[LAND.bare]) : null, seen_pct: sh ? Math.round(100 * sh.seenShare) : null,
-        wind_hours_over_6: w?.onset ?? null, max_wind_m_s: w?.maxWind ?? null, max_gust_m_s: w?.maxGust ?? null, rain_mm: w?.rainMm ?? null, cams_dust_max_ug_m3: w?.cams ? Math.round(w.cams.max) : null,
+        wind_hours_over_6: w?.onset ?? null, max_wind_m_s: w?.maxWind ?? null, max_gust_m_s: w?.maxGust ?? null, strongest_point_wind_m_s: w?.pointWind ?? null, resolution_286_wind: officialWind(w), rain_mm: w?.rainMm ?? null, cams_dust_max_ug_m3: w?.cams ? Math.round(w.cams.max) : null,
         weather: r.weatherSource === "era5" ? "ERA5 (ECMWF) via Open-Meteo" : "Open-Meteo forecast", source: "Microsoft Planetary Computer: Sentinel-2 L2A; Open-Meteo" },
       summaryEn: `Mongolia Hazard Watch: dust check of ${r.day}. Conclusion: ${r.verdict.key}. Bare ground ${sh ? Math.round(100 * sh.share[LAND.bare]) : "?"}% of the part seen, wind above 6 m/s for ${w?.onset ?? "?"} hours, up to ${w?.maxWind?.toFixed(1) ?? "?"} m/s. Conditions for dust, not observed dust. Pixel ${r.scale} m. Not an official warning.`,
       summaryHere: head, lines: lineList, verdict: [head, why].filter(Boolean).join(" "),

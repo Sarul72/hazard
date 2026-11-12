@@ -15,6 +15,10 @@ export const DUST = {
   fineKm2: 2000, hardKm2: 20000, bareNdvi: 0.15, sparseNdvi: 0.30, lookbackDays: 30, maxPasses: 3, enoughClear: 0.95,
   onset: 6, strong: 10, severe: 14, wetDayMm: 0.254, snowM: 0.01, who: 45, archiveAfterDays: 85, hours: 72,
 };
+/** Resolution 286 (2015), annex 2, item 1 "Хүчтэй салхи" (legalinfo.mn lawId=206858), in m/s: hazardous (аюултай) from
+ * a mean of 18 or a gust of 24; a disaster (гамшигт) from a mean of 24 in forest steppe and mountains, 28 in steppe and
+ * gobi, or a gust of 34. The resolution means station 10-minute winds; here they are Open-Meteo hourly model values. */
+export const WIND_286 = { hazardMean: 18, hazardGust: 24, disasterForest: 24, disasterSteppe: 28, disasterGust: 34 };
 export const LAND = { none: 0, bare: 1, sparse: 2, veg: 3, snow: 4, water: 5, cloud: 6 };
 export const scaleFor = (km2) => (km2 <= DUST.fineKm2 ? 20 : 60);
 
@@ -123,9 +127,10 @@ export function windStats(wx) {
   const H = wx.hours;
   if (!H.length || !H[0]?.time) return null;
   const times = H[0].time, n = Math.min(times.length, DUST.hours);
-  const wind = [], gust = [], rainByDay = new Map(), snow = [], soil = [];
+  const wind = [], point = [], gust = [], rainByDay = new Map(), snow = [], soil = [];
   for (let k = 0; k < n; k++) {
     wind.push(mean(H.map((h) => h.wind_speed_10m?.[k])));
+    point.push(Math.max(...H.map((h) => (Number.isFinite(h.wind_speed_10m?.[k]) ? h.wind_speed_10m[k] : -Infinity))));
     gust.push(Math.max(...H.map((h) => h.wind_gusts_10m?.[k] ?? -Infinity)));
     const d = times[k].slice(0, 10);
     rainByDay.set(d, (rainByDay.get(d) ?? 0) + (mean(H.map((h) => h.precipitation?.[k])) ?? 0));
@@ -136,6 +141,7 @@ export function windStats(wx) {
   const dry = (k) => !wet.has(times[k].slice(0, 10)) && !((snow[k] ?? 0) >= DUST.snowM);
   const count = (lim) => wind.filter((v, k) => v !== null && v >= lim && dry(k)).length;
   const peak = wind.reduce((b, v, k) => (v !== null && (b === null || v > wind[b]) ? k : b), null);
+  const top = point.reduce((b, v, k) => (Number.isFinite(v) && (b === null || v > point[b]) ? k : b), null);
   let cams = null;
   if (wx.dust.length && wx.dust[0].time) {
     for (let k = 0; k < Math.min(wx.dust[0].time.length, DUST.hours); k++) for (const d of wx.dust) {
@@ -146,6 +152,7 @@ export function windStats(wx) {
   return {
     hours: n, from: times[0], to: times[n - 1], onset: count(DUST.onset), strong: count(DUST.strong), severe: count(DUST.severe),
     maxWind: peak === null ? null : wind[peak], maxWindTime: peak === null ? null : times[peak], maxGust: Number.isFinite(Math.max(...gust)) ? Math.max(...gust) : null,
+    pointWind: top === null ? null : point[top], pointWindTime: top === null ? null : times[top],
     wetDays: [...wet], rainMm: [...rainByDay.values()].reduce((a, b) => a + b, 0), snowM: snow[0], soil: mean(soil), cams,
   };
 }
@@ -164,6 +171,17 @@ export function verdict(sh, ws) {
   if (why.length) return { key: camsHigh ? "not_local" : "no", why, camsHigh };
   const key = ws.severe > 0 ? "severe" : ws.strong > 0 ? "strong" : "possible";
   return { key, why, camsHigh };
+}
+
+/** Resolution 286's strong-wind class from the strongest point and gust: "disaster", "disaster_forest" (a disaster in
+ * forest steppe and mountains only), "hazard", "none", or null without weather. Apart from the dust verdict. */
+export function officialWind(ws) {
+  if (!ws) return null;
+  const v = ws.pointWind ?? -Infinity, g = ws.maxGust ?? -Infinity, W = WIND_286;
+  if (v >= W.disasterSteppe || g >= W.disasterGust) return "disaster";
+  if (v >= W.disasterForest) return "disaster_forest";
+  if (v >= W.hazardMean || g >= W.hazardGust) return "hazard";
+  return "none";
 }
 
 /** Runs both parts; `step(key)` reports progress. */

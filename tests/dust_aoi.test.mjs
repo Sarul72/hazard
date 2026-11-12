@@ -1,6 +1,6 @@
 /* The dust check of a chosen area (js/aoi/dust.js): ground classes, weather counts and the plain conclusion, each on
  * a case worked out by hand. check() is plain JavaScript so it also runs in a browser where Node is not installed. */
-import { DUST, LAND, landClass, landShares, points, scaleFor, verdict, windStats } from "../js/aoi/dust.js";
+import { DUST, LAND, landClass, landShares, officialWind, points, scaleFor, verdict, windStats } from "../js/aoi/dust.js";
 import { makeGrid } from "../js/aoi/raster.js";
 
 /** Hourly data for `n` hours at every point: functions of the hour index. */
@@ -57,6 +57,19 @@ export function check() {
   const v5 = verdict({ share: [0, 0.9, 0, 0, 0, 0, 0] }, w5);
   yes("dust in the model but calm here is said apart", v5.key === "not_local" && v5.camsHigh === true && 300 >= DUST.who);
   yes("no weather means no conclusion", verdict(null, null).key === "unknown");
+
+  // Resolution 286 (2015), annex 2: strong wind is hazardous from a 18 m/s mean or a 24 m/s gust; a disaster from
+  // 24 m/s in forest steppe and mountains, 28 m/s in steppe and gobi, or a 34 m/s gust
+  yes("a 25 m/s gust is hazardous wind (annex 2)", officialWind(w1) === "hazard");
+  yes("12 m/s with 20 m/s gusts is not", officialWind(windStats(wx({ wind: () => 12, gust: () => 20 }))) === "none");
+  const one = wx({ wind: () => 10, gust: () => 15 });
+  one.hours[4].wind_speed_10m[7] = 19;
+  const w6 = windStats(one);
+  yes("the strongest point counts, not the mean of nine", w6.pointWind === 19 && w6.maxWind < 18 && officialWind(w6) === "hazard");
+  yes("26 m/s is a disaster in forest steppe and mountains only", officialWind(windStats(wx({ wind: () => 26, gust: () => 30 }))) === "disaster_forest");
+  yes("28 m/s or a 34 m/s gust is a disaster everywhere",
+    officialWind(windStats(wx({ wind: () => 28 }))) === "disaster" && officialWind(windStats(wx({ wind: () => 5, gust: () => 34 }))) === "disaster");
+  yes("no weather, no official wind", officialWind(null) === null);
   return out;
 }
 
