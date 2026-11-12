@@ -5,6 +5,10 @@ var point = ee.Geometry.Point([lon, lat]);
 var region = point.buffer(8000, 5);
 var site = ee.Geometry.Polygon([[[105.542033,43.655389],[105.447569,43.655394],
   [105.447569,43.690394],[105.542036,43.690389],[105.542033,43.655389]]]);
+// 2025 оны төлөвлөгөөний X/Y хүснэгтийг UTM 48N гэж таамагласан мэдрэмжийн шалгалт.
+var altArea = ee.Geometry.Polygon([[[536106.290,4835630.651],[536085.354,4839519.390],
+  [543699.684,4839364.841],[543725.328,4835676.639],[536106.290,4835630.651]]],
+  'EPSG:32648',false);
 var years = [2023, 2024, 2025];
 var modis = ee.ImageCollection('MODIS/061/MCD19A2_GRANULES')
   .filterBounds(point).filter(ee.Filter.stringContains('system:index', '_h25v04_'));
@@ -52,6 +56,11 @@ function daily(year, day) {
   var stats = bands.reduceRegion({reducer:ee.Reducer.mean().unweighted()
     .combine({reducer2:ee.Reducer.count(),sharedInputs:true}), geometry:region,
     crs:nativeGrid,maxPixels:100000});
+  var alternative = aod.reduceRegion({reducer:ee.Reducer.mean().unweighted()
+    .combine({reducer2:ee.Reducer.count(),sharedInputs:true}),geometry:altArea,
+    crs:nativeGrid,maxPixels:100000});
+  stats = stats.set('emp_utm48n_count',alternative.get('aod_count'))
+    .set('emp_utm48n_mean',alternative.get('aod_mean'));
   var m = dust.filterDate(first,last).mean().reduceRegion({reducer:ee.Reducer.first(),
     geometry:point,crs:ee.Image(dust.first()).projection()}).get('DUEXTTAU');
   var uv = ee.ImageCollection([empty.rename('absorbing_aerosol_index')]).merge(ai.filterDate(start,end))
@@ -66,6 +75,7 @@ function daily(year, day) {
 }
 var fields = ['date','year','passes','site_count','site_mean','down_count','down_mean',
   'up_count','up_mean','wind_ms','u_ms','v_ms','bearing_to','steadiness','soil_m3m3','dust_aot','uvai','paired','difference'];
+fields.push('emp_utm48n_count','emp_utm48n_mean');
 function table(images) {
   return ee.FeatureCollection(images.toList(30).map(function(im) {
     return ee.Feature(null, ee.Image(im).toDictionary(fields));
@@ -129,6 +139,9 @@ function download(image,name,scale,area) {
     if(error) print(name,error); else print(ui.Label(name+' · GeoTIFF',{},url));
   });
 }
+var eventMap = daily(2025,1).select('aod').clip(region);
+Map.addLayer(eventMap,{min:0,max:0.35,palette:palette},'2025-06-01 · AOD',false);
+download(eventMap,'UHG_AOD_20250601',1000,region.bounds());
 download(lastMap,'UHG_AOD_202506',1000,region.bounds());
 download(s2,'UHG_S2_202506',20,site.buffer(500,10).bounds());
 download(l8,'UHG_L89_202506',30,site.buffer(500,10).bounds());
