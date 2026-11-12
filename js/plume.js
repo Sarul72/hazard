@@ -188,10 +188,15 @@ export function windAt(field, tH, lat, lon) {
 /**
  * Run the puff model. Returns { snaps } where snaps[h] is the puff cloud at the start of hour h (h = 0..hours-1),
  * each snap = { n, lat, lon, q, x, sp } (typed arrays).
+ * Options for the daily mine map: `sources` spreads the release over several points (an area source, such as a pit
+ * outline) in place of `source`; `snapMin` takes a snapshot every so many minutes instead of every hour (snaps then run
+ * in time order, `snapMin` apart); `maxAgeH` drops older puffs and `keep(lat, lon)` drops puffs that left the domain.
+ * `emission(u, rain, h)` also receives the hour.
  */
-export function simulate({ source, field, dtMin = 3, tauH = 6, emission = emissionFactor, spreadDeg = 0, rho = null, met = null }) {
-  const dt = dtMin * 60, steps = Math.round(3600 / dt);
-  const tauS = tauH * 3600, maxAge = rho === null ? 5 * tauS : 24 * 3600;
+export function simulate({ source, sources = null, field, dtMin = 3, tauH = 6, emission = emissionFactor, spreadDeg = 0, rho = null, met = null, snapMin = 60, maxAgeH = null, keep = null }) {
+  const dt = dtMin * 60, steps = Math.round(3600 / dt), every = Math.max(1, Math.round((snapMin * 60) / dt));
+  const tauS = tauH * 3600, maxAge = maxAgeH !== null ? maxAgeH * 3600 : rho === null ? 5 * tauS : 24 * 3600;
+  const srcs = sources ?? [source];
   const vg = rho === null ? null : SIZE_BINS.map((b) => settlingVelocity(b.d, rho));
   const share = SIZE_BINS.reduce((a, b) => a + b.f, 0);
   const snaps = [];
@@ -199,14 +204,16 @@ export function simulate({ source, field, dtMin = 3, tauH = 6, emission = emissi
   for (let h = 0; h < field.hours; h++) {
     const cls = met?.cls[h] ?? "D", rain = met?.rain[h] ?? 0, zi = met?.zi[h] ?? MIXED_LAYER_M;
     const wash = rain > 0 ? (met?.frozen[h] ? WASHOUT.snow : WASHOUT.rain) * rain : 0;
-    snaps.push(snapshot(P, spreadDeg, zi));
+    if (snapMin >= 60) snaps.push(snapshot(P, spreadDeg, zi));
     for (let s = 0; s < steps; s++) {
       const tH = h + s / steps;
-      const w0 = windAt(field, tH, source.lat, source.lon);
-      if (w0) {
+      if (snapMin < 60 && s % every === 0) snaps.push(snapshot(P, spreadDeg, zi));
+      for (const src of srcs) {
+        const w0 = windAt(field, tH, src.lat, src.lon);
+        if (!w0) continue;
         const sp = Math.hypot(w0[0], w0[1]);
-        const q = emission(sp, rain) * dt;
-        if (q > 0) P.push({ lat: source.lat, lon: source.lon, q, q0: q, bins: vg && SIZE_BINS.map((b) => (b.f / share) * q), x: 0, sp: Math.max(sp, CALM_MS) * dt, age: 0, vy: SIGMA0_M ** 2, vz: SOURCE_SIGMA_Z_M ** 2 });
+        const q = (emission(sp, rain, h) * dt) / srcs.length;
+        if (q > 0) P.push({ lat: src.lat, lon: src.lon, q, q0: q, bins: vg && SIZE_BINS.map((b) => (b.f / share) * q), x: 0, sp: Math.max(sp, CALM_MS) * dt, age: 0, vy: SIGMA0_M ** 2, vz: SOURCE_SIGMA_Z_M ** 2 });
       }
       const decay = Math.exp(-dt / tauS);
       for (const p of P) {
@@ -227,7 +234,7 @@ export function simulate({ source, field, dtMin = 3, tauH = 6, emission = emissi
         } else p.q *= decay * Math.exp(-wash * dt);
         p.age += dt;
       }
-      P = P.filter((p) => p.age < maxAge);
+      P = P.filter((p) => p.age < maxAge && (!keep || keep(p.lat, p.lon)));
     }
   }
   return { snaps, field };

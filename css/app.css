@@ -361,3 +361,15 @@ table.kv tr.clk:hover { background: rgba(255, 255, 255, .08); }
 .av-sat.on { opacity: 1; background: rgba(159, 211, 255, .2); }
 .av-empty { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(80%, 300px); margin: 0; padding: 10px 12px; border-radius: 9px; background: rgba(0, 0, 0, .72); color: #fff; font-size: 12.5px; line-height: 1.4; text-align: center; pointer-events: none; }
 .av-empty[hidden] { display: none; }
+
+/* the day-by-day mine dust panel */
+.md-box { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.md-title { margin: 0 0 4px; font-size: 13px; }
+.md-form { display: flex; gap: 8px; margin: 6px 0; }
+.md-form label { display: flex; flex-direction: column; gap: 2px; font-size: 11.5px; color: var(--ink2); }
+.md-strip { display: flex; gap: 4px; overflow-x: auto; padding: 6px 0 4px; scrollbar-width: thin; }
+.md-day { flex: none; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 2px; border-radius: 6px; border: 1px solid transparent; background: none; color: var(--ink2); font-size: 10px; cursor: pointer; }
+.md-day canvas { width: 46px; height: 46px; border-radius: 4px; }
+.md-day.on { border-color: #e8b04a; color: var(--ink); }
+.md-slider { width: 100%; accent-color: #e8b04a; }
+.md-line { margin: 4px 0; font-size: 12px; line-height: 1.45; }
