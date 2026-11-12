@@ -12,6 +12,7 @@ import { CLOUDY_SCL } from "./aoi/raster.js";
 import { backdrop } from "./aoi/backdrop.js";
 import { VEG, anomalyGrid, campsExposed, campsInSector, classify, deficits, footprintKm2, geometry, innerRingCells, reaches, sectorOf, sectorRingStats, spearman, windRose } from "./minedust_veg.js";
 import { arrowLength, createViewCanvas, drawArrow, paintCamps } from "./mapmarks.js";
+import { csv } from "./formats.js";
 
 const TT = {
   mn: {
@@ -34,6 +35,10 @@ const TT = {
     cls_dusty: "тоостой", cls_unclear: "тодорхойгүй", cls_clear: "цэвэр", veg_km: "км",
     px_heavy: "Их тоостой ургамал (NDVI −0.10-аас доош)", px_mid: "Дунд тоостой ургамал (−0.10…−0.05)", px_light: "Бага тоостой ургамал (−0.05…−0.02)", px_clean: "Цэвэр ургамал (−0.02-оос дээш)", px_bare: "Ургамалгүй, ус, үүл", px_none: "Торны гадна",
     veg_classes: "Пиксел бүрийн ангилал (100 м): ургамлын NDVI-ийн зөрүү ижил зайн цагирагийн медианаас.", veg_class_area: "{n}: {a} км²", veg_window: "Томруулж харах", veg_window_title: "Уурхайн тоосжилт ба ургамал",
+    veg_camps_px: "Өвөлжөө, хаваржааг байрлалынх нь 1 км² дэх ургамлын ангиллаар (3–30 км):", veg_camps_on: "{n} дээр", veg_camps_total: "3–30 км-д нийт", veg_camps_dusted: "Тоостой ургамал дээр (их, дунд, бага) нийт",
+    veg_dl_sectors: "Сектор, цагирагийн хүснэгт", veg_dl_camps: "Өвөлжөө, хаваржаа ангиллаар", veg_dl_wind: "Зуны цаг тутмын салхи", veg_dl_title: "Уурхайн тоосжилт ба ургамал", veg_dl_period: "Sentinel-2 {d}; салхи {a} – {b}",
+    veg_nd_note: "Ангиллын растерт 0 = торны гадна (3 км дотор эсвэл 30 км-ээс цааш, NoData), 1 = ургамалгүй, ус, үүл.", veg_b_anom: "NDVI-ийн зөрүү = ургамлын пикселийн NDVI − ижил зайн цагирагийн медиан; −9999 = ургамал биш", veg_b_ndvi: "Зуны NDVI (ургамлын пиксел); −9999 = ургамал биш",
+    veg_e_rel: "Зөрүү харьцангуй (NDVI-ийн нэгж), г/м² биш; хөрс, бэлчээр, зам ч NDVI-г өөрчилнө.", veg_e_px: "Пиксел 100 м; өвөлжөөний байршил ≈1 км-ээр бүдүүлэгжсэн тул ангилал нь 1 км² талбайн дундаж.",
     dirs16: ["хойд", "хойд-зүүн хойд", "зүүн хойд", "зүүн-зүүн хойд", "зүүн", "зүүн-зүүн өмнөд", "зүүн өмнөд", "өмнөд-зүүн өмнөд", "өмнөд", "өмнөд-баруун өмнөд", "баруун өмнөд", "баруун-баруун өмнөд", "баруун", "баруун-баруун хойд", "баруун хойд", "хойд-баруун хойд"],
   },
   en: {
@@ -56,6 +61,10 @@ const TT = {
     cls_dusty: "dusty", cls_unclear: "unclear", cls_clear: "clear", veg_km: "km",
     px_heavy: "Heavily dusted vegetation (NDVI below −0.10)", px_mid: "Moderately dusted vegetation (−0.10 to −0.05)", px_light: "Lightly dusted vegetation (−0.05 to −0.02)", px_clean: "Clean vegetation (above −0.02)", px_bare: "No vegetation, water or cloud", px_none: "Outside the grid",
     veg_classes: "Class of every 100 m pixel: the NDVI of the vegetation against the median of its ring.", veg_class_area: "{n}: {a} km²", veg_window: "Open in a window", veg_window_title: "Mine dust and vegetation",
+    veg_camps_px: "Winter and spring camps by the vegetation class of their 1 km² (3–30 km):", veg_camps_on: "On {n}", veg_camps_total: "All within 3–30 km", veg_camps_dusted: "On dusted vegetation (heavy, moderate, light) in all",
+    veg_dl_sectors: "Sector and ring table", veg_dl_camps: "Camps by class", veg_dl_wind: "Hourly summer wind", veg_dl_title: "Mine dust and vegetation", veg_dl_period: "Sentinel-2 {d}; wind {a} – {b}",
+    veg_nd_note: "In the class raster 0 = outside the grid (inside 3 km or beyond 30 km, NoData), 1 = no vegetation, water or cloud.", veg_b_anom: "NDVI anomaly = NDVI of the vegetation pixel − median of its ring; −9999 = not vegetation", veg_b_ndvi: "Summer NDVI (vegetation pixels); −9999 = not vegetation",
+    veg_e_rel: "The contrast is relative (NDVI units), not g/m²; soil, grazing and roads change NDVI too.", veg_e_px: "Pixels are 100 m; camp positions are rounded to about 1 km, so a camp's class is the mean of its 1 km².",
     dirs16: ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"],
   },
 };
@@ -128,9 +137,10 @@ export function createVegBox({ map, getLang, campsFor, requestSat, onMethods, vi
   const campsShown = () => {
     const r = st.res; if (!r) return [];
     const hour = st.hourRes?.sector;
-    return fin(hour) ? campsInSector(r.camps, r.mine, hour, r.reach[hour]).points : r.exposed.points;
+    return (r.camps ?? []).filter((c) => c.cls > 0 && (!fin(hour) || c.sector === hour));
   };
-  const campMarks = createViewCanvas(map, "vegCamps", 446, (ctx, v) => paintCamps(ctx, v, campsShown(), () => "rgba(255,210,120,.95)"));
+  const campTint = (c) => { const k = PX[c.cls]?.color ?? [255, 210, 120]; return `rgba(${k[0]},${k[1]},${k[2]},.95)`; };
+  const campMarks = createViewCanvas(map, "vegCamps", 446, (ctx, v) => paintCamps(ctx, v, campsShown(), campTint));
   const windMarks = createViewCanvas(map, "vegWind", 456, (ctx, v) => {
     const h = st.hourRes, r = st.res;
     if (!r || !h || !fin(h.speed)) return;
@@ -196,6 +206,7 @@ export function createVegBox({ map, getLang, campsFor, requestSat, onMethods, vi
       const w = await getJson(`${API.archive}?${q}`);
       if (my !== st.runToken) return;
       const rose = windRose(w.hourly.wind_speed_10m ?? [], w.hourly.wind_direction_10m ?? []);
+      const hours = { time: w.hourly.time ?? [], speed: w.hourly.wind_speed_10m ?? [], dir: w.hourly.wind_direction_10m ?? [], from, to };
       st.status = { k: "veg_compute" }; render();
       await new Promise((ok) => setTimeout(ok, 0));
       const geo = geometry(m, dom), nr = VEG.rings.length - 1;
@@ -205,13 +216,14 @@ export function createVegBox({ map, getLang, campsFor, requestSat, onMethods, vi
       const camps = await campsFor?.(e).catch(() => null) ?? null;
       if (my !== st.runToken) return;
       const exposed = campsExposed(camps ?? [], m, reach, cls);
-      const res = { mine: m, year: st.year, dom, geo, ndvi, veg, stats, def, rose, reach, cls, rho, camps, exposed, area: footprintKm2(reach, cls), anomaly: anomalyGrid(ndvi, veg, geo, def.ringMedian),
+      const res = { mine: m, year: st.year, dom, geo, ndvi, veg, stats, def, rose, hours, reach, cls, rho, camps, exposed, area: footprintKm2(reach, cls), anomaly: anomalyGrid(ndvi, veg, geo, def.ringMedian),
         measured: innerRingCells(stats, nr), passes: used.map((p) => iso(p.t0)), cloud: Math.round(100 * seen / N), vegN };
       res.codes = new Uint8Array(N);
       for (let i = 0; i < N; i++) res.codes[i] = pixelClass(res.anomaly[i], geo.ring[i] >= 0, veg[i] === 1);
       res.areas = new Float64Array(PX.length); const cellKm2 = (VEG.cellM / 1000) ** 2;
       for (let i = 0; i < N; i++) res.areas[res.codes[i]] += cellKm2;
       res.grid = { west: e.w, north: e.n, dx: grid.dx, dy: grid.dy, w: dom.w, h: dom.h, scale: VEG.cellM };
+      res.campsByClass = classifyCamps(res);
       classCanvas(res); // drawn once per set of switched-on classes
       st.res = res;
       window.vegResult = res; // the last result, for checks in the browser console
@@ -258,6 +270,80 @@ export function createVegBox({ map, getLang, campsFor, requestSat, onMethods, vi
   }
 
   /* ---------------------------------------------------------------- map */
+  /** Each camp by the vegetation of the 1 km² around its (rounded) position: the mean anomaly of the vegetation
+   * pixels there, in the same classes as the pixels. Returns counts per class; writes `cls`, `sector` and `km` on the camps. */
+  function classifyCamps(r) {
+    const g = r.grid, half = 5, counts = PX.map(() => ({ parcels: 0, herders: 0, n: 0 }));
+    for (const c of r.camps ?? []) {
+      const col = Math.floor((c.lon - g.west) / g.dx), row = Math.floor((g.north - c.lat) / g.dy);
+      let sum = 0, nVeg = 0, inRing = false;
+      for (let y = row - half; y <= row + half; y++) for (let x = col - half; x <= col + half; x++) {
+        if (x < 0 || y < 0 || x >= g.w || y >= g.h) continue;
+        const i = y * g.w + x;
+        if (r.geo.ring[i] >= 0) inRing = true;
+        if (r.veg[i] && fin(r.anomaly[i])) { sum += r.anomaly[i]; nVeg++; }
+      }
+      const b = bearingKmOf(r.mine, c);
+      c.sector = b.sector; c.km = b.km;
+      c.cls = pixelClass(nVeg >= 10 ? sum / nVeg : NaN, inRing, nVeg >= 10);
+      counts[c.cls].parcels += c.parcels ?? 0; counts[c.cls].herders += c.herders ?? 0; counts[c.cls].n++;
+    }
+    return counts;
+  }
+  function bearingKmOf(m, c) {
+    const dy = (c.lat - m.lat) * 110.574, dx = (c.lon - m.lon) * 111.32 * Math.cos((m.lat * Math.PI) / 180);
+    const bearing = ((Math.atan2(dx, dy) * 180) / Math.PI + 360) % 360;
+    return { sector: sectorOf(bearing), km: Math.hypot(dx, dy), bearing };
+  }
+
+  /* ---------------------------------------------------------- downloads */
+  const CLS_KEY = ["clear", "unclear", "dusty"];
+  function sectorsCsv(r) {
+    const nr = VEG.rings.length - 1, rows = [];
+    for (let s = 0; s < VEG.sectors; s++) for (let k = 0; k < nr; k++) rows.push([s, dir16(s), (s * 22.5).toFixed(1), VEG.rings[k], VEG.rings[k + 1], r.stats.count[s * nr + k],
+      fin(r.stats.mean[s * nr + k]) ? r.stats.mean[s * nr + k].toFixed(4) : "", fin(r.def.ringMedian[k]) ? r.def.ringMedian[k].toFixed(4) : "", fin(r.def.deficit[s * nr + k]) ? r.def.deficit[s * nr + k].toFixed(4) : "", r.def.thr[k].toFixed(4),
+      r.rose[s].toFixed(4), r.reach[s], CLS_KEY[r.cls[s]]]);
+    return csv(["sector", "direction", "centre_deg", "ring_from_km", "ring_to_km", "veg_pixels", "mean_ndvi", "ring_median_ndvi", "deficit", "threshold", "wind_share", "reach_km", "sector_class"], rows);
+  }
+  function campsCsv(r) {
+    const rows = (r.camps ?? []).map((c) => [c.lat.toFixed(2), c.lon.toFixed(2), c.parcels, c.herders, c.km.toFixed(1), c.sector, dir16(c.sector), c.cls, PX[c.cls].key, CLS_KEY[r.cls[c.sector]]]);
+    return csv(["lat", "lon", "cadastre_parcels", "herder_points", "km_from_mine", "sector", "direction", "class_code", "class", "sector_class"], rows);
+  }
+  function windCsv(r) {
+    const h = r.hours, rows = h.time.map((tm, i) => [tm, h.speed[i] ?? "", h.dir[i] ?? "", fin(h.speed[i]) && fin(h.dir[i]) && h.speed[i] >= VEG.onset ? dir16(sectorOf((h.dir[i] + 180) % 360)) : ""]);
+    return csv(["time_local", "wind_speed_m_s", "wind_from_deg", "dust_toward"], rows);
+  }
+  /** The result for the GIS downloads (js/aoi/files.js): the class raster, the anomaly and NDVI values, and three CSV
+   * tables of its own (sectors, camps, wind). */
+  function layer() {
+    const r = st.res;
+    if (!r) return null;
+    const g = r.grid, e = r.dom.extent, en = (k) => TT.en[k] ?? k, year = r.year, stamp = `${r.mine.id}_${year}`;
+    const no = (a, mask) => Float32Array.from(a, (v, i) => (mask[i] && fin(v) ? v : -9999));
+    const dusted = r.campsByClass.slice(2, 5).reduce((o, c) => ({ parcels: o.parcels + c.parcels, herders: o.herders + c.herders }), { parcels: 0, herders: 0 });
+    const lines = [...vegLines(), ...windLines(), `${t("veg_camps_dusted")}: ${dusted.parcels} ${t("veg_parcels")}, ${dusted.herders} ${t("veg_herders")}.`];
+    return {
+      hazard: "minedust", stamp, title: `${t("veg_dl_title")} · ${mineName(r.mine)}`, titleEn: `Mine dust and vegetation, ${r.mine.en}`,
+      period: fill(t("veg_dl_period"), { d: r.passes.join(", "), a: r.hours.from, b: r.hours.to }), periodShort: `${year}_summer`,
+      grid: g, scale: VEG.cellM, km2: r.areas.slice(1).reduce((a, b) => a + b, 0), box: { s: e.s, n: e.n, w: e.w, e: e.e },
+      codes: r.codes, noData: 0, missing: [0, 1], noDataNote: t("veg_nd_note"),
+      classes: PX.map((c) => ({ code: c.code, key: c.key, mn: t("px_" + c.key), en: en("px_" + c.key), color: c.color, vector: c.code >= 2, paint: c.paint })),
+      bands: [{ name: "ndvi_anomaly", data: no(r.anomaly, r.veg), about: t("veg_b_anom") }, { name: "ndvi", data: no(r.ndvi, r.veg), about: t("veg_b_ndvi") }],
+      meta: { mine: r.mine.en, mine_lat: r.mine.lat, mine_lon: r.mine.lon, year, sentinel2_passes: r.passes.join(" "), seen_pct: r.cloud, measured_inner_sectors: r.measured,
+        dusty_sectors: Array.from(r.cls).map((c, s) => (c === 2 ? TT.en.dirs16[s] + " " + r.reach[s] + "km" : null)).filter(Boolean).join(" ") || "none", spearman_rho: fin(r.rho) ? r.rho.toFixed(3) : null,
+        camps_on_dusted_vegetation_parcels: dusted.parcels, camps_on_dusted_vegetation_herder_points: dusted.herders, source: "Microsoft Planetary Computer: Sentinel-2 L2A; Open-Meteo ERA5; cadastre and herder points" },
+      summaryEn: `Mongolia Hazard Watch: mine dust on vegetation around ${r.mine.en}, summer ${year}. NDVI of each 100 m vegetation pixel against the median of its distance ring, in 16 wind sectors. Dusty sectors: ${Array.from(r.cls).filter((c) => c === 2).length}. Camps on dusted vegetation: ${dusted.parcels} cadastre parcels, ${dusted.herders} herder points. A relative contrast, not a dust mass. Not an official warning.`,
+      summaryHere: lines[0], lines, verdict: null,
+      error: [t("veg_e_rel"), t("veg_e_px"), t("veg_camps_hint")], warn: t("veg_limits"), method: t("veg_help"), src: "Sentinel-2 L2A (Microsoft Planetary Computer); Open-Meteo ERA5; data/camps.bin.gz",
+      creditsEn: "Microsoft Planetary Computer; Copernicus Sentinel-2 (ESA); Open-Meteo (ERA5, ECMWF). Copyright holders of the source data keep their rights.",
+      extras: [
+        { label: "CSV", title: t("veg_dl_sectors"), name: `mongolia_minedust_${stamp}_sectors.csv`, make: () => sectorsCsv(r) },
+        { label: "CSV", title: t("veg_dl_camps"), name: `mongolia_minedust_${stamp}_camps.csv`, make: () => campsCsv(r) },
+        { label: "CSV", title: t("veg_dl_wind"), name: `mongolia_minedust_${stamp}_wind.csv`, make: () => windCsv(r) },
+      ],
+    };
+  }
+
   /** The picture of the classes that are switched on, for the map and the window; drawn again when a class is toggled. */
   function classCanvas(r) {
     const { w, h } = r.dom, cv = document.createElement("canvas");
@@ -363,6 +449,10 @@ export function createVegBox({ map, getLang, campsFor, requestSat, onMethods, vi
         el("p", { class: "md-line" }, el("b", { text: `${mineName(r.mine)} · ${r.year}` })),
         group("wind", windLines(), hourForm),
         group("camps", r.camps === null ? [t("veg_camps_none")] : [
+          t("veg_camps_px"),
+          ...[2, 3, 4, 5, 1].map((k) => `${fill(t("veg_camps_on"), { n: t("px_" + PX[k].key) })}: ${r.campsByClass[k].parcels} ${t("veg_parcels")}, ${r.campsByClass[k].herders} ${t("veg_herders")}.`),
+          `${t("veg_camps_dusted")}: ${[2, 3, 4].reduce((a, k) => a + r.campsByClass[k].parcels, 0)} ${t("veg_parcels")}, ${[2, 3, 4].reduce((a, k) => a + r.campsByClass[k].herders, 0)} ${t("veg_herders")}.`,
+          `${t("veg_camps_total")}: ${[1, 2, 3, 4, 5].reduce((a, k) => a + r.campsByClass[k].parcels, 0)} ${t("veg_parcels")}, ${[1, 2, 3, 4, 5].reduce((a, k) => a + r.campsByClass[k].herders, 0)} ${t("veg_herders")}.`,
           `${t("veg_camps_all")}: ${ex.parcels} ${t("veg_parcels")}, ${ex.herders} ${t("veg_herders")}.`,
           hs ? `${t("veg_camps_hour")} (${dir16(st.hourRes.sector)}): ${hs.parcels} ${t("veg_parcels")}, ${hs.herders} ${t("veg_herders")}.` : null,
           t("veg_camps_hint"),
@@ -383,6 +473,8 @@ export function createVegBox({ map, getLang, campsFor, requestSat, onMethods, vi
   return {
     el: box,
     render,
+    layer,
+    hasResult: () => Boolean(st.res),
     show(on) {
       st.active = on;
       paint();
