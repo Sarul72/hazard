@@ -2,6 +2,7 @@
  * heavy losses in its popup. The data stays on ZudRisk's site (js/dzud_data.js), so its monthly outlook update reaches
  * this page without a copy. When ZudRisk has no file for the winter, the screen says so and shows no colour. */
 import { el } from "./dom.js";
+import { eicWms } from "./eic_layers.js";
 import { DZUD_URL, EIC_SNOW_WMS, borrowedDensity, chanceOf, classCounts, coldSoFar, snowLayer, topSoums, winterFile, winterLabel, winterOf } from "./dzud_data.js";
 
 const IND = ["cold", "snow", "summer", "pressure"];
@@ -11,7 +12,8 @@ const EIC_URL = "https://eic.mn/dzud/";
 export function createDzud({ map, box, t, getLang, classes, classLabel, busy, onChange }) {
   const st = { on: false, date: null, index: null, winter: null, geo: null, layer: null, token: 0, error: null, loading: false };
   // EIC's snow-cover image under the soums: its list of real layers is read once, the image itself straight from eic.mn
-  const snow = { on: false, list: null, pick: null, layer: null, error: false };
+  // failed: the layer eic.mn sent nothing for, so another dekad (another date) is still tried
+  const snow = { on: false, list: null, pick: null, layer: null, failed: null };
   const get = (p) => fetch(DZUD_URL + p).then((r) => { if (!r.ok) throw new Error(`${r.status} ${p}`); return r.json(); });
   const pct = (q) => `${Math.round(100 * q)}%`;
   const num = (v, d = 2) => (v === null || v === undefined ? "–" : Number(v).toFixed(d));
@@ -78,19 +80,23 @@ export function createDzud({ map, box, t, getLang, classes, classLabel, busy, on
     snow.layer?.remove();
     snow.layer = null;
     snow.pick = want;
-    if (want && !snow.error) {
+    if (want && want.layer !== snow.failed) {
       if (!map.getPane("dzudSnow")) map.createPane("dzudSnow").style.zIndex = 250; // over the satellite image, under the soums
-      snow.layer = window.L.tileLayer.wms(EIC_SNOW_WMS, { layers: want.layer, format: "image/png", transparent: true,
-        version: "1.1.1", pane: "dzudSnow", opacity: 0.85, attribution: "© EIC Mongolia (eic.mn)" })
-        .once("tileerror", () => { snow.error = true; snow.layer?.remove(); snow.layer = null; render(); })
-        .addTo(map);
+      const name = want.layer;
+      snow.layer = eicWms(window.L, EIC_SNOW_WMS, { layers: name, opacity: 0.85, pane: "dzudSnow" }, () => {
+        snow.failed = name;
+        if (snow.pick?.layer !== name) return; // a later date has its own layer
+        snow.layer?.remove();
+        snow.layer = null;
+        render();
+      }).addTo(map);
     }
     render();
   }
 
   function setSnow(on) {
     snow.on = on;
-    if (on) snow.error = false; // switching it on again tries eic.mn again
+    if (on) snow.failed = null; // switching it on again tries eic.mn again
     draw();
     drawSnow();
   }
@@ -112,7 +118,8 @@ export function createDzud({ map, box, t, getLang, classes, classLabel, busy, on
       el("span", { text: t("dz_snow") })));
     if (snow.on) {
       const s = snow.pick;
-      kids.push(el("p", { class: "note small" + (snow.error ? " warn" : "") }, snow.error ? t("dz_snow_error")
+      const failed = s && s.layer === snow.failed;
+      kids.push(el("p", { class: "note small" + (failed ? " warn" : "") }, failed ? t("dz_snow_error")
         : s ? t("dz_snow_at").replace("{y}", s.year).replace("{m}", t("months")[s.month - 1]).replace("{d}", s.dekad) : t("dz_snow_none"),
         " ", el("a", { href: EIC_URL, target: "_blank", rel: "noopener", text: t("dz_snow_src") })));
     }
