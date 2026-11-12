@@ -10,17 +10,17 @@
 import { el } from "./dom.js";
 import { API, TZ, VEG_MINES, VEG_REPORTS } from "./config.js";
 import { domain } from "./minedaily.js";
-import { search, passes, bandOnGrid } from "./aoi/stac.js";
+import { search, passes, bandOnGrid, rgbOnGrid } from "./aoi/stac.js";
 import { CLOUDY_SCL } from "./aoi/raster.js";
 import { backdrop } from "./aoi/backdrop.js";
-import { EPI, VEG, anomalyGrid, attribute, campsExposed, campsInSector, classify, combineRoses, deficits, emissionWeight, episodes, footprintKm2, geometry, hoursSinceRain, innerRingCells, reaches, sectorOf, sectorRingStats, spearman, washedBetween } from "./minedust_veg.js";
+import { EPI, VEG, anomalyGrid, attribute, campsExposed, campsInSector, classify, combineRoses, deficits, emissionWeight, episodes, footprintKm2, geometry, hoursSinceRain, innerRingCells, ndviChange, pairCandidates, reaches, sectorOf, sectorRingStats, spearman, washedBetween } from "./minedust_veg.js";
 import { arrowLength, createViewCanvas, drawArrow, paintCamps } from "./mapmarks.js";
 import { csv } from "./formats.js";
 
 const TT = {
   mn: {
     veg_title: "Уурхайн тоосжилт ба ургамал",
-    veg_help: "Уурхай, жил сонгоод «Тооцоолох». Зуны (6–8 сар) Sentinel-2 зургаас ургамлын NDVI-г салхины 16 чигээр, уурхайгаас 3–30 км зайгаар харьцуулж, салхи доод чигт ургамал дээр тогтсон тоосны ул мөр хэр хол үргэлжилж буйг тооцно. Тэр талбай дахь өвөлжөө, хаваржааг тоолно.",
+    veg_help: "Уурхай, жил сонгоод «Тооцоолох». Бороо навчийг угаасны дараах цэвэр Sentinel-2 зураг ба тоос дэгдсэн үеүдийн дараах тоостой зургийг хайж, хоёрын хоорондох ургамлын NDVI-ийн өөрчлөлтийг салхины 16 чигээр, уурхайгаас 3–30 км зайгаар харьцуулна. Ургамлын өсөлт бүх чигт ижил тул хасагдаж, хоорондох ялгаралтын үеүдийн салхи доод чигт үлдсэн бууралт нь уурхайн тоос. Тэр талбай дахь өвөлжөө, хаваржааг тоолно.",
     veg_mine: "Уурхай", veg_year: "Жил (6–8 сар)", veg_run: "Тооцоолох", veg_method: "Арга зүй",
     veg_fetch_sat: "Sentinel-2 зураг хайж байна…", veg_fetch_wind: "Салхины мэдээ (ERA5) татаж байна…", veg_compute: "Тооцоолж байна…", veg_done: "Бэлэн ({s} секунд).",
     veg_no_pass: "Энэ зун энэ газарт цэлмэг Sentinel-2 зураг олдсонгүй.", veg_no_wind: "Тухайн цагийн салхины мэдээ олдсонгүй.", veg_err: "Алдаа: ",
@@ -37,6 +37,8 @@ const TT = {
     veg_limits: "NDVI нь хөрс, бэлчээр, зам зэргээс ч өөрчлөгдөнө. Тор 100 м. Зөрүү харьцангуй, г/м² биш. Тоос их жилд ургамал бага байх ч бусад шалтгаан байж болно.",
     cls_dusty: "тоостой", cls_unclear: "тодорхойгүй", cls_clear: "цэвэр", veg_km: "км",
     px_heavy: "Их тоостой ургамал (NDVI −0.10-аас доош)", px_mid: "Дунд тоостой ургамал (−0.10…−0.05)", px_light: "Бага тоостой ургамал (−0.05…−0.02)", px_clean: "Цэвэр ургамал (−0.02-оос дээш)", px_bare: "Ургамалгүй, ус, үүл", px_none: "Торны гадна", px_other: "Тоостой ч сонгосон үеүдийн салхины чигт биш (өөр шалтгаан)",
+    veg_pair: "Цэвэр зураг (бороо навч угаасны дараа, тоос дэгдээгүй): {a}. Тоостой зураг: {b}. Хоорондох ялгаралтын жин {w}.", veg_pair_sel: "Зургийн хос", veg_pair_opt: "{a} → {b} · жин {w}", veg_single: "Энэ зун «бороо угаасны дараах цэвэр зураг → ялгаралтын дараах тоостой зураг» хос олдсонгүй: ганц зургаар (хуучин аргаар) тооцлоо.",
+    veg_classes_pair: "Пиксел бүрийн ангилал (100 м): цэвэр ба тоостой зургийн хооронд ургамлын NDVI хэр буурсныг ижил зайн цагирагийн медиантай харьцуулсан.", cmp_rgb: "Өнгөт зураг", cmp_ndvi: "NDVI", cmp_clean: "Цэвэр", cmp_dusty: "Тоостой", ep_help_pair: "Цэвэр ба тоостой зургийн хоорондох ялгаралтын үеүд (бороо зогссоноос ≥24 ц, хөрс хуурай, салхи ≥6 м/с; жин (u−6)·u²). Тэдгээрийн салхи доод чиг уурхайн тоосыг тодорхойлно.",
     ep_title: "Ялгаралтын үе", ep_help: "ERA5-ийн цаг тутмын салхи, хур тунадас, хөрсний чийг (0–7 см): сүүлийн ≥2 мм (24 цагийн нийлбэр) бороо зогссоноос хойш 24 цаг өнгөрсөн, хөрсний чийг зуны медианаас илүүгүй, салхи ≥6 м/с цагууд тоос дэгдээнэ; жин (u−6)·u². Зэргэлдээ цагууд (≤6 цагийн завсартай) нэг үе. Зургийн өдрөөс өмнөх, ≥5 мм борооноор угаагдаагүй үеүд л тооцоонд орно.",
     ep_all: "Бүгдийг нэгтгэж харах", ep_none: "Ялгаралтын үе олдсонгүй: салхи сул эсвэл хөрс чийгтэй байсан.", ep_count: "{n} үе, {h} цаг (≥6 м/с салхитай цагуудын {p} %); тооцоонд {k} үе. Зургийн өдөр {d}.",
     ep_line: "№{k} · {a} – {b} · {h} ц · ≤{u} м/с · {dirs} · хөрс {s} · бороо {r} · ρ {rho}", ep_after: "(зургийн дараа)", ep_washed: "(угаагдсан)", ep_norain: "бүртгэгдээгүй", ep_days: "{d} хоногийн өмнө",
@@ -45,13 +47,13 @@ const TT = {
     veg_classes: "Пиксел бүрийн ангилал (100 м): ургамлын NDVI-ийн зөрүү ижил зайн цагирагийн медианаас.", veg_class_area: "{n}: {a} км²", veg_window: "Томруулж харах", veg_window_title: "Уурхайн тоосжилт ба ургамал",
     veg_camps_px: "Өвөлжөө, хаваржааг байрлалынх нь 1 км² дэх ургамлын ангиллаар (3–30 км):", veg_camps_on: "{n} дээр", veg_camps_total: "3–30 км-д нийт", veg_camps_dusted: "Уурхайн тоостой ургамал дээр (их, дунд, бага) нийт",
     veg_dl_sectors: "Сектор, цагирагийн хүснэгт", veg_dl_camps: "Өвөлжөө, хаваржаа ангиллаар", veg_dl_wind: "Цаг тутмын салхи, бороо, хөрсний чийг", veg_dl_episodes: "Ялгаралтын үеүд", veg_dl_title: "Уурхайн тоосжилт ба ургамал", veg_dl_period: "Sentinel-2 {d}; салхи {a} – {b}",
-    veg_nd_note: "Ангиллын растерт 0 = торны гадна (3 км дотор эсвэл 30 км-ээс цааш, NoData), 1 = ургамалгүй, ус, үүл, 6 = тоостой ч сонгосон ялгаралтын үеүдийн салхины чигт биш.", veg_b_anom: "NDVI-ийн зөрүү = ургамлын пикселийн NDVI − ижил зайн цагирагийн медиан; −9999 = ургамал биш", veg_b_ndvi: "Зуны NDVI (ургамлын пиксел); −9999 = ургамал биш",
+    veg_nd_note: "Ангиллын растерт 0 = торны гадна (3 км дотор эсвэл 30 км-ээс цааш, NoData), 1 = ургамалгүй, ус, үүл, 6 = тоостой ч сонгосон ялгаралтын үеүдийн салхины чигт биш.", veg_b_anom: "NDVI-ийн зөрүү = ургамлын пикселийн NDVI − ижил зайн цагирагийн медиан; −9999 = ургамал биш", veg_b_ndvi: "Зуны NDVI (ургамлын пиксел); −9999 = ургамал биш", veg_b_canom: "NDVI-ийн өөрчлөлтийн зөрүү = (тоостой − цэвэр) − ижил зайн цагирагийн медиан; −9999 = ургамал биш", veg_b_change: "NDVI-ийн өөрчлөлт = тоостой − цэвэр зураг", veg_b_clean: "Цэвэр зургийн NDVI ({d})", veg_b_dusty: "Тоостой зургийн NDVI ({d})",
     veg_e_rel: "Зөрүү харьцангуй (NDVI-ийн нэгж), г/м² биш; хөрс, бэлчээр, зам ч NDVI-г өөрчилнө.", veg_e_px: "Пиксел 100 м; өвөлжөөний байршил ≈1 км-ээр бүдүүлэгжсэн тул ангилал нь 1 км² талбайн дундаж.",
     dirs16: ["хойд", "хойд-зүүн хойд", "зүүн хойд", "зүүн-зүүн хойд", "зүүн", "зүүн-зүүн өмнөд", "зүүн өмнөд", "өмнөд-зүүн өмнөд", "өмнөд", "өмнөд-баруун өмнөд", "баруун өмнөд", "баруун-баруун өмнөд", "баруун", "баруун-баруун хойд", "баруун хойд", "хойд-баруун хойд"],
   },
   en: {
     veg_title: "Mine dust and vegetation",
-    veg_help: "Pick a mine and a year, then Compute. From the summer (June to August) Sentinel-2 images the NDVI of the vegetation is compared across 16 wind sectors and 3 to 30 km from the mine, to see how far the mark of dust settled on the plants runs downwind. The winter and spring camps in that area are counted.",
+    veg_help: "Pick a mine and a year, then Compute. The box finds a clean Sentinel-2 image taken after rain washed the leaves and a dusty one taken after dust was lifted, and compares the change of the vegetation's NDVI between them across 16 wind sectors and 3 to 30 km from the mine. Growth is alike in every direction and drops out; the fall left downwind of the episodes between the two is the mine's dust. The winter and spring camps in that area are counted.",
     veg_mine: "Mine", veg_year: "Year (June–August)", veg_run: "Compute", veg_method: "Method",
     veg_fetch_sat: "Searching Sentinel-2 passes…", veg_fetch_wind: "Loading the wind (ERA5)…", veg_compute: "Computing…", veg_done: "Ready ({s} s).",
     veg_no_pass: "No clear Sentinel-2 image of this area that summer.", veg_no_wind: "No wind data for that hour.", veg_err: "Error: ",
@@ -71,12 +73,14 @@ const TT = {
     ep_title: "Emission episodes", ep_help: "From ERA5 hourly wind, precipitation and soil moisture (0–7 cm): an hour lifts dust when 24 h have passed since the end of the last rain of 2 mm or more (24 h sum), the soil is no wetter than the summer median and the wind is 6 m/s or more; weight (u−6)·u². Neighbouring hours (gaps up to 6 h) form one episode. Only episodes before the image date and not washed off by rain of 5 mm or more are counted.",
     ep_all: "Show all together", ep_none: "No emission episode: the wind was light or the ground wet.", ep_count: "{n} episodes, {h} hours ({p} % of the hours at 6 m/s or more); {k} counted. Image date {d}.",
     ep_line: "No. {k} · {a} – {b} · {h} h · ≤{u} m/s · {dirs} · soil {s} · rain {r} · ρ {rho}", ep_after: "(after the image)", ep_washed: "(washed off)", ep_norain: "none recorded", ep_days: "{d} days before",
+    veg_pair: "Clean image (after rain washed the leaves, no dust lifted since): {a}. Dusty image: {b}. Emission weight between: {w}.", veg_pair_sel: "Image pair", veg_pair_opt: "{a} → {b} · weight {w}", veg_single: "No pair of a clean image after washing rain and a dusty one after emission this summer: computed from a single image (the older way).",
+    veg_classes_pair: "Class of every 100 m pixel: how much the NDVI of the vegetation fell from the clean to the dusty image, against the median of its ring.", cmp_rgb: "True colour", cmp_ndvi: "NDVI", cmp_clean: "Clean", cmp_dusty: "Dusty", ep_help_pair: "The emission episodes between the clean and the dusty image (24 h after the end of rain, dry soil, wind of 6 m/s or more; weight (u−6)·u²). Their downwind sectors attribute the dust to the mine.",
     rp_title: "Against the mine's reports", rp_wind: "Wind: in the ERA5 emission episodes dust went {top}.", rp_town: "Town ({km} km north): sectors {dirs} at 3–6 km are {cls}, NDVI deficit {d}.", rp_dist: "Distance: in the dusty sectors the deficit is {a} at 3–6 km and {b} at 10–15 km.",
     rp_ok: "Agrees.", rp_no: "Disagrees.", rp_fade: "Fading with distance: the mark of settled dust, of a haul-road source.", rp_nofade: "Not fading with distance: a cause other than dust is possible.", rp_nodusty: "No dusty sector, so no distance check.", rp_links: "Sources:",
     veg_classes: "Class of every 100 m pixel: the NDVI of the vegetation against the median of its ring.", veg_class_area: "{n}: {a} km²", veg_window: "Open in a window", veg_window_title: "Mine dust and vegetation",
     veg_camps_px: "Winter and spring camps by the vegetation class of their 1 km² (3–30 km):", veg_camps_on: "On {n}", veg_camps_total: "All within 3–30 km", veg_camps_dusted: "On mine-dusted vegetation (heavy, moderate, light) in all",
     veg_dl_sectors: "Sector and ring table", veg_dl_camps: "Camps by class", veg_dl_wind: "Hourly wind, rain and soil moisture", veg_dl_episodes: "Emission episodes", veg_dl_title: "Mine dust and vegetation", veg_dl_period: "Sentinel-2 {d}; wind {a} – {b}",
-    veg_nd_note: "In the class raster 0 = outside the grid (inside 3 km or beyond 30 km, NoData), 1 = no vegetation, water or cloud, 6 = dusted but not downwind of the picked emission episodes.", veg_b_anom: "NDVI anomaly = NDVI of the vegetation pixel − median of its ring; −9999 = not vegetation", veg_b_ndvi: "Summer NDVI (vegetation pixels); −9999 = not vegetation",
+    veg_nd_note: "In the class raster 0 = outside the grid (inside 3 km or beyond 30 km, NoData), 1 = no vegetation, water or cloud, 6 = dusted but not downwind of the picked emission episodes.", veg_b_anom: "NDVI anomaly = NDVI of the vegetation pixel − median of its ring; −9999 = not vegetation", veg_b_ndvi: "Summer NDVI (vegetation pixels); −9999 = not vegetation", veg_b_canom: "NDVI change anomaly = (dusty − clean) − median of its ring; −9999 = not vegetation", veg_b_change: "NDVI change = dusty − clean image", veg_b_clean: "NDVI of the clean image ({d})", veg_b_dusty: "NDVI of the dusty image ({d})",
     veg_e_rel: "The contrast is relative (NDVI units), not g/m²; soil, grazing and roads change NDVI too.", veg_e_px: "Pixels are 100 m; camp positions are rounded to about 1 km, so a camp's class is the mean of its 1 km².",
     dirs16: ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"],
   },
@@ -165,27 +169,54 @@ export function createVegBox({ map, getLang, campsFor, requestSat, onMethods, vi
   const box = el("section", { class: "md-box veg-box" });
 
   /* ---------------------------------------------------------------- run */
+  /** One pass on the full grid: the NDVI of every clear pixel that is not water or snow, and the vegetation among
+   * them (NDVI of VEG.vegNdvi or more). */
+  async function readPass(grid, p, N) {
+    const scl = await band(grid, p.items, { assets: "SCL", rescale: "0,255" }, asIs);
+    let nd = null; for (const it of p.items) nd = await bandOnGrid(grid, it, ndviQuery(it), fromNdvi, nd);
+    const ndvi = new Float32Array(N).fill(NaN), veg = new Uint8Array(N), clear = new Uint8Array(N);
+    let seen = 0;
+    for (let i = 0; i < N; i++) {
+      const c = scl[i];
+      if (Number.isNaN(c) || CLOUDY_SCL.has(c)) continue;
+      clear[i] = 1; seen++;
+      if (c === 6 || c === 11 || !fin(nd[i])) continue;
+      ndvi[i] = nd[i];
+      if (nd[i] >= VEG.vegNdvi) veg[i] = 1;
+    }
+    return { ndvi, veg, clear, seen };
+  }
+  /** The hour of a pass in the hourly series: the satellite passes near 11:00 local; past the end, the series' length. */
+  const hourOf = (hours, date) => { const i = hours.time.findIndex((tm) => tm >= `${date}T11:00`); return i < 0 ? hours.time.length : i; };
+
   async function run() {
     const m = mine();
-    st.running = true; st.error = false; st.res = null; st.hourRes = null; st.status = ""; paint(); render();
+    st.running = true; st.error = false; st.res = null; st.hourRes = null; st.status = ""; st.prep = null; paint(); render();
     const t0 = performance.now();
     busy(true);
     try {
       const dom = domain(m.lat, m.lon, VEG.radiusKm, VEG.cellM), e = dom.extent;
       const grid = { west: e.w, north: e.n, dx: (e.e - e.w) / dom.w, dy: (e.n - e.s) / dom.h, w: dom.w, h: dom.h };
-      // the archive lags about five days behind today, so the window of the current year ends where the archive does
-      const from = `${st.year}-06-15`, lastDay = addDays(iso(Date.now()), -6), to = `${st.year}-08-31` < lastDay ? `${st.year}-08-31` : lastDay;
+      // the growing season; the archive lags about five days behind today, so the current year ends where it does
+      const from = `${st.year}-05-20`, lastDay = addDays(iso(Date.now()), -6), to = `${st.year}-09-10` < lastDay ? `${st.year}-09-10` : lastDay;
       if (to <= from) throw new Error(t("veg_no_pass"));
       const my = ++st.runToken;
+      // the wind, rain and soil first, from the start of May: the clean image needs the rain before it
+      st.status = { k: "veg_fetch_wind" }; render();
+      const windFrom = `${st.year}-05-01`;
+      const q = new URLSearchParams({ latitude: m.lat.toFixed(3), longitude: m.lon.toFixed(3), start_date: windFrom, end_date: to, timezone: TZ, wind_speed_unit: "ms", hourly: "wind_speed_10m,wind_direction_10m,precipitation,soil_moisture_0_to_7cm", models: "era5" });
+      const w = await getJson(`${API.archive}?${q}`);
+      if (my !== st.runToken) return;
+      const hours = { time: w.hourly.time ?? [], speed: Float32Array.from(w.hourly.wind_speed_10m ?? [], num), dir: Float32Array.from(w.hourly.wind_direction_10m ?? [], num), precip: Float32Array.from(w.hourly.precipitation ?? [], num), soil: Float32Array.from(w.hourly.soil_moisture_0_to_7cm ?? [], num), from: windFrom, to };
+      hours.sinceRain = hoursSinceRain(hours.precip); hours.weight = emissionWeight(hours);
       st.status = { k: "veg_fetch_sat" }; render();
       const items = await search("sentinel-2-l2a", e, from, to);
       const ps = passes(items);
       if (!ps.length) throw new Error(t("veg_no_pass"));
       // passes ranked by the share of clear ground on a coarse grid, as the dust check does; the scene's own cloud figure
-      // speaks of a 100 km tile, not of these 60 km
+      // speaks of a 100 km tile, not of these 60 km. A few passes at a time, so that the data API is not asked for the
+      // whole summer at once; a pass that fails to read ranks as if it were cloudy
       const coarse = { ...grid, dx: grid.dx * 3, dy: grid.dy * 3, w: dom.w / 3, h: dom.h / 3 };
-      // a few passes at a time, so that the data API is not asked for the whole summer at once; a pass that fails to read
-      // ranks as if it were cloudy
       const shares = new Array(ps.length).fill(0);
       await inBatches(ps, 4, async (p, i) => {
         const scl = await band(coarse, p.items, { assets: "SCL", rescale: "0,255" }, asIs).catch(() => null);
@@ -194,62 +225,19 @@ export function createVegBox({ map, getLang, campsFor, requestSat, onMethods, vi
         shares[i] = ok / scl.length;
       });
       if (my !== st.runToken) return;
-      const ranked = ps.map((p, i) => ({ p, s: shares[i] })).filter((x) => x.s > 0.05).sort((a, b) => b.s - a.s || b.p.t0 - a.p.t0);
-      if (!ranked.length) throw new Error(t("veg_no_pass"));
-      // the gaps of the clearest pass are filled only from passes within 20 days of it: the grass changes through the
-      // summer by more than the deficit the method looks for
-      const order = ranked.filter((x) => Math.abs(x.p.t0 - ranked[0].p.t0) <= 20 * 86400000);
-      const N = dom.w * dom.h, ndvi = new Float32Array(N).fill(NaN), veg = new Uint8Array(N), seenMask = new Uint8Array(N), used = [];
-      let seen = 0, vegN = 0;
-      for (const { p } of order.slice(0, 3)) {
-        const scl = await band(grid, p.items, { assets: "SCL", rescale: "0,255" }, asIs);
-        let nd = null; for (const it of p.items) nd = await bandOnGrid(grid, it, ndviQuery(it), fromNdvi, nd);
-        let filled = 0;
-        for (let i = 0; i < N; i++) {
-          if (seenMask[i]) continue;
-          const c = scl[i];
-          if (Number.isNaN(c) || CLOUDY_SCL.has(c)) continue;
-          seenMask[i] = 1; seen++; filled++;
-          if (c !== 6 && c !== 11 && fin(nd[i]) && nd[i] >= VEG.vegNdvi) { veg[i] = 1; ndvi[i] = nd[i]; vegN++; }
-        }
-        if (filled) used.push(p);
-        if (seen / N >= 0.95) break;
-      }
-      if (!seen) throw new Error(t("veg_no_pass"));
-      st.status = { k: "veg_fetch_wind" }; render();
-      // the wind, rain and soil from mid-May: the dust on the leaves in July may have been lifted weeks before
-      const windFrom = `${st.year}-05-15`;
-      const q = new URLSearchParams({ latitude: m.lat.toFixed(3), longitude: m.lon.toFixed(3), start_date: windFrom, end_date: to, timezone: TZ, wind_speed_unit: "ms", hourly: "wind_speed_10m,wind_direction_10m,precipitation,soil_moisture_0_to_7cm", models: "era5" });
-      const w = await getJson(`${API.archive}?${q}`);
-      if (my !== st.runToken) return;
-      const hours = { time: w.hourly.time ?? [], speed: Float32Array.from(w.hourly.wind_speed_10m ?? [], num), dir: Float32Array.from(w.hourly.wind_direction_10m ?? [], num), precip: Float32Array.from(w.hourly.precipitation ?? [], num), soil: Float32Array.from(w.hourly.soil_moisture_0_to_7cm ?? [], num), from: windFrom, to };
-      hours.sinceRain = hoursSinceRain(hours.precip); hours.weight = emissionWeight(hours);
-      st.status = { k: "veg_compute" }; render();
-      await new Promise((ok) => setTimeout(ok, 0));
-      const geo = geometry(m, dom), nr = VEG.rings.length - 1;
-      const stats = sectorRingStats(ndvi, veg, geo), def = deficits(stats, nr), reach = reaches(def);
-      const inner = Array.from({ length: VEG.sectors }, (_, s) => def.deficit[s * nr]);
+      const list = ps.map((p, i) => ({ p, share: shares[i], date: iso(p.t0), i: hourOf(hours, iso(p.t0)) }));
+      if (!list.some((x) => x.share > 0.05)) throw new Error(t("veg_no_pass"));
+      // pairs of a clean image (after a washing rain, no emission since) and a dusty one (emission between, no washing
+      // rain between), the most emission first
+      const cands = pairCandidates(list, hours).slice(0, 8);
       const camps = await campsFor?.(e).catch(() => null) ?? null;
       if (my !== st.runToken) return;
-      // the episodes against the clearest pass: the satellite passes near 11:00 local; an episode that starts after
-      // the pass cannot be in the image, one washed off by rain since cannot either
-      const passDate = iso(used[0].t0), iFound = hours.time.findIndex((tm) => tm >= `${passDate}T11:00`), iPass = iFound < 0 ? hours.time.length : iFound; // hours that end before the pass: every episode is before it
-      const eps = episodes(hours, hours.weight).map((ep, k) => ({ ...ep, k, after: ep.i0 >= iPass, washed: ep.i0 < iPass && washedBetween(hours.precip, Math.min(ep.i1, iPass), iPass), rho: spearman(Array.from(ep.rose), inner) }));
-      let windy = 0; for (const v of hours.speed) if (v >= VEG.onset) windy++;
-      const res = { mine: m, year: st.year, dom, geo, ndvi, veg, stats, def, inner, hours, reach, camps, anomaly: anomalyGrid(ndvi, veg, geo, def.ringMedian), eps, passDate, iPass, windyHours: windy, episodeHours: eps.reduce((a, ep) => a + ep.hours, 0),
-        measured: innerRingCells(stats, nr), passes: used.map((p) => iso(p.t0)), cloud: Math.round(100 * seen / N), vegN };
-      res.base = new Uint8Array(N);
-      for (let i = 0; i < N; i++) res.base[i] = pixelClass(res.anomaly[i], geo.ring[i] >= 0, veg[i] === 1);
-      res.grid = { west: e.w, north: e.n, dx: grid.dx, dy: grid.dy, w: dom.w, h: dom.h, scale: VEG.cellM };
-      st.pick = eps.map((ep) => !ep.after && !ep.washed);
-      st.res = res;
-      applyPick(false);
-      window.vegResult = res; // the last result, for checks in the browser console
+      st.prep = { m, dom, grid, e, hours, list, cands, camps };
+      st.pairIdx = 0;
+      if (!(await compute(my))) return;
       st.status = { k: "veg_done", v: { s: Math.round((performance.now() - t0) / 1000) } };
-      paint();
       // the whole 30 km domain in view, clear of the side panel on a wide screen
       map.fitBounds([[e.s, e.w], [e.n, e.e]], { paddingTopLeft: [window.innerWidth > 1000 ? 360 : 10, 70], paddingBottomRight: [10, 110] });
-      onResult();
       openView();
       loadHour();
     } catch (err) {
@@ -260,6 +248,85 @@ export function createVegBox({ map, getLang, campsFor, requestSat, onMethods, vi
     busy(false);
     st.running = false;
     render();
+  }
+
+  /** Another pair of images from the list: read the two passes again and recompute. */
+  async function choosePair(idx) {
+    if (!st.prep || st.running) return;
+    st.pairIdx = idx;
+    st.running = true; st.error = false; st.status = { k: "veg_fetch_sat" }; render();
+    busy(true);
+    const t0 = performance.now(), my = ++st.runToken;
+    try {
+      if (await compute(my)) { st.status = { k: "veg_done", v: { s: Math.round((performance.now() - t0) / 1000) } }; openView(); }
+    } catch (err) {
+      console.error(err);
+      st.error = true; st.status = { k: "veg_err", v: err.message };
+    }
+    busy(false);
+    st.running = false;
+    render();
+  }
+
+  /** The result of the prepared run: the NDVI change between the chosen clean and dusty images, or, when the summer
+   * holds no such pair, the single clearest image as before. Returns false when a newer run took over. */
+  async function compute(my) {
+    const P = st.prep, { m, dom, grid, e, hours, list, cands, camps } = P, N = dom.w * dom.h;
+    const geo = geometry(m, dom), nr = VEG.rings.length - 1;
+    let res;
+    if (cands.length) {
+      const c = cands[st.pairIdx] ?? cands[0], A = list[c.a], B = list[c.b];
+      const [pa, pb] = await Promise.all([readPass(grid, A.p, N), readPass(grid, B.p, N)]);
+      if (my !== st.runToken) return false;
+      const { delta, mask } = ndviChange(pa.ndvi, pb.ndvi, pa.veg);
+      // the episodes between the two images only: they put the dust there
+      const wBetween = Float32Array.from(hours.weight, (v, h) => (h > A.i && h <= B.i ? v : 0));
+      const eps = episodes(hours, wBetween);
+      let both = 0, vegN = 0; for (let i = 0; i < N; i++) { if (pa.clear[i] && pb.clear[i]) both++; if (mask[i]) vegN++; }
+      res = { mode: "pair", clean: A.date, dusty: B.date, value: delta, veg: mask, ndvi: pb.ndvi, ndviClean: pa.ndvi, passA: A.p, passB: B.p, eps,
+        passes: [A.date, B.date], passDate: B.date, iPass: B.i, pairWeight: c.weight, cloud: Math.round((100 * both) / N), vegN };
+    } else {
+      // no clean image after rain with a dusty one behind it: the clearest image, its gaps filled from passes within
+      // 20 days of it (the grass changes through the summer by more than the deficit looked for)
+      const ranked = list.filter((x) => x.share > 0.05).sort((a, b) => b.share - a.share || b.p.t0 - a.p.t0);
+      const order = ranked.filter((x) => Math.abs(x.p.t0 - ranked[0].p.t0) <= 20 * 86400000);
+      const ndvi = new Float32Array(N).fill(NaN), veg = new Uint8Array(N), seenMask = new Uint8Array(N), used = [];
+      let seen = 0, vegN = 0;
+      for (const x of order.slice(0, 3)) {
+        const r = await readPass(grid, x.p, N);
+        if (my !== st.runToken) return false;
+        let filled = 0;
+        for (let i = 0; i < N; i++) {
+          if (seenMask[i] || !r.clear[i]) continue;
+          seenMask[i] = 1; seen++; filled++;
+          if (r.veg[i]) { veg[i] = 1; ndvi[i] = r.ndvi[i]; vegN++; }
+        }
+        if (filled) used.push(x);
+        if (seen / N >= 0.95) break;
+      }
+      if (!seen) throw new Error(t("veg_no_pass"));
+      const passDate = used[0].date, iPass = used[0].i;
+      const eps = episodes(hours, hours.weight).map((ep) => ({ ...ep, after: ep.i0 >= iPass, washed: ep.i0 < iPass && washedBetween(hours.precip, Math.min(ep.i1, iPass), iPass) }));
+      res = { mode: "single", value: ndvi, veg, ndvi, eps, passes: used.map((x) => x.date), passDate, iPass, cloud: Math.round((100 * seen) / N), vegN };
+    }
+    st.status = { k: "veg_compute" }; render();
+    await new Promise((ok) => setTimeout(ok, 0));
+    const stats = sectorRingStats(res.value, res.veg, geo), def = deficits(stats, nr), reach = reaches(def);
+    const inner = Array.from({ length: VEG.sectors }, (_, s) => def.deficit[s * nr]);
+    res.eps = res.eps.map((ep, k) => ({ after: false, washed: false, ...ep, k, rho: spearman(Array.from(ep.rose), inner) }));
+    let windy = 0; for (const v of hours.speed) if (v >= VEG.onset) windy++;
+    Object.assign(res, { mine: m, year: st.year, dom, geo, stats, def, inner, hours, reach, camps, anomaly: anomalyGrid(res.value, res.veg, geo, def.ringMedian),
+      windyHours: windy, episodeHours: res.eps.reduce((a, ep) => a + ep.hours, 0), measured: innerRingCells(stats, nr), pairs: cands.length });
+    res.base = new Uint8Array(N);
+    for (let i = 0; i < N; i++) res.base[i] = pixelClass(res.anomaly[i], geo.ring[i] >= 0, res.veg[i] === 1);
+    res.grid = { west: e.w, north: e.n, dx: grid.dx, dy: grid.dy, w: dom.w, h: dom.h, scale: VEG.cellM };
+    st.pick = res.eps.map((ep) => !ep.after && !ep.washed);
+    st.res = res;
+    applyPick(false);
+    window.vegResult = res; // the last result, for checks in the browser console
+    paint();
+    onResult();
+    return true;
   }
 
   /** The wind at the mine for the chosen day and hour: the forecast service within 85 days, the archive before. */
@@ -378,9 +445,12 @@ export function createVegBox({ map, getLang, campsFor, requestSat, onMethods, vi
       grid: g, scale: VEG.cellM, km2: r.areas.slice(1).reduce((a, b) => a + b, 0), box: { s: e.s, n: e.n, w: e.w, e: e.e },
       codes: r.codes, noData: 0, missing: [0, 1], noDataNote: t("veg_nd_note"),
       classes: PX.map((c) => ({ code: c.code, key: c.key, mn: t("px_" + c.key), en: en("px_" + c.key), color: c.color, vector: c.code >= 2, paint: c.paint })),
-      bands: [{ name: "ndvi_anomaly", data: no(r.anomaly, r.veg), about: t("veg_b_anom") }, { name: "ndvi", data: no(r.ndvi, r.veg), about: t("veg_b_ndvi") }],
+      bands: r.mode === "pair"
+        ? [{ name: "ndvi_change_anomaly", data: no(r.anomaly, r.veg), about: t("veg_b_canom") }, { name: "ndvi_change", data: no(r.value, r.veg), about: t("veg_b_change") },
+          { name: "ndvi_clean", data: no(r.ndviClean, r.veg), about: fill(t("veg_b_clean"), { d: r.clean }) }, { name: "ndvi_dusty", data: no(r.ndvi, r.veg), about: fill(t("veg_b_dusty"), { d: r.dusty }) }]
+        : [{ name: "ndvi_anomaly", data: no(r.anomaly, r.veg), about: t("veg_b_anom") }, { name: "ndvi", data: no(r.ndvi, r.veg), about: t("veg_b_ndvi") }],
       meta: { mine: r.mine.en, mine_lat: r.mine.lat, mine_lon: r.mine.lon, year, sentinel2_passes: r.passes.join(" "), seen_pct: r.cloud, measured_inner_sectors: r.measured,
-        emission_episodes: r.eps.length, emission_episodes_picked: r.picked, emission_hours: r.episodeHours, hours_at_or_over_onset: r.windyHours, episodes_picked: r.eps.filter((ep) => st.pick[ep.k]).map((ep) => `${ep.start}/${ep.end}`).join(" ") || "none",
+        method: r.mode === "pair" ? "clean/dusty image pair" : "single image", clean_image: r.clean ?? null, dusty_image: r.dusty ?? null, emission_episodes: r.eps.length, emission_episodes_picked: r.picked, emission_hours: r.episodeHours, hours_at_or_over_onset: r.windyHours, episodes_picked: r.eps.filter((ep) => st.pick[ep.k]).map((ep) => `${ep.start}/${ep.end}`).join(" ") || "none",
         dusty_sectors: Array.from(r.cls).map((c, s) => (c === 2 ? TT.en.dirs16[s] + " " + r.reach[s] + "km" : null)).filter(Boolean).join(" ") || "none", spearman_rho: fin(r.rho) ? r.rho.toFixed(3) : null,
         camps_on_dusted_vegetation_parcels: dusted.parcels, camps_on_dusted_vegetation_herder_points: dusted.herders, source: "Microsoft Planetary Computer: Sentinel-2 L2A; Open-Meteo ERA5; cadastre and herder points" },
       summaryEn: `Mongolia Hazard Watch: mine dust on vegetation around ${r.mine.en}, summer ${year}. NDVI of each 100 m vegetation pixel against the median of its distance ring, in 16 wind sectors, set against the downwind sectors of ${r.picked} of ${r.eps.length} ERA5 emission episodes (dry ground after rain, wind of 6 m/s or more). Dusty sectors: ${Array.from(r.cls).filter((c) => c === 2).length}. Camps on mine-dusted vegetation: ${dusted.parcels} cadastre parcels, ${dusted.herders} herder points. A relative contrast, not a dust mass. Not an official warning.`,
@@ -414,12 +484,36 @@ export function createVegBox({ map, getLang, campsFor, requestSat, onMethods, vi
     viewer?.refresh("veg");
     return cv;
   }
+  /** The true colour of one pass on the result's grid. */
+  async function rgbCanvas(grid, pass) {
+    const rgba = new Uint8ClampedArray(grid.w * grid.h * 4);
+    for (const it of pass.items) await rgbOnGrid(grid, it, { assets: "visual" }, rgba);
+    const cv = document.createElement("canvas"); cv.width = grid.w; cv.height = grid.h;
+    cv.getContext("2d").putImageData(new ImageData(rgba, grid.w, grid.h), 0, 0);
+    return cv;
+  }
+  /** NDVI as a picture, on one scale for both images: bare brown at 0 to deep green at 0.7; no value transparent. */
+  function ndviCanvas(grid, ndvi) {
+    const cv = document.createElement("canvas"); cv.width = grid.w; cv.height = grid.h;
+    const ctx = cv.getContext("2d"), img = ctx.createImageData(grid.w, grid.h), px = img.data;
+    const stops = [[0, [150, 110, 70]], [0.2, [205, 185, 120]], [0.4, [140, 190, 90]], [0.7, [30, 110, 45]]];
+    for (let i = 0; i < ndvi.length; i++) {
+      const v = ndvi[i];
+      if (!fin(v)) continue;
+      let k = 1; while (k < stops.length - 1 && v > stops[k][0]) k++;
+      const [a0, c0] = stops[k - 1], [a1, c1] = stops[k], f = Math.min(1, Math.max(0, (v - a0) / (a1 - a0)));
+      for (let j = 0; j < 3; j++) px[i * 4 + j] = c0[j] + (c1[j] - c0[j]) * f;
+      px[i * 4 + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+    return cv;
+  }
   /** The classes in their own window, zoomable to single pixels, with the class of each pixel (js/aoi/viewer.js). */
   function openView() {
     const r = st.res;
     if (!r || !viewer) return;
     viewer.open({
-      owner: "veg", title: `${t("veg_window_title")} · ${mineName(r.mine)} · ${r.year}`, grid: r.grid, picture: () => st.canvas,
+      owner: "veg", title: `${t("veg_window_title")} · ${mineName(r.mine)} · ${r.mode === "pair" ? `${r.clean} → ${r.dusty}` : r.year}`, grid: r.grid, picture: () => st.canvas,
       label: (i) => t("px_" + PX[r.codes[i]].key) + (fin(r.anomaly[i]) ? ` (${r.anomaly[i] >= 0 ? "+" : ""}${r.anomaly[i].toFixed(3)})` : ""),
       empty: () => {
         if (st.drawn) return null;
@@ -427,6 +521,11 @@ export function createVegBox({ map, getLang, campsFor, requestSat, onMethods, vi
         return top ? t("px_" + top.key) : null;
       },
       backdrop: () => { const d = [...r.passes].sort(); return backdrop(r.grid, d[0], d[d.length - 1]); },
+      // the clean and the dusty image side by side, swiped by a line: true colour and NDVI
+      compare: r.mode === "pair" ? { start: true, pairs: [
+        { key: "rgb", label: t("cmp_rgb"), left: { label: `${t("cmp_clean")} ${r.clean}`, load: () => rgbCanvas(r.grid, r.passA) }, right: { label: `${t("cmp_dusty")} ${r.dusty}`, load: () => rgbCanvas(r.grid, r.passB) } },
+        { key: "ndvi", label: t("cmp_ndvi"), left: { label: `${t("cmp_clean")} ${r.clean}`, load: async () => ndviCanvas(r.grid, r.ndviClean) }, right: { label: `${t("cmp_dusty")} ${r.dusty}`, load: async () => ndviCanvas(r.grid, r.ndvi) } },
+      ] } : null,
     });
   }
   /** A ring sector as a polygon from the inner edge to `outKm`. */
@@ -507,6 +606,7 @@ export function createVegBox({ map, getLang, campsFor, requestSat, onMethods, vi
   }
   function vegLines() {
     const r = st.res, out = [];
+    out.push(r.mode === "pair" ? fill(t("veg_pair"), { a: r.clean, b: r.dusty, w: Math.round(r.pairWeight).toLocaleString() }) : t("veg_single"));
     const dusty = []; for (let s = 0; s < VEG.sectors; s++) if (r.cls[s] === 2) dusty.push(`${dir16(s)} ${r.reach[s].toFixed(0)} ${t("veg_km")}`);
     if (r.measured < VEG.sectors / 2) out.push(fill(t("veg_sparse"), { k: r.measured }));
     else out.push(dusty.length ? fill(t("veg_reach"), { list: dusty.join(", ") }) + " " + fill(t("veg_area"), { a: r.area.toFixed(0) }) : t("veg_none"));
@@ -522,7 +622,7 @@ export function createVegBox({ map, getLang, campsFor, requestSat, onMethods, vi
     all.indeterminate = picked > 0 && picked < countable.length;
     return el("div", { class: "veg-group" },
       el("b", { text: t("ep_title") }),
-      el("p", { class: "note small", text: t("ep_help") }),
+      el("p", { class: "note small", text: t(r.mode === "pair" ? "ep_help_pair" : "ep_help") }),
       el("p", { class: "md-line", text: r.eps.length ? fill(t("ep_count"), { n: r.eps.length, h: r.episodeHours, p: r.windyHours ? Math.round((100 * r.episodeHours) / r.windyHours) : 0, k: countable.length, d: r.passDate }) : t("ep_none") }),
       r.eps.length ? el("label", { class: "check" }, all, el("b", { text: t("ep_all") })) : null,
       el("div", { class: "veg-episodes" }, ...[...r.eps].reverse().map((ep) => el("label", { class: "check" + (ep.after || ep.washed ? " off" : "") },
@@ -549,6 +649,9 @@ export function createVegBox({ map, getLang, campsFor, requestSat, onMethods, vi
       st.status && el("p", { class: "aoi-status" + (st.error ? " err" : ""), role: "status", text: st.status.v && typeof st.status.v === "object" ? fill(t(st.status.k), st.status.v) : t(st.status.k) + (typeof st.status.v === "string" ? st.status.v : "") }),
       r && el("section", { class: "veg-panel" },
         el("p", { class: "md-line" }, el("b", { text: `${mineName(r.mine)} · ${r.year}` })),
+        r.mode === "pair" && st.prep?.cands.length > 1 && el("label", { class: "md-form veg-pair" }, el("span", { text: t("veg_pair_sel") }),
+          el("select", { class: "field", disabled: st.running, onchange: (e) => choosePair(Number(e.target.value)) }, ...st.prep.cands.map((c, i) => el("option", { value: i, selected: i === st.pairIdx,
+            text: fill(t("veg_pair_opt"), { a: st.prep.list[c.a].date, b: st.prep.list[c.b].date, w: Math.round(c.weight).toLocaleString() }) })))),
         group("wind", windLines(), hourForm),
         group("camps", r.camps === null ? [t("veg_camps_none")] : [
           t("veg_camps_px"),
@@ -562,7 +665,7 @@ export function createVegBox({ map, getLang, campsFor, requestSat, onMethods, vi
         group("aod", [t("veg_aod_line")]),
         group("veg", vegLines(), el("div", {},
           el("p", { class: "veg-key" }, el("i", { style: "background:rgba(150,90,30,.8)" }), t("cls_dusty"), " ", el("i", { style: "background:rgba(230,200,80,.6)" }), t("cls_unclear"), " ", el("i", { style: "background:rgba(60,160,80,.4)" }), t("cls_clear")),
-          el("p", { class: "note small", text: t("veg_classes") }),
+          el("p", { class: "note small", text: t(r.mode === "pair" ? "veg_classes_pair" : "veg_classes") }),
           el("div", { class: "aoi-legend" }, ...PX.filter((c) => c.paint).map((c) => el("label", { class: "check" },
             el("input", { type: "checkbox", checked: st.px[c.key], onchange: (e) => { st.px[c.key] = e.target.checked; classCanvas(r); paint(); } }),
             el("i", { style: `background:rgb(${c.color.join(",")})` }), el("span", { text: fill(t("veg_class_area"), { n: t("px_" + c.key), a: r.areas[c.code].toFixed(0) }) })))),
