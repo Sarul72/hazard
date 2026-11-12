@@ -141,6 +141,17 @@ button { cursor: pointer; }
 /* area window: the same glass as the menu on the left */
 .stats { position: fixed; z-index: 1000; right: 14px; top: 14px; bottom: 14px; width: var(--panel-w); overflow: auto; border-radius: 16px; background: var(--glass-strong); padding: 14px; font-size: 13px; scrollbar-width: thin; }
 .st-top { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+.st-sec + .st-sec, .st-part:not(:empty) + .st-part:not(:empty) { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.st-sec > summary { cursor: pointer; list-style: none; }
+.st-sec > summary::-webkit-details-marker { display: none; }
+.st-sec > summary:not(.st-top) { display: flex; flex-direction: column; gap: 2px; }
+.st-sec > summary .st-kicker { margin-top: 0; padding-top: 0; border-top: 0; }
+.st-sec > summary .st-title::before { content: "▾ "; font-size: 11px; opacity: .7; }
+.st-sec:not([open]) > summary .st-title::before { content: "▸ "; }
+.st-fold { margin-top: 8px; border-top: 1px solid var(--line2); padding-top: 6px; }
+.st-fold > summary { cursor: pointer; font-weight: 650; font-size: 12.5px; }
+.st-fold .st-say { margin: 4px 0; }
+.veg-sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
 .st-actions { display: flex; gap: 6px; flex: none; }
 .st-kicker { color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line2); }
 .st-top .st-kicker { margin-top: 0; padding-top: 0; border-top: 0; }
