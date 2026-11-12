@@ -732,7 +732,7 @@ async function boot() {
   state.tools = initTools({ map: state.map, getLang: () => state.lang, requestSat, containers: { poly: el("div"), mine: $("view-mine") }, onMethods: showMethods, busy,
     onWater: (on) => { if (state.borders.water !== on) { state.borders.water = on; applyBorders(); renderBorders(); } },
     campsFor: async (box) => { const a = await loadCamps(); return a ? campsInside(a, box) : null; } });
-  state.vegBox = createVegBox({ map: state.map, getLang: () => state.lang, requestSat, onMethods: showMethods, busy, viewer: state.viewer,
+  state.vegBox = createVegBox({ map: state.map, getLang: () => state.lang, requestSat, onMethods: showMethods, busy, viewer: state.viewer, onPanel: (node) => state.panel?.setExtra("veg", node),
     onResult: () => { state.downloads?.refresh(); if (state.showRisk) setShowRisk(false); }, // the nationwide layer would cover the result
     campsFor: async (box) => { const a = await loadCamps(); return a ? campsInside(a, box) : null; } });
   $("view-veg").replaceChildren(state.vegBox.el);
