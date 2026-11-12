@@ -285,17 +285,17 @@ METHODS.all = {
   data: [],
 };
 
-/* Dzud is ZudRisk's estimate, read from its site; the figures are ZudRisk's own tests, 2026-11-12. */
+/* Dzud is ZudRisk's estimate, read from its site; the figures are ZudRisk's own tests, 2026-11-13. */
 METHODS.dzud = {
   mn: {
     title: "Зуд: арга зүй, материал",
     lead: "Сум бүрийн зудын эрсдэл, өвөл бүрээр: 2000/01-ээс хойших өвлүүдийн ретро тооцоо, ирэх өвлийн урьдчилсан төлөв. Тооцоог ZudRisk хийж, энэ хуудас түүний нийтэлсэн өгөгдлийг уншина.",
     method: [
-      "Дөрвөн үзүүлэлт: өвлийн хүйтэн (11–2 сарын агаарын температур), цасны зузаан (ERA5-Land), өмнөх зуны бэлчээр (7–8 сарын MODIS NDVI), малын нягт (ҮСХ-ны тооллого, хонин толгой / км²).",
-      "Хүйтэн, цас, зуны бэлчээрийг тухайн сумын 2001–2020 оны утгуудтай харьцуулж z-оноо болгоно. Малын ачааллыг (хонин толгой / км²-ийн логарифм) тухайн жилийн бүх сумтай харьцуулж z-оноо болгоно: энэ нь сум өөрийн өнгөрсөнтэй биш, бусад сумаас хэр их ачаалалтайг заана. Жинг бодит хорогдолтой харьцуулахаас өмнө тогтоосон (цас 0.41, хүйтэн 0.35, ачаалал 0.29, зун 0.24). Тухайн үед байгаа үзүүлэлтүүдийн жинлэсэн дундаж нь эрсдэлийн оноо, түүнийг таван ангилалд хуваана (−1, −0.5, 0.5, 1 хил).",
+      "Дөрвөн үзүүлэлт: өвлийн хүйтэн (11–2 сарын агаарын температур), цасны зузаан (ERA5-Land), өмнөх зуны бэлчээр (7–8 сарын MODIS NDVI), малын нягт (ҮСХ-ны тооллого, хонин толгой / бэлчээрийн км²; бэлчээр нь сумын нутгаас Байгаль орчны мэдээллийн сангийн хадлан, бэлчээрийн зургийн «бусад газар» (том нуур, битүү ой)-ыг хассан хэсэг).",
+      "Хүйтэн, цас, зуны бэлчээрийг тухайн сумын 2001–2020 оны утгуудтай харьцуулж z-оноо болгоно. Малын ачааллыг (хонин толгой / бэлчээрийн км²-ийн логарифм) тухайн жилийн бүх сумтай харьцуулж z-оноо болгоно: энэ нь сум өөрийн өнгөрсөнтэй биш, бусад сумаас хэр их ачаалалтайг заана. Жинг бодит хорогдолтой харьцуулахаас өмнө тогтоосон (цас 0.41, хүйтэн 0.35, ачаалал 0.29, зун 0.24). Тухайн үед байгаа үзүүлэлтүүдийн жинлэсэн дундаж нь эрсдэлийн оноо, түүнийг таван ангилалд хуваана (−1, −0.5, 0.5, 1 хил).",
       "Магадлал: оноог «том малын 5%-иас дээш хорогдох» магадлал болгон логистик регрессээр шат бүрт тохируулсан (2011/12–2024/25 оны сум-өвлүүд, нэг өвлийг хасаж шалгасан). Brier skill 0 буюу түүнээс бага шатанд магадлал харуулахгүй.",
       "Урьдчилсан төлөв нь сар бүр шинэчлэгдэнэ (10-р сараас 3-р сар): тухайн өдөр хүртэл ирсэн өгөгдлийг л ашиглана. 10-р сарын шатанд өвлийн сар ажиглагдаагүй тул хүйтэн, цас тооцоонд ороогүй.",
-      "Шалгалт (2026-11-12): урьдчилан тогтоосон өвлүүдэд сумаар Spearman ρ 0.596 (n=1683), 2011/12-оос хорогдолтой бүх сум-өвөлд 0.434 (n=4688), 2000/01-ээс бүх аймаг-өвөлд 0.547 (n=525).",
+      "Шалгалт (2026-11-13): урьдчилан тогтоосон өвлүүдэд сумаар Spearman ρ 0.600 (n=1683), 2011/12-оос хорогдолтой бүх сум-өвөлд 0.440 (n=4688), 2000/01-ээс бүх аймаг-өвөлд 0.544 (n=525).",
     ],
     limits: [
       "ERA5-Land бол загварын үр дүн, хэмжилт биш. Цасны зузаан ба нягтыг газар дээр шалгаагүй.",
@@ -311,11 +311,11 @@ METHODS.dzud = {
     title: "Dzud: methods and materials",
     lead: "Dzud risk for every soum, winter by winter: hindcasts since 2000/01 and the outlook of the coming winter. ZudRisk computes it; this page reads the data ZudRisk publishes.",
     method: [
-      "Four indicators: winter cold (Nov-Feb air temperature) and snow depth from ERA5-Land, the previous summer's pasture (July-August MODIS NDVI), and grazing pressure (NSO census, sheep units per km²).",
-      "Cold, snow and summer pasture are z-scores against the soum's own 2001-2020. Grazing pressure (the log of sheep units per km²) is a z-score across all soums in the same year: it says how loaded a soum is beside the others, not against its own past. The weights were fixed before any comparison with losses (snow 0.41, cold 0.35, pressure 0.29, summer 0.24). The weighted mean of the indicators available is the risk score, cut into five classes at −1, −0.5, 0.5 and 1.",
+      "Four indicators: winter cold (Nov-Feb air temperature) and snow depth from ERA5-Land, the previous summer's pasture (July-August MODIS NDVI), and grazing pressure (NSO census, sheep units per km² of pasture: the soum less the 'other land' (large lakes, closed forest) of the Environmental Information Center's hayland and pasture map).",
+      "Cold, snow and summer pasture are z-scores against the soum's own 2001-2020. Grazing pressure (the log of sheep units per km² of pasture) is a z-score across all soums in the same year: it says how loaded a soum is beside the others, not against its own past. The weights were fixed before any comparison with losses (snow 0.41, cold 0.35, pressure 0.29, summer 0.24). The weighted mean of the indicators available is the risk score, cut into five classes at −1, −0.5, 0.5 and 1.",
       "Chance: the score is calibrated as the chance of adult losses of 5 % or more by logistic regression, per outlook stage, on the soum-winters 2011/12-2024/25, each winter held out in turn. A stage whose Brier skill is 0 or below shows no chance.",
       "The outlook updates each month from October to March and uses only the data in by then. The October stage has no winter month yet, so cold and snow are not in it.",
-      "Tests (2026-11-12): pre-registered winters by soum, Spearman ρ 0.596 (n=1683); every soum-winter with losses since 2011/12, 0.434 (n=4688); every aimag-winter since 2000/01, 0.547 (n=525).",
+      "Tests (2026-11-13): pre-registered winters by soum, Spearman ρ 0.600 (n=1683); every soum-winter with losses since 2011/12, 0.440 (n=4688); every aimag-winter since 2000/01, 0.544 (n=525).",
     ],
     limits: [
       "ERA5-Land is a model reanalysis, not a measurement. Snow depth and density were not checked on the ground.",
@@ -334,6 +334,7 @@ METHODS.dzud = {
     ["ҮСХ / NSO", { mn: "сум", en: "soum" }, { mn: "Малын тоо, хорогдол", en: "Herds, losses" }],
     ["OCHA COD-AB", { mn: "сум", en: "soum" }, { mn: "Сумын хил", en: "Soum boundaries" }],
     ["EIC (eic.mn), MODIS", { mn: "арав хоног", en: "dekad" }, { mn: "Цасан бүрхүүлийн зураг (давхарга)", en: "Snow-cover image (layer)" }],
+    ["EIC (eic.mn), хадлан, бэлчээрийн зураг", { mn: "полигон", en: "polygon" }, { mn: "Сумын бэлчээрийн талбай", en: "Soum pasture area" }],
   ],
 };
 
