@@ -22,6 +22,7 @@ import { el } from "./dom.js";
 import { initFloodBox } from "./aoi/floodbox.js";
 import { initDustBox } from "./aoi/dustbox.js";
 import { initFireBox } from "./aoi/firebox.js";
+import { createVegBox } from "./minedust_vegbox.js";
 import { createViewer } from "./aoi/viewer.js";
 import { createDzud } from "./dzud.js";
 
@@ -73,6 +74,8 @@ function renderStatic() {
   $("t-sat-base").textContent = t("base");
   $("t-sat-overlay").textContent = t("overlays");
   $("t-mine").textContent = t("mine");
+  $("t-veg").textContent = t("veg"); // the vegetation box under the wind and dust model
+  state.vegBox?.render();
   $("t-footer").textContent = t("footer");
   $("t-copy").textContent = t("copyright");
   state.map?.attributionControl.setPrefix(t("copyright"));
@@ -252,6 +255,9 @@ function renderScreen() {
   const dust = state.hazard === "dust"; // the mine tool belongs to dust
   $("mine-box").hidden = !dust;
   if (!dust) $("mine-box").open = false;
+  $("veg-box").hidden = !dust; // the vegetation box belongs to dust too
+  if (!dust) $("veg-box").open = false;
+  state.vegBox?.show(dust && $("veg-box").open);
   const flood = state.hazard === "flood"; // the detailed flood app belongs to flood
   $("flood-box").hidden = !flood;
   if (!flood) $("flood-box").open = false;
@@ -451,6 +457,8 @@ async function enterResults() {
 function leaveResults() {
   closeSelection();
   $("mine-box").open = false; // the plume leaves with the rest: this view promises the image alone
+  $("veg-box").open = false;
+  state.vegBox?.show(false);
   state.dayToken++; // a day still loading must not paint over the plain image
   state.day = null;
   state.dayMissing = false;
@@ -680,6 +688,7 @@ function wire() {
   $("back").addEventListener("click", () => setHazard(null));
   $("date-fold").addEventListener("click", () => { state.dateFolded = !state.dateFolded; store.set("hw.datefold", state.dateFolded ? "1" : "0"); renderDateFold(); });
   $("mine-box").addEventListener("toggle", (e) => state.tools?.setView(e.target.open ? "mine" : "aimag"));
+  $("veg-box").addEventListener("toggle", (e) => state.vegBox?.show(e.target.open));
   $("side-close").addEventListener("click", () => setSide(false));
   $("soon").addEventListener("click", hideSoon);
   window.addEventListener("keydown", (e) => { if (e.key === "Escape") hideSoon(); });
@@ -723,6 +732,10 @@ async function boot() {
   state.tools = initTools({ map: state.map, getLang: () => state.lang, requestSat, containers: { poly: el("div"), mine: $("view-mine") }, onMethods: showMethods, busy,
     onWater: (on) => { if (state.borders.water !== on) { state.borders.water = on; applyBorders(); renderBorders(); } },
     campsFor: async (box) => { const a = await loadCamps(); return a ? campsInside(a, box) : null; } });
+  state.vegBox = createVegBox({ map: state.map, getLang: () => state.lang, requestSat, onMethods: showMethods, busy,
+    onResult: () => { if (state.showRisk) setShowRisk(false); }, // the nationwide layer would cover the result
+    campsFor: async (box) => { const a = await loadCamps(); return a ? campsInside(a, box) : null; } });
+  $("view-veg").replaceChildren(state.vegBox.el);
   state.dateBar = initDateBar($("datebar"), { onChange: setDate, text: t, monthName: (m) => t("months")[m - 1] });
   state.downloads = initDownloads({ box: $("dl-menu"), state, t, frameNow, uFrameNow, classOf, classLabel, classes: classesNow, soumsReady, borders: activeBorders, busy,
     detailLayer: () => ({ flood: state.floodBox, fire: state.fireBox, dust: state.dustBox })[state.hazard]?.layer() ?? null });
