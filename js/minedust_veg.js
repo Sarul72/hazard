@@ -172,6 +172,123 @@ export function campsInSector(camps, mine, sector, reachKm, n = VEG.sectors, rin
   return campsExposed(camps, mine, reach, cls, n, rings);
 }
 
+/* ------------------------------------------------------------------------------------------- emission episodes
+ * Dust leaves the ground only when it is dry and the wind is strong enough: after rain the surface holds for about a
+ * day, and ground wetter than the summer's median does not lift. The hours that pass both tests and the onset speed
+ * carry an emission weight (u - onset) u², the shape of a saltation flux; runs of such hours are the episodes. The
+ * dust seen on the leaves at the satellite pass is the sum of the episodes since the last washing rain. */
+export const EPI = { rainMm: 2, washMm: 5, dryHours: 24, wetQ: 0.5, gapHours: 6, minHours: 2 };
+
+/** Rolling sum of the precipitation of the hour and the 23 before it (mm). */
+export function rain24(precip) {
+  const out = new Float32Array(precip.length);
+  let sum = 0;
+  for (let h = 0; h < precip.length; h++) {
+    sum += Number.isFinite(precip[h]) ? precip[h] : 0;
+    if (h >= 24 && Number.isFinite(precip[h - 24])) sum -= precip[h - 24];
+    out[h] = Math.max(sum, 0);
+  }
+  return out;
+}
+
+/** Hours since rain last fell as part of a 24 h total of rainMm or more: the hour counted is one with rain in it
+ * whose 24 h sum reaches rainMm, so the count runs from the end of the rain, not from the end of the rolling sum.
+ * Infinity before any such hour. */
+export function hoursSinceRain(precip, rainMm = EPI.rainMm) {
+  const r = rain24(precip), out = new Float32Array(precip.length);
+  let last = -Infinity;
+  for (let h = 0; h < precip.length; h++) {
+    if (precip[h] > 0 && r[h] >= rainMm) last = h;
+    out[h] = h - last;
+  }
+  return out;
+}
+
+/** The wetQ quantile of the finite soil moisture values; NaN when there is none (then the soil sets no condition). */
+export function soilThreshold(soil, wetQ = EPI.wetQ) {
+  const a = Array.from(soil).filter(Number.isFinite).sort((x, y) => x - y);
+  if (!a.length) return NaN;
+  const pos = (a.length - 1) * wetQ, lo = Math.floor(pos), hi = Math.ceil(pos);
+  return a[lo] + (a[hi] - a[lo]) * (pos - lo);
+}
+
+/** Emission weight of every hour: (u - onset) u² when the wind reaches the onset, the ground has had dryHours since
+ * rain and the soil is no wetter than the threshold; 0 otherwise, and 0 for an hour without a wind direction. */
+export function emissionWeight({ speed, dir, precip, soil }, { onset = VEG.onset, rainMm = EPI.rainMm, dryHours = EPI.dryHours, wetQ = EPI.wetQ } = {}) {
+  const since = hoursSinceRain(precip, rainMm), thr = soilThreshold(soil ?? [], wetQ), out = new Float32Array(speed.length);
+  for (let h = 0; h < speed.length; h++) {
+    const u = speed[h];
+    if (!Number.isFinite(u) || u < onset || since[h] < dryHours || (dir && !Number.isFinite(dir[h]))) continue;
+    if (Number.isFinite(thr) && Number.isFinite(soil[h]) && soil[h] > thr) continue;
+    out[h] = (u - onset) * u * u;
+  }
+  return out;
+}
+
+/** Runs of weighted hours, joined across gaps of at most gapHours zero hours, with at least minHours weighted hours.
+ * `hours` holds the parallel arrays time, speed, dir, soil, sinceRain. */
+export function episodes(hours, weight, { gapHours = EPI.gapHours, minHours = EPI.minHours, n = VEG.sectors } = {}) {
+  const out = [];
+  let i0 = -1, last = -1;
+  const close = () => {
+    if (i0 < 0) return;
+    const e = { i0, i1: last, start: hours.time[i0], end: hours.time[last], hours: 0, weight: 0, umax: 0, rose: new Float32Array(n), soil: NaN, sinceRain: hours.sinceRain[i0] };
+    let soilSum = 0, soilN = 0;
+    for (let h = i0; h <= last; h++) {
+      const w = weight[h];
+      if (!(w > 0)) continue;
+      e.hours++; e.weight += w; e.umax = Math.max(e.umax, hours.speed[h]);
+      e.rose[sectorOf((hours.dir[h] + 180) % 360, n)] += w;
+      if (Number.isFinite(hours.soil[h])) { soilSum += hours.soil[h]; soilN++; }
+    }
+    if (e.hours >= minHours) {
+      for (let s = 0; s < n; s++) e.rose[s] /= e.weight;
+      e.soil = soilN ? soilSum / soilN : NaN;
+      out.push(e);
+    }
+    i0 = -1; last = -1;
+  };
+  for (let h = 0; h < weight.length; h++) {
+    if (!(weight[h] > 0)) continue;
+    if (i0 >= 0 && h - last > gapHours + 1) close();
+    if (i0 < 0) i0 = h;
+    last = h;
+  }
+  close();
+  return out;
+}
+
+/** Whether a 24 h rain of washMm fell after the episode's last hour and up to the hour of the pass. */
+export function washedBetween(precip, i1, iPass, washMm = EPI.washMm) {
+  const r = rain24(Float32Array.from(precip, (v, h) => (h > i1 ? v : 0))); // only rain that fell after the episode
+  for (let h = i1 + 1; h <= Math.min(iPass, r.length - 1); h++) if (r[h] >= washMm) return true;
+  return false;
+}
+
+/** The roses of the picked episodes added by weight and normalised to 1; all zero when none is picked. */
+export function combineRoses(eps, picked, n = VEG.sectors) {
+  const out = new Float32Array(n);
+  let sum = 0;
+  eps.forEach((e, k) => {
+    if (!picked[k]) return;
+    for (let s = 0; s < n; s++) out[s] += e.weight * e.rose[s];
+    sum += e.weight;
+  });
+  if (sum > 0) for (let s = 0; s < n; s++) out[s] /= sum;
+  return out;
+}
+
+/** A dusted pixel (codes 2-4) keeps its code where its sector takes at least an even share of the rose; elsewhere it
+ * becomes 6, dusted for another cause. Other codes stay. */
+export function attribute(codes, sector, rose, n = VEG.sectors) {
+  const out = new Uint8Array(codes.length), one = 1 / n;
+  for (let i = 0; i < codes.length; i++) {
+    const c = codes[i];
+    out[i] = c >= 2 && c <= 4 && !(rose[sector[i]] >= one) ? 6 : c;
+  }
+  return out;
+}
+
 /** NDVI of each vegetation pixel minus the median of its ring, for the map; NaN elsewhere. */
 export function anomalyGrid(ndvi, veg, geo, ringMedian) {
   const out = new Float32Array(ndvi.length).fill(NaN);
