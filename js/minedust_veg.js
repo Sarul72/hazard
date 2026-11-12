@@ -8,7 +8,7 @@
 import { KM_PER_DEG_LAT, kmPerDegLon } from "./geo.js";
 
 export const VEG = {
-  radiusKm: 30, cellM: 100, sectors: 16, rings: [3, 6, 10, 15, 20, 30], minPixels: 200, onset: 6, minThr: 0.02, madK: 1.5, vegNdvi: 0.30,
+  radiusKm: 30, cellM: 100, sectors: 16, rings: [3, 6, 10, 15, 20, 30], minPixels: 200, onset: 6, minThr: 0.02, madK: 1.5, vegNdvi: 0.20,
 };
 
 /** Sector of a bearing in degrees clockwise from north: sector 0 is centred on north. */
