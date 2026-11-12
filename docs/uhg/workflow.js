@@ -59,13 +59,13 @@ function daily(year, day) {
   var ok = speed.gte(2).and(persistence.gte(0.8)).and(hours.size().eq(4))
     .and(stats.getNumber('down_count').gte(8)).and(stats.getNumber('up_count').gte(8));
   return aod.set(stats).set({date:start.format('YYYY-MM-dd'),year:year,wind_ms:speed,
-    bearing_to:u.atan2(v).multiply(180/Math.PI).add(360).mod(360),steadiness:persistence,
+    u_ms:u,v_ms:v,bearing_to:v.atan2(u).multiply(180/Math.PI).add(360).mod(360),steadiness:persistence,
     soil_m3m3:weather.get('soil'),dust_aot:m,uvai:uv,passes:passes.size(),paired:ok,
     difference:ee.Algorithms.If(ok,ee.Number(stats.get('down_mean')).subtract(stats.get('up_mean')),null),
     'system:time_start':start.millis()});
 }
 var fields = ['date','year','passes','site_count','site_mean','down_count','down_mean',
-  'up_count','up_mean','wind_ms','bearing_to','steadiness','soil_m3m3','dust_aot','uvai','paired','difference'];
+  'up_count','up_mean','wind_ms','u_ms','v_ms','bearing_to','steadiness','soil_m3m3','dust_aot','uvai','paired','difference'];
 function table(images) {
   return ee.FeatureCollection(images.toList(30).map(function(im) {
     return ee.Feature(null, ee.Image(im).toDictionary(fields));
