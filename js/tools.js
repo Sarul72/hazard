@@ -19,6 +19,9 @@ const TT = {
     poly_fetching: "Өгөгдөл татаж байна…", poly_nodes: "Загварын цэг", poly_area: "Талбай", poly_pixel: "Pixel хэмжээ", poly_mean: "Дундаж оноо", poly_max: "Хамгийн их", poly_share: "Талбайн хуваарилалт",
     poly_note: "Анхаар: оноо нь цаг уурын загварын (≈10–25 км) цэгүүдээс интерполяц хийгдсэн. Pixel жижиг ч бодит нарийвчлал загварынхаар хязгаарлагдана. Нарийн ялгааг дэлхийн хиймэл дагуулын давхаргаас (30 м) харна уу.",
     poly_hover: "Курсорын доорх оноо", poly_few: "Хамгийн багадаа 3 орой хэрэгтэй.", poly_failed: "Өгөгдөл татаж чадсангүй: ",
+    uhg_title: "Ухаа худагийн хиймэл дагуулын судалгаа",
+    uhg_result: "2023–2025 оны зургадугаар саруудад салхины хоёр талыг харьцуулсан 36 өдрийн AOD-ийн дундаж зөрүү +0.010 байв (доод тал − дээд тал).",
+    uhg_open: "Зураг, график, өгөгдөл",
     mine_title: "Уул уурхайн шороон тоос", mine_help: "Уурхай, огноо, үргэлжлэх хугацаа сонгоод «Тооцоолох». Салхи, тоосны тархалт цагаар хөдөлнө.",
     mine_src: "Уурхай", mine_lat: "Өргөрөг", mine_lon: "Уртраг", mine_pick: "Газраас сонгох", mine_pick_on: "Газрын зураг дээр дарна уу…",
     mine_date: "Эхлэх огноо (УБ цаг)", mine_hour: "Эхлэх цаг", mine_dur: "Үргэлжлэх хугацаа", mine_hours: "цаг", mine_radius: "Харах радиус", mine_spread: "Салхины чиглэлийн тодорхойгүй байдал", mine_km: "км",
@@ -43,6 +46,9 @@ const TT = {
     poly_fetching: "Fetching data…", poly_nodes: "Model nodes", poly_area: "Area", poly_pixel: "Pixel size", poly_mean: "Mean score", poly_max: "Maximum", poly_share: "Area share",
     poly_note: "Note: scores are interpolated between weather-model nodes (≈10–25 km). Pixels can be small, but real resolution is limited by the model. Use the 30 m satellite layers for fine detail.",
     poly_hover: "Score under cursor", poly_few: "At least 3 vertices are needed.", poly_failed: "Could not load data: ",
+    uhg_title: "Ukhaa Khudag satellite study",
+    uhg_result: "Across 36 paired days in June 2023, 2024 and 2025, the mean downwind minus upwind AOD was +0.010.",
+    uhg_open: "Maps, charts and data (Mongolian)",
     mine_title: "Mine dust plume", mine_help: "Pick a mine, a date and a duration, then Compute. Wind and dust spread animate hour by hour.",
     mine_src: "Mine", mine_lat: "Latitude", mine_lon: "Longitude", mine_pick: "Pick on map", mine_pick_on: "Click the map…",
     mine_date: "Start date (Ulaanbaatar time)", mine_hour: "Start hour", mine_dur: "Duration", mine_hours: "h", mine_radius: "View radius", mine_spread: "Wind-direction uncertainty", mine_km: "km",
@@ -260,7 +266,13 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
 
     function setMaterial(id) { st.materialId = id; if (ui.material) ui.material.value = id; }
     function setSource(lat, lon, id) { st.lat = lat; st.lon = lon; if (id) st.mineId = id; ui.lat.value = lat.toFixed(4); ui.lon.value = lon.toFixed(4); drawSource(); }
+    function showStudyForSource() {
+      const mine = MINES.find((m) => m.id === "uhg");
+      ui.study.hidden = !mine || ui.mine.value !== mine.id || st.mineId !== mine.id ||
+        st.lat !== mine.lat || st.lon !== mine.lon;
+    }
     function drawSource() {
+      showStudyForSource();
       st.layers.src.clearLayers();
       L.circleMarker([st.lat, st.lon], { radius: 8, color: "#fff", weight: 2, fillColor: "#111", fillOpacity: 1 }).bindTooltip(mineName()).addTo(st.layers.src);
       const R = st.radius, dLat = R / KM_PER_DEG_LAT, dLon = R / kmPerDegLon(st.lat);
@@ -576,6 +588,12 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
       ui.fields.append(field("mine_src", ui.mine), field("mine_material", ui.material), field("mine_lat", ui.lat), field("mine_lon", ui.lon, ui.pick), field("mine_date", ui.date), field("mine_hour", ui.hour), field("mine_dur", ui.dur), field("mine_radius", ui.rad), field("mine_spread", ui.spread));
       ui.transport = el("div", { class: "transport" }, ui.play, ui.slider, ui.speed);
       root.replaceChildren(ui.title, ui.help, ui.fields, el("div", { class: "btnrow" }, ui.run, ui.method), ui.status, ui.transport, ui.readout, ui.toggles, ui.results);
+      ui.studyTitle = el("h4");
+      ui.studyNote = el("p", { class: "note" });
+      ui.studyLink = el("a", { class: "btn small", style: "color:inherit", href: "docs/uhg/" });
+      ui.study = el("section", { class: "fold", hidden: true }, ui.studyTitle, ui.studyNote, el("div", { class: "btnrow" }, ui.studyLink));
+      ui.title.after(ui.study);
+      ui.mine.addEventListener("change", showStudyForSource);
       map.on("click", (e) => { if (st.picking && st.active) { st.picking = false; map.getContainer().style.cursor = ""; ui.pick.textContent = t("mine_pick"); ui.mine.value = ""; setSource(e.latlng.lat, e.latlng.lng, null); } });
       ui.hour.value = String(st.hour); ui.lat.value = st.lat.toFixed(4); ui.lon.value = st.lon.toFixed(4);
       relabel(); drawSource();
@@ -584,6 +602,10 @@ export function initTools({ map, getLang, requestSat, containers, campsFor, onMe
       ui.title.textContent = t("mine_title"); ui.help.textContent = t("mine_help"); ui.method.textContent = t("mine_method");
       ui.material.replaceChildren(...MATERIALS.map((m) => el("option", { value: m.id, text: `${getLang() === "mn" ? m.mn : m.en} · ${m.elements}`, selected: m.id === st.materialId })));
       ui.mine.replaceChildren(...MINES.map((m) => el("option", { value: m.id, text: getLang() === "mn" ? m.mn : m.en, selected: m.id === st.mineId })), el("option", { value: "", text: "—", selected: !st.mineId }));
+      ui.studyTitle.textContent = t("uhg_title");
+      ui.studyNote.textContent = t("uhg_result");
+      ui.studyLink.textContent = t("uhg_open");
+      showStudyForSource();
       for (const s of ui.fields.querySelectorAll("span[data-k]")) s.textContent = t(s.dataset.k) + (s.dataset.k === "mine_dur" ? ` (${t("mine_hours")})` : s.dataset.k === "mine_radius" ? ` (${t("mine_km")})` : "") + ": ";
       ui.pick.textContent = st.picking ? t("mine_pick_on") : t("mine_pick");
       ui.run.textContent = t("mine_run"); ui.play.textContent = st.playing ? t("pause") : t("play");
