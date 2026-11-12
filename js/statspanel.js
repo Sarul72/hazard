@@ -198,20 +198,38 @@ export function createStatsPanel(root, { t, classes: classesNow, classLabel, onC
         el("tbody", {}, s.long.years.map((r) => el("tr", {}, el("td", { text: String(r.y) }), el("td", { text: f(r.v) }), el("td", { text: f(days.get(r.y)) }))))));
   }
 
+  // the panel holds the result of the selected area and, apart from it, sections that other tools put in (the mine
+  // dust and vegetation result); each is a heading that folds, and the panel shows while any of them is there
+  const selBox = el("div", { class: "st-part" }), extraBox = el("div", { class: "st-part" }), extras = new Map();
+  let selOpen = true, hasSel = false;
+  root.replaceChildren(selBox, extraBox);
+  const visible = () => {
+    const on = hasSel || extras.size > 0;
+    root.hidden = !on;
+    document.body.classList.toggle("stats-open", on);
+  };
+  const stop = (fn) => (e) => { e.preventDefault(); e.stopPropagation(); fn(); };
+
   return {
     render(s) {
-      root.hidden = false;
-      document.body.classList.add("stats-open");
-      root.replaceChildren(
-        el("div", { class: "st-top" },
+      hasSel = true;
+      selBox.replaceChildren(el("details", { class: "st-sec", open: selOpen, ontoggle: (e) => { selOpen = e.target.open; } },
+        el("summary", { class: "st-top" },
           el("div", {}, el("div", { class: "st-kicker", text: `${s.hazardLabel} · ${s.kind}` }), el("div", { class: "st-title", text: s.label })),
           el("div", { class: "st-actions" },
-            s.long ? el("button", { class: "st-btn", type: "button", text: `⤓ ${t("csv")}`, onclick: onCsv }) : null,
-            el("button", { class: "st-btn", type: "button", "aria-label": t("close"), title: t("close"), text: "✕", onclick: onClose }))),
+            s.long ? el("button", { class: "st-btn", type: "button", text: `⤓ ${t("csv")}`, onclick: stop(onCsv) }) : null,
+            el("button", { class: "st-btn", type: "button", "aria-label": t("close"), title: t("close"), text: "✕", onclick: stop(onClose) }))),
         s.hazard === "dust" ? el("button", { class: "st-btn wide top", type: "button", text: t("plume_here"), onclick: onPlume }) : "",
         ...[...dayBlock(s), ...errorBlock(s.day), ...trendBlock(s), ...yearsBlock(s), ...verifyBlock(s), tableView(s)].filter(Boolean),
-        el("button", { class: "st-btn wide", type: "button", text: t("method_of"), onclick: () => onMethods(s.hazard) }));
+        el("button", { class: "st-btn wide", type: "button", text: t("method_of"), onclick: () => onMethods(s.hazard) })));
+      visible();
     },
-    close() { root.hidden = true; root.replaceChildren(); document.body.classList.remove("stats-open"); },
+    close() { hasSel = false; selBox.replaceChildren(); visible(); },
+    /** Put a section of another tool in the panel, under the area's result, or take it out with null. */
+    setExtra(key, node) {
+      if (node) extras.set(key, node); else extras.delete(key);
+      extraBox.replaceChildren(...extras.values());
+      visible();
+    },
   };
 }
